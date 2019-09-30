@@ -1,5 +1,5 @@
 # mcas
-Memory Centric Active Storage - open source releases dropped to 'master' branch.  External contributions should be merged requests on 'external' branch.
+Memory Centric Active Storage - open source releases dropped to 'master' branch.  External contributions should be merged requested to the 'external' branch.
 
 
 ### update submodules
