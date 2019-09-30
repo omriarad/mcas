@@ -1,0 +1,11 @@
+cmake_minimum_required (VERSION 3.5.1 FATAL_ERROR)
+
+if(BOOTSTRAP_DEPS)
+else(BOOTSTRAP_DEPS)
+add_subdirectory(api)
+add_subdirectory(net)
+add_subdirectory(store)
+add_subdirectory(ado)
+add_subdirectory(client)
+add_subdirectory(index)
+endif(BOOTSTRAP_DEPS)

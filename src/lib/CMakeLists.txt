@@ -1,0 +1,22 @@
+cmake_minimum_required (VERSION 3.5.1 FATAL_ERROR)
+
+if(BOOTSTRAP_DEPS)
+  add_subdirectory(flatbuffers)
+  install(FILES ${CMAKE_CURRENT_BINARY_DIR}/flatbuffers/flatc DESTINATION bin PERMISSIONS OWNER_EXECUTE GROUP_EXECUTE OWNER_READ GROUP_READ)
+  add_subdirectory(ndctl)
+  add_subdirectory(rapidjson)
+  add_subdirectory(cityhash)
+  add_subdirectory(libfabric)
+  add_subdirectory(tbb)
+  add_subdirectory(libdocker)
+  add_subdirectory(common)  
+else(BOOTSTRAP_DEPS)
+  add_subdirectory(libpmem)
+  add_subdirectory(common)
+  # add_subdirectory(toadut)
+  add_subdirectory(libnop)
+  add_subdirectory(libnupm)
+  add_subdirectory(libadoproto)
+endif(BOOTSTRAP_DEPS)
+
+

@@ -1,0 +1,744 @@
+/*
+   Copyright [2017-2019] [IBM Corporation]
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at
+       http://www.apache.org/licenses/LICENSE-2.0
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+*/
+#include <cerrno>
+#include <fcntl.h>
+#include <iostream>
+#include <set>
+#include <unordered_map>
+#include <map>
+#include <string>
+#include <stdio.h>
+#include <api/kvstore_itf.h>
+#include <city.h>
+#include <common/rwlock.h>
+#include <common/exceptions.h>
+#include <common/utils.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <tbb/scalable_allocator.h>
+
+#define DEFAULT_ALIGNMENT 8
+#define SINGLE_THREADED
+#include "map_store.h"
+
+using namespace Component;
+using namespace Common;
+
+template<typename X, typename Y>
+using map_t = std::unordered_map<X,Y>;
+
+static inline void * allocate_memory(size_t size, size_t alignment) {
+
+  if(alignment < 64) alignment = 64;
+
+  /* In the context of MCAS, for large puts and gets, this will be registered
+     with the RDMA subsystem */
+  void * ptr = ::aligned_alloc(alignment, size);
+  memset(ptr, 0, size);
+
+  return ptr;
+}
+
+static inline void free_memory(void * ptr) {
+  ::free(ptr);
+}
+
+struct Value_pair
+{
+  void * ptr;
+  size_t length;
+};
+
+class Pool_handle
+{
+private:
+  static constexpr bool option_DEBUG = false;
+
+public:
+  std::string                       _name;
+  map_t<std::string, Value_pair>    _map; /*< hash table based map */
+  Common::RWLock                    _map_lock; /*< read write lock */
+  unsigned int                      _flags;
+
+  status_t put(const std::string& key,
+               const void * value,
+               const size_t value_len,
+               unsigned int flags);
+    
+  status_t get(const std::string& key,
+               void*& out_value,
+               size_t& out_value_len);
+  
+  status_t get_direct(const std::string& key,
+                      void* out_value,
+                      size_t& out_value_len);
+
+  status_t get_attribute(const IKVStore::pool_t pool,
+                         const IKVStore::Attribute attr,
+                         std::vector<uint64_t>& out_attr,
+                         const std::string* key);
+
+  status_t resize_value(const IKVStore::pool_t pool,
+                        const std::string& key,
+                        const size_t new_size,
+                        const size_t alignment);
+
+
+  IKVStore::key_t lock(const std::string& key,
+                       IKVStore::lock_type_t type,
+                       void*& out_value,
+                       size_t& out_value_len);
+
+  void unlock();
+
+  status_t erase(const std::string& key);
+
+  size_t count();
+
+  status_t map(std::function<int(const std::string& key,
+                                 const void * value,
+                                 const size_t value_len)> function);
+
+  status_t map_keys(std::function<int(const std::string& key)> function);
+};
+
+struct Pool_session
+{
+  Pool_session(Pool_handle * ph) : pool(ph) {}
+  bool check() const { return canary == 0x45450101; }
+  Pool_handle * pool;
+  const unsigned canary = 0x45450101;
+};
+
+struct tls_cache_t {
+  Pool_session * session;
+};
+
+std::mutex                            _pool_sessions_lock;
+std::set<Pool_session *>              _pool_sessions;
+std::unordered_map<std::string, Pool_handle *>  _pools; /*< existing pools */
+static __thread tls_cache_t tls_cache = { nullptr };
+
+using Std_lock_guard = std::lock_guard<std::mutex>;
+
+Pool_session* get_session(const IKVStore::pool_t pid)
+{
+  auto session = reinterpret_cast<Pool_session*>(pid);
+
+  if ( session != tls_cache.session)
+  {
+    Std_lock_guard g(_pool_sessions_lock);
+
+    if(_pool_sessions.count(session) == 0)
+      return nullptr;
+    
+    tls_cache.session = session;
+  }
+
+  assert(session);
+  return session;
+}
+
+status_t Pool_handle::put(const std::string& key,
+                          const void * value,
+                          const size_t value_len,
+                          unsigned int flags)
+{
+  if(!value || !value_len) {
+    PWRN("map_store: invalid parameters (value=%p, value_len=%lu)", value, value_len);
+    return E_INVAL;
+  }
+
+#ifndef SINGLE_THREADED
+  RWLock_guard guard(map_lock, RWLock_guard::WRITE);
+#endif
+
+  auto i = _map.find(key);
+  if(i != _map.end()) {
+    if(flags & IKVStore::FLAGS_DONT_STOMP) {
+      PWRN("put refuses to stomp (%s)", key.c_str());
+      return IKVStore::E_KEY_EXISTS;
+    }
+
+    auto& p = i->second;
+    if(p.length == value_len) {
+      memcpy(p.ptr, value, value_len);
+    }
+    else {
+      /* different size, reallocate */
+      free_memory(p.ptr);
+      p.ptr = allocate_memory(value_len, DEFAULT_ALIGNMENT);
+      memcpy(p.ptr, value, value_len);
+    }
+  }
+  else {
+    auto buffer = allocate_memory(value_len, DEFAULT_ALIGNMENT);
+    
+    memcpy(buffer, value, value_len);
+    _map[key] = Value_pair{buffer, value_len};
+  }
+  
+  return S_OK;
+}
+
+
+status_t Pool_handle::get(const std::string& key,
+                          void*& out_value,
+                          size_t& out_value_len)
+{
+  if(option_DEBUG)
+    PLOG("map_store: get(%s,%p,%lu)", key.c_str(), out_value, out_value_len);
+
+#ifndef SINGLE_THREADED
+  RWLock_guard guard(map_lock);
+#endif
+  
+  auto i = _map.find(key);
+
+  if(i == _map.end())
+    return IKVStore::E_KEY_NOT_FOUND;
+
+  out_value_len = i->second.length;
+  out_value = allocate_memory(out_value_len, DEFAULT_ALIGNMENT);
+  memcpy(out_value, i->second.ptr, i->second.length);
+  
+  return S_OK;
+}
+
+status_t Pool_handle::get_direct(const std::string& key,
+                                 void* out_value,
+                                 size_t& out_value_len)
+{
+  if(option_DEBUG)
+    PLOG("Map_store GET: key=(%s) ", key.c_str());
+  
+  if(out_value == nullptr || out_value_len == 0)
+    throw API_exception("invalid parameter");
+
+#ifndef SINGLE_THREADED
+  RWLock_guard guard(map_lock);
+#endif
+  auto i = _map.find(key);
+
+  if(i == _map.end()) {
+    if(option_DEBUG)
+      PERR("Map_store: error key not found");
+    return IKVStore::E_KEY_NOT_FOUND;
+  }
+  
+  if(out_value_len < i->second.length) {
+    if(option_DEBUG)
+      PERR("Map_store: error insufficient buffer");
+
+    return E_INSUFFICIENT_BUFFER;
+  }
+
+  out_value_len = i->second.length; /* update length */
+  memcpy(out_value, i->second.ptr, i->second.length);
+  
+  return S_OK;
+}
+
+status_t Pool_handle::get_attribute(const IKVStore::pool_t pool,
+                                    const IKVStore::Attribute attr,
+                                    std::vector<uint64_t>& out_attr,
+                                    const std::string* key)
+{
+  switch(attr) {
+  case IKVStore::Attribute::VALUE_LEN: {
+    if(key == nullptr) return E_INVALID_ARG;
+
+    out_attr.clear();
+    {
+#ifndef SINGLE_THREADED
+      RWLock_guard guard(map_lock);
+#endif
+      auto i = _map.find(*key);      
+      if(i == _map.end()) return IKVStore::E_KEY_NOT_FOUND;
+      out_attr.push_back(i->second.length);
+    }
+    break;
+  }
+  default:
+    return E_INVALID_ARG;
+  }
+    
+  return S_OK;
+}
+
+IKVStore::key_t Pool_handle::lock(const std::string& key,
+                                  IKVStore::lock_type_t type,
+                                  void*& out_value,
+                                  size_t& out_value_len)
+{
+  void * buffer = nullptr;
+
+  if(type == IKVStore::STORE_LOCK_READ) {
+    _map_lock.read_lock();
+  }
+  else if(type == IKVStore::STORE_LOCK_WRITE) {
+
+    /* on-demand create */
+    try
+      {
+        RWLock_guard guard(_map_lock, RWLock_guard::WRITE);
+
+        auto i = _map.find(key);
+        //    PLOG("looking for key:(%s)%lu", key.c_str(),key.length());
+    
+        if(i == _map.end()) {
+
+          if(out_value_len == 0) {
+            for(auto& i : _map) {
+              PLOG("key:(%s) length=%lu", i.first.c_str(), i.first.length());
+            }
+            return IKVStore::KEY_NONE; 
+          }
+
+          buffer = allocate_memory(out_value_len, DEFAULT_ALIGNMENT);
+
+          if(buffer == nullptr)
+            throw General_exception("Pool_handle::lock on-demand create allocate_memory failed (len=%lu)",
+                                    out_value_len);
+
+          PLOG("lock emplacing key=(%s)", key.c_str());
+          _map.emplace(key, Value_pair{buffer, out_value_len});
+        }   
+      }
+    catch(...) {
+      return IKVStore::KEY_NONE;
+    }
+
+    _map_lock.write_lock();
+  }  
+  else throw API_exception("invalid lock type");
+
+  if(!buffer) {
+    auto entry = _map.find(key);
+    assert(entry != _map.end());
+    buffer = entry->second.ptr;
+    out_value_len = entry->second.length;
+  }
+
+  out_value = buffer;
+
+  return (IKVStore::key_t) buffer; 
+}
+
+void Pool_handle::unlock()
+{
+  _map_lock.unlock();
+}
+
+status_t Pool_handle::erase(const std::string& key)
+{
+#ifndef SINGLE_THREADED
+  RWLock_guard guard(map_lock, RWLock_guard::WRITE);
+#endif
+  auto i = _map.find(key);
+
+  if(i == _map.end())
+    return IKVStore::E_KEY_NOT_FOUND;
+
+  _map.erase(i);
+  free_memory(i->second.ptr);
+
+  return S_OK;
+}
+
+size_t Pool_handle::count() {
+#ifndef SINGLE_THREADED
+  RWLock_guard guard(map_lock);
+#endif
+  return _map.size();
+}
+
+status_t Pool_handle::map(std::function<int(const std::string& key,
+                                            const void * value,
+                                            const size_t value_len)> function)
+{
+#ifndef SINGLE_THREADED
+  RWLock_guard guard(map_lock);
+#endif
+  
+  for(auto& pair : _map) {
+    auto val = pair.second;
+    function(pair.first, val.ptr, val.length);
+  }
+  
+  return S_OK;
+}
+
+status_t Pool_handle::map_keys(std::function<int(const std::string& key)> function)
+{
+#ifndef SINGLE_THREADED
+  RWLock_guard guard(map_lock);
+#endif
+
+  for(auto& pair : _map)
+    function(pair.first);
+  
+  return S_OK;
+}
+
+status_t Pool_handle::resize_value(const IKVStore::pool_t pool,
+                                   const std::string& key,
+                                   const size_t new_size,
+                                   const size_t alignment)
+{
+  if(new_size == 0)
+    throw API_exception("bad parameter");
+  
+#ifndef SINGLE_THREADED
+  RWLock_guard guard(map_lock);
+#endif
+
+  auto i = _map.find(key);
+
+  if(i == _map.end())
+    return IKVStore::E_KEY_NOT_FOUND;
+
+  /* perform resize */
+  auto buffer = allocate_memory(new_size, alignment);
+
+  /* lock KV-pair */
+  void * out_value;
+  size_t out_value_len;
+  auto out_key = lock(key,
+                      IKVStore::STORE_LOCK_ADO,
+                      out_value,
+                      out_value_len);
+  
+  if(out_key == IKVStore::KEY_NONE)
+    return E_INVAL;
+
+  size_t size_to_copy = min(new_size, i->second.length);
+
+  memcpy(buffer, i->second.ptr, size_to_copy); 
+
+  /* free previous memory */
+  free_memory(i->second.ptr);
+  i->second.ptr = buffer;
+  i->second.length = new_size;
+
+  /* release lock */
+  unlock();
+  return S_OK;
+}
+
+
+/** Main class */
+
+Map_store::Map_store(const std::string& owner, const std::string& name)
+{
+}
+
+Map_store::~Map_store()
+{
+  // TODO: seg faults?
+#if 0
+  Std_lock_guard g(_pool_sessions_lock);
+
+  for(auto& s : _pool_sessions)
+    delete s;
+
+  for(auto& p : _pools)
+    delete p.second;
+#endif
+}
+  
+
+IKVStore::pool_t Map_store::create_pool(const std::string& name,
+                                        const size_t nsize,
+                                        unsigned int flags,
+                                        uint64_t args)
+{
+  if(flags & IKVStore::FLAGS_READ_ONLY)
+    throw API_exception("read only create_pool not supported on map-store component");
+
+  const auto handle = new Pool_handle;
+  Pool_session * session = nullptr;
+  handle->_name = name;
+  handle->_flags = flags;
+  handle->_map.reserve(nsize);
+  {
+    Std_lock_guard g(_pool_sessions_lock);
+
+    if(flags & IKVStore::FLAGS_CREATE_ONLY) {
+      if(_pools.find(handle->_name) != _pools.end()) {
+        delete handle;
+        return POOL_ERROR;
+      }
+    }
+    session = new Pool_session{handle};
+    _pools[handle->_name] = handle;
+    PLOG("map_store: adding new session (%p)", session);
+    _pool_sessions.insert(session); /* create a session too */
+  }
+  
+  if(option_DEBUG)
+    PLOG("map_store: created pool OK: %s", handle->_name.c_str());
+
+  assert(session);
+  return reinterpret_cast<IKVStore::pool_t>(session);
+}
+
+IKVStore::pool_t Map_store::open_pool(const std::string& name,
+                                      unsigned int flags)
+{
+  const std::string& key = name;
+
+  Pool_handle * ph = nullptr;
+  /* see if a pool exists that matches the key */
+  for(auto& h: _pools) {
+    PLOG("pool:%s", h.first.c_str());
+    if(h.first == key) {
+      ph = h.second;
+      break;
+    }
+  }
+
+  if(ph == nullptr)
+    return Component::IKVStore::POOL_ERROR;
+
+  auto new_session = new Pool_session(ph);
+  if(option_DEBUG)
+    PLOG("map_store: opened pool(%p)", new_session);
+  _pool_sessions.insert(new_session);
+  
+  return reinterpret_cast<IKVStore::pool_t>(new_session);
+}
+
+status_t Map_store::close_pool(const pool_t pid)
+{
+  if(option_DEBUG)
+    PLOG("map_store: close_pool(%p)", (void*) pid);
+  
+  auto session = get_session(pid);
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+
+  tls_cache.session = nullptr;
+  Std_lock_guard g(_pool_sessions_lock);
+  delete session;
+  _pool_sessions.erase(session);
+  if(option_DEBUG)
+    PLOG("map_store: erased session %p", session);
+
+  return S_OK;
+}
+
+status_t Map_store::delete_pool(const std::string& poolname)
+{
+  Std_lock_guard g(_pool_sessions_lock);
+
+  // return S_OK;
+  Pool_handle * ph = nullptr;
+  /* see if a pool exists that matches the poolname */
+  for(auto& h: _pools) {
+    if(h.first == poolname) {
+      ph = h.second;
+      break;
+    }
+  }
+
+  if(ph == nullptr) {
+    PWRN("map_store: delete_pool (%s) pool not found", poolname.c_str());
+    return E_POOL_NOT_FOUND;
+  }
+
+  for(auto& s: _pool_sessions) {
+    if(s->pool->_name == poolname) {
+      PWRN("map_store: delete_pool (%s) pool delete failed because pool still open (%p)", poolname.c_str(), s);
+      return E_ALREADY_OPEN;
+    }
+  }
+    
+  /* delete pool too */
+  if(_pools.find(poolname) == _pools.end())
+    throw Logic_exception("unable to delete pool session");
+
+  _pools.erase(poolname);
+  delete ph;
+  return S_OK;
+}
+
+
+status_t Map_store::put(IKVStore::pool_t pid,
+                        const std::string& key,
+                        const void * value,
+                        size_t value_len,
+                        unsigned int flags)
+{
+  auto session = get_session(pid);  
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+  
+  return session->pool->put(key, value, value_len, flags);  
+}
+
+status_t Map_store::get(const pool_t pid,
+                        const std::string& key,
+                        void*& out_value,
+                        size_t& out_value_len)
+{
+  auto session = get_session(pid);
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+  
+  return session->pool->get(key, out_value, out_value_len);
+}
+
+status_t Map_store::get_direct(const pool_t pid,
+                               const std::string& key,
+                               void* out_value,
+                               size_t& out_value_len,
+                               Component::IKVStore::memory_handle_t handle)
+{
+  auto session = get_session(pid);
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+  
+  return session->pool->get_direct(key, out_value, out_value_len);
+}
+
+status_t Map_store::put_direct(const pool_t pid,
+                               const std::string& key,
+                               const void * value,
+                               const size_t value_len,
+                               memory_handle_t memory_handle,
+                               unsigned int flags)
+{
+  return Map_store::put(pid, key, value, value_len, flags);
+}
+
+status_t Map_store::resize_value(const pool_t pool,
+                                 const std::string& key,
+                                 const size_t new_size,
+                                 const size_t alignment)
+{
+  auto session = get_session(pool);
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+  
+  return session->pool->resize_value(pool, key, new_size, alignment);
+}
+
+
+status_t Map_store::get_attribute(const pool_t pool,
+                                  const IKVStore::Attribute attr,
+                                  std::vector<uint64_t>& out_attr,
+                                  const std::string* key)
+{
+  auto session = get_session(pool);
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+  
+  return session->pool->get_attribute(pool, attr, out_attr, key);
+}
+
+
+status_t Map_store::lock(const pool_t pid,
+                         const std::string& key,
+                         lock_type_t type,
+                         void*& out_value,
+                         size_t& out_value_len,
+                         IKVStore::key_t &out_key)
+{
+  auto session = get_session(pid);
+  if(!session){
+    out_key = IKVStore::KEY_NONE;
+    return E_FAIL;
+  }
+
+  if(option_DEBUG)
+    PLOG("map_store: lock(%s)", key.c_str());
+
+  out_key = session->pool->lock(key, type, out_value, out_value_len);
+  return S_OK;
+}
+
+status_t Map_store::unlock(const pool_t pid,
+                           key_t key_handle)
+{
+  auto session = get_session(pid);
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+
+  session->pool->unlock();
+  return S_OK;
+}
+
+status_t Map_store::erase(const pool_t pid,
+                          const std::string& key)
+{
+  auto session = get_session(pid);
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+  
+  return session->pool->erase(key);
+}
+
+size_t Map_store::count(const pool_t pid)
+{
+  auto session = get_session(pid);
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+  
+  return session->pool->count();
+}
+
+status_t Map_store::free_memory(void * p)
+{
+  free_memory(p);
+  return S_OK;
+}
+
+void Map_store::debug(const pool_t pool, unsigned cmd, uint64_t arg)
+{
+}
+
+int Map_store::get_capability(Capability cap) const
+{
+  switch(cap) {
+  case Capability::POOL_DELETE_CHECK: return 1;
+  case Capability::POOL_THREAD_SAFE: return 1;
+  case Capability::RWLOCK_PER_POOL: return 1;
+  default: return -1;
+  }
+}
+
+status_t Map_store::map(const IKVStore::pool_t pool,
+                        std::function<int(const std::string& key,
+                                          const void * value,
+                                          const size_t value_len)> function)
+{
+  auto session = get_session(pool);
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+
+  return session->pool->map(function);
+}
+
+status_t Map_store::map_keys(const IKVStore::pool_t pool,
+                             std::function<int(const std::string& key)> function)
+{
+  auto session = get_session(pool);
+  if(!session) return IKVStore::E_POOL_NOT_FOUND;
+
+  return session->pool->map_keys(function);  
+}
+
+/** 
+ * Factory entry point
+ * 
+ */
+extern "C" void * factory_createInstance(Component::uuid_t& component_id)
+{
+  if(component_id == Map_store_factory::component_id()) {
+    return static_cast<void*>(new Map_store_factory());
+  }
+  else return NULL;
+}
+
+

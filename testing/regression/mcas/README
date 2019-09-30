@@ -1,0 +1,20 @@
+Regression Tests
+----------------
+
+This directory contains a set of scripts for regresssion tests.  The tests are run with the
+following command from the build directory.
+
+./dist/testing/run-tests.sh
+
+To run tests with release build do:
+
+./dist/testing/run-tests.sh release
+
+
+
+They can also be run individually. For example,
+
+./dist/testing/test1.sh
+
+
+NOTE: Be careful not to interept tests and leave processes hanging.

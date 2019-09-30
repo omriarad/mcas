@@ -1,0 +1,59 @@
+/*
+  Copyright [2017-2019] [IBM Corporation]
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+*/
+
+#include "structured.h"
+#include <libpmem.h>
+#include <api/interfaces.h>
+#include <common/logging.h>
+#include <iostream>
+#include <string.h>
+
+status_t ADO_structured_plugin::register_mapped_memory(void *shard_vaddr,
+                                                     void *local_vaddr,
+                                                     size_t len) {
+  PLOG("ADO_structured_plugin: register_mapped_memory (%p, %p, %lu)", shard_vaddr,
+       local_vaddr, len);
+  /* we would need a mapping if we are not using the same virtual
+     addresses as the Shard process */
+  return S_OK;
+}
+
+status_t ADO_structured_plugin::do_work(uint64_t work_key,
+                                      const std::string &key,
+                                      void *shard_value_vaddr,
+                                      size_t value_len,
+                                      const void *in_work_request, /* don't use iovec because of non-const */
+                                      const size_t in_work_request_len,
+                                      void *&out_work_response,
+                                      size_t &out_work_response_len) {
+  return S_OK;
+}
+
+status_t ADO_structured_plugin::shutdown() {
+  /* here you would put graceful shutdown code if any */
+  return S_OK;
+}
+
+/**
+ * Factory-less entry point
+ *
+ */
+extern "C" void *factory_createInstance(Component::uuid_t &interface_iid) {
+  PLOG("instantiating ADO_structured_plugin");
+  if (interface_iid == Interface::ado_plugin)
+    return static_cast<void *>(new ADO_structured_plugin());
+  else
+    return NULL;
+}
+
+#undef RESET_STATE
