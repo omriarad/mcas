@@ -1,25 +1,23 @@
 # mcas
-Memory Centric Active Storage (Private Repository)
-
-Features from this repository may drop into Comanche for public release as needed.
+Memory Centric Active Storage - open source releases dropped to 'master' branch.  External contributions should be merged requests on 'external' branch.
 
 
-## update submodules
+### update submodules
 ```bash
 git submodule update --init --recursive
 ```
 
-## configure
+### configure
 ```bash
 cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON_SUPPORT=1 -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
 ```
 
-# one-time build
+### one-time build
 ```bash
 make bootstrap
 ```
 
-## normal build
+### normal build
 ```bash
 make -j
 ```
