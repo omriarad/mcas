@@ -1,0 +1,10 @@
+[submodule "comanche"]
+	path = comanche
+	url = https://github.com/IBM/comanche.git
+	branch = unstable
+[submodule "src/lib/tbb"]
+	path = src/lib/tbb
+	url = https://github.com/dwaddington/tbb.git
+[submodule "src/lib/arrow"]
+	path = src/lib/arrow
+	url = https://github.com/apache/arrow.git
