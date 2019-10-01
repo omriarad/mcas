@@ -7,7 +7,7 @@ enable_language(CXX C ASM)
 
 add_definitions(${GCC_COVERAGE_COMPILE_FLAGS} -DCONFIG_DEBUG)
 
-include_directories(../../../lib/common/include/)
+include_directories(../../../../lib/common/include/)
 include_directories(../../../)
 
 add_executable(mcas-client-test1 test1.cpp)
