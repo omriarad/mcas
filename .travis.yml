@@ -26,7 +26,7 @@ env:
     - CONTAINER_NAME="mcas-build-fedora27"
       DOCKERIMG="fedora:27" 
       BOOTSTRAP_FILE="./install-yum-fc27.sh"
-      HOSTMODULE="-v /lib/modules:/lib/modules:ro -v /usr/src:/usr/src:ro"
+#      HOSTMODULE="-v /lib/modules:/lib/modules:ro -v /usr/src:/usr/src:ro"
     - CONTAINER_NAME="mcas-build-ubuntu1604"
       DOCKERIMG="ubuntu:16.04"  
       BOOTSTRAP_FILE="./install-apts-ubuntu-16.sh"
@@ -45,13 +45,12 @@ before_install:
   - docker ps
   - docker exec -t ${CONTAINER_NAME} bash  -c "
     cd /travis/deps;
-    ./install-tzdata-noninteractive.sh ;
+ #   ./install-tzdata-noninteractive.sh ;
     ${BOOTSTRAP_FILE};"
 
 script:
   - docker exec -t ${CONTAINER_NAME} bash -c "
     cd /travis ;
-    git submodule update --init --recursive ;
     mkdir build;
     cd build;
     cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist .. -DTBB_CI_BUILD=ON  &&
