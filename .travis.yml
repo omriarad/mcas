@@ -48,10 +48,10 @@ before_install:
     ./install-tzdata-noninteractive.sh ;
     ${BOOTSTRAP_FILE};"
 
-# note: limit job number to 2 to avoid out-of-memory for rocksdb build
 script:
   - docker exec -t ${CONTAINER_NAME} bash -c "
     cd /travis ;
+    git submodule update --init --recursive ;
     mkdir build;
     cd build;
     cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist .. -DTBB_CI_BUILD=ON  &&
