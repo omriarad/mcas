@@ -1,7 +1,7 @@
 # MCAS
 Memory Centric Active Storage - open source releases dropped to 'master' branch.  External contributions should be merged requested to the 'external' branch.
 
-# Quick start
+## Building
 
 ### update submodules
 ```bash
