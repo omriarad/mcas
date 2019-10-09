@@ -1,7 +1,23 @@
 # MCAS
-Memory Centric Active Storage - open source releases dropped to 'master' branch.  External contributions should be merged requested to the 'external' branch.
 
-## Building
+Memory Centric Active Storage is a high-performance key-value store designed for persistent memory storage (although it can be used with DRAM and POSIX file-based storage also).
+
+The key attributes of the solution are:
+
+1. High-performance key-value store based on hash-table primary index and optional secondary indices.
+2. Support for both RDMA and traditional TCP/IP network transports.
+3. Zero-copy transfer capable with RDMA and GPU-Direct capable.
+4. Support for C++ and Python clients. 
+
+## Documentation
+
+Work in progress.
+
+* [Quick Start](./doc/quick_start.md)
+* [Overview](./doc/MCAS_overview.md)
+* [More documentation](./doc/index.md)
+
+## How to Build
 
 ### update submodules
 ```bash
@@ -10,9 +26,7 @@ git submodule update --init --recursive
 
 ### configure
 ```bash
-cd mcas
-mkdir build ; cd build
-cmake -DCMAKE_BUILD_TYPE=Debug -DBUILD_PYTHON_SUPPORT=1 -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
+cmake -DBUILD_KERNEL_SUPPORT=1 -DFLATBUFFERS_BUILD_TESTS=0 -DTBB_BUILD_TESTS=0 -DBUILD_PYTHON_SUPPORT=1 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
 ```
 
 ### one-time build

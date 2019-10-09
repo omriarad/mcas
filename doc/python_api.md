@@ -105,13 +105,6 @@ Get number of objects in a pool:
 print(pool.count())
 ```
 
-## Issue ADO Invocation (Testing only)
-
-Currently, command is string-based only.
-
-```python
-pool.invoke_ado(keyname, command)
-```
 ## Close pool
 
 ```python
