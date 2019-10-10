@@ -7,5 +7,10 @@
 * [Server Configuration Files](./MCAS_server_config_files.md)
 
 ## APIs
+* [C++](./cpp_api.md)
 * [Python](./python_api.md)
-* C++ todo
+
+## Benchmarking
+* [kvstore-perf benchmark](./benchmarking.md)
+
+
