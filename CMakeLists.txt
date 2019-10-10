@@ -30,6 +30,6 @@ add_custom_target(bootstrap
 # bootstrap build should be performed one off
 add_subdirectory(src)
 add_subdirectory(testing)
-
+add_subdirectory(examples)
 
 
