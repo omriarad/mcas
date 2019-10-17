@@ -149,6 +149,15 @@ public:
                        const void * value,
                        size_t value_len,
                        unsigned int flags = IKVStore::FLAGS_NONE) = 0;
+  
+  virtual status_t put(IKVStore::pool_t pool,
+                       const std::string& key,
+                       const std::string& value,
+                       unsigned int flags = IKVStore::FLAGS_NONE) {
+    /* this does not store any null terminator */
+    return put(pool, key, value.data(), value.length(), flags);
+  }
+
 
   /** 
    * Zero-copy put operation.  If there does not exist an object
@@ -185,6 +194,18 @@ public:
                        const std::string& key,
                        void*& out_value, /* release with free_memory() API */
                        size_t& out_value_len) = 0;
+  
+  virtual status_t get(const IKVStore::pool_t pool,
+                       const std::string& key,
+                       std::string& out_value) {
+    void* val;
+    size_t val_size;
+    auto s = this->get(pool, key, val, val_size);
+    /* copy result */
+    out_value.assign(static_cast<char*>(val), val_size);
+    this->free_memory(val);
+    return s;
+  }
 
 
   /**

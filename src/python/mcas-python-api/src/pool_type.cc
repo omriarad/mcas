@@ -401,11 +401,10 @@ static PyObject * pool_invoke_ado(Pool* self, PyObject *args, PyObject *kwds)
   assert(self->_mcas);
   assert(self->_pool);
 
-  std::vector<uint8_t> request(strlen(command));
-  memcpy(request.data(), command, strlen(command));
+  std::string request(command, strlen(command));
   assert(request.size() > 0);
 
-  std::vector<uint8_t> out_response;
+  std::string out_response;
   
   status_t hr = self->_mcas->invoke_ado(self->_pool,
                                         key,
