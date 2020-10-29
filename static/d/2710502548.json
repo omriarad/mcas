@@ -1,1 +1,1 @@
-{"data":{"allNavItemsYaml":{"edges":[{"node":{"title":"Getting started","pages":[{"title":null,"path":"/getting-started"}]}},{"node":{"title":"News","pages":[{"title":null,"path":"/news"}]}}]},"site":{"pathPrefix":"/mcas"}}}
+{"data":{"allNavItemsYaml":{"edges":[{"node":{"title":"Getting started","pages":[{"title":null,"path":"/getting-started"}]}},{"node":{"title":"News and Information","pages":[{"title":null,"path":"/news"}]}}]},"site":{"pathPrefix":"/mcas"}}}
