@@ -204,12 +204,7 @@ template <typename Table>
 			::pmem_memcpy_persist(dst, src, sizeof *dst);
 			(void)why;
 #else
-	#pragma GCC diagnostic push
-	#if 9 <= __GNUC__
-	#pragma GCC diagnostic ignored "-Wclass-memaccess"
-	#endif
 			std::memcpy(dst, src, *dst);
-	#pragma GCC diagnostic pop
 			this->persist(dst_, sizeof *dst_, why);
 #endif
 		}
