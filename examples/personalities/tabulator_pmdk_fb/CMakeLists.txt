@@ -42,7 +42,7 @@ add_compile_options("$<$<CONFIG:Debug>:-O0>")
 add_compile_options(-g -Wall -Wextra -Wcast-align -Wcast-qual -Wconversion -Wredundant-decls -Wshadow -Wtype-limits -Wno-unused-parameter -Wwrite-strings)
 
 add_library(${PROJECT_NAME} SHARED ${PLUGIN_SOURCES})
-target_link_libraries(${PROJECT_NAME} common pthread numa dl rt flatbuffers pmem pmemobj)
+target_link_libraries(${PROJECT_NAME} common pthread numa dl rt flatbuffers pmem)
 set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH ${CMAKE_BINARY_DIR}/src/lib/flatbuffers/) #:${CMAKE_INSTALL_PREFIX}/lib)
 
