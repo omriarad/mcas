@@ -24,7 +24,6 @@
 #include "perishable_expiry.h"
 #include <common/pointer_cast.h>
 
-#include <algorithm> /* fill_n, copy */
 #include <array>
 #include <cassert>
 #include <cstddef> /* size_t */
@@ -78,15 +77,15 @@ template <typename T, std::size_t SmallLimit>
 				, std::size_t fill_len_
 			)
 			{
-				std::fill_n(
-					std::copy(
+				persisted_zero_n(
+					persisted_copy(
 						first_
 						, last_
 						, common::pointer_cast<T>(&value[0])
 					)
 					, fill_len_
-					, T()
 				);
+
 				auto full_size = static_cast<unsigned char>(std::size_t(last_ - first_) * sizeof(*first_));
 				assert(full_size < SmallLimit);
 				_size = full_size;
@@ -279,14 +278,13 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 			{
 				if ( is_inline() )
 				{
-					std::fill_n(
-						std::copy(
+					persisted_zero_n(
+						persisted_copy(
 							first_
 							, last_
 							, common::pointer_cast<T>(&_inline.value[0])
 						)
 						, fill_len_
-						, T()
 					);
 				}
 				else

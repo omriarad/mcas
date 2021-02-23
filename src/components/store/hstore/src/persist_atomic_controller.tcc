@@ -16,6 +16,9 @@
 #include "hstore_kv_types.h"
 #include "monitor_emplace.h"
 #include <common/perf/tm.h>
+#if MCAS_HSTORE_USE_PMEM_PERSIST
+#include <libpmem.h>
+#endif
 #include <algorithm> /* copy, move */
 #include <array>
 #include <stdexcept> /* out_of_range */
@@ -33,7 +36,7 @@ template <typename Table>
 			, construction_mode mode_
 		)
 			: allocator_type(al_)
-			, _persist(&persist_)
+			, _persisted(&persist_)
 #if 0
 			, _tick_expired(false)
 #endif
@@ -42,11 +45,11 @@ template <typename Table>
 			{
 #if USE_CC_HEAP == 3
 				/* reconstitute allocated memory */
-				_persist->mod_key.reconstitute(allocator_type(*this));
-				_persist->mod_mapped.reconstitute(allocator_type(*this));
-				if ( 0 < _persist->mod_size )
+				_persisted->mod_key.reconstitute(allocator_type(*this));
+				_persisted->mod_mapped.reconstitute(allocator_type(*this));
+				if ( 0 < _persisted->mod_size )
 				{
-					allocator_type(*this).reconstitute(std::size_t(_persist->mod_size), _persist->mod_ctl);
+					allocator_type(*this).reconstitute(std::size_t(_persisted->mod_size), _persisted->mod_ctl);
 				}
 				else
 				{
@@ -66,13 +69,13 @@ template <typename Table>
 template <typename Table>
 	auto impl::persist_atomic_controller<Table>::do_op(TM_ACTUAL0) -> void
 	{
-		if ( _persist->mod_size != 0 )
+		if ( _persisted->mod_size != 0 )
 		{
-			if ( 0 < _persist->mod_size )
+			if ( 0 < _persisted->mod_size )
 			{
 				do_update(TM_REF0);
 			}
-			else if ( -2 == _persist->mod_size )
+			else if ( -2 == _persisted->mod_size )
 			{
 				do_swap();
 			}
@@ -86,8 +89,8 @@ template <typename Table>
 template <typename Table>
 	auto impl::persist_atomic_controller<Table>::do_finish() -> void
 	{
-		_persist->mod_size = 0;
-		persist_range(&_persist->mod_size, &_persist->mod_size + 1, "atomic size");
+		_persisted->mod_size = 0;
+		persist_range(&_persisted->mod_size, &_persisted->mod_size + 1, "atomic size");
 
 		monitor_emplace<allocator_type> m(*this);
 
@@ -95,15 +98,15 @@ template <typename Table>
 #if USE_CC_HEAP == 4
 		{
 			auto pe = static_cast<allocator_type *>(this);
-			_persist->ase().em_record_owner_addr_and_bitmask(&_persist->mod_owner, 1, *pe);
+			_persisted->ase().em_record_owner_addr_and_bitmask(&_persisted->mod_owner, 1, *pe);
 		}
 #endif
 		/* Atomic set of initiative to clear elements owned by persist->mod_owner */
-		_persist->mod_owner = 0;
-		this->persist(&_persist->mod_owner, sizeof _persist->mod_owner);
+		_persisted->mod_owner = 0;
+		this->persist(&_persisted->mod_owner, sizeof _persisted->mod_owner);
 		/* Clear the elements */
-		_persist->mod_key.clear();
-		_persist->mod_mapped.clear();
+		_persisted->mod_key.clear();
+		_persisted->mod_mapped.clear();
 	}
 
 template <typename Table>
@@ -114,8 +117,8 @@ template <typename Table>
 		 * Note: relies on the Table::mapped_type::operator=(Table::mapped_type &)
 		 * being restartable after a crash.
 		 */
-		auto &v = _persist->map->at(TM_REF _persist->mod_key);
-		std::get<0>(v) = _persist->mod_mapped;
+		auto &v = _persisted->map->at(TM_REF _persisted->mod_key);
+		std::get<0>(v) = _persisted->mod_mapped;
 		/* Unclear whether timestamps should be updated. The only guidance we have is the
 		 * mapstore implementation, which does update timestamps on a replace.
 		 */
@@ -146,12 +149,12 @@ template <typename Table>
 		TM_SCOPE()
 		{
 			update_finisher uf(*this);
-			char *src = _persist->mod_mapped.data();
+			char *src = _persisted->mod_mapped.data();
 			/* NOTE: depends on mapped type */
-			auto &v = _persist->map->at(TM_REF _persist->mod_key);
+			auto &v = _persisted->map->at(TM_REF _persisted->mod_key);
 			char *dst = std::get<0>(v).data();
-			auto mod_ctl = &*(_persist->mod_ctl);
-			for ( auto i = mod_ctl; i != &mod_ctl[_persist->mod_size]; ++i )
+			auto mod_ctl = &*(_persisted->mod_ctl);
+			for ( auto i = mod_ctl; i != &mod_ctl[_persisted->mod_size]; ++i )
 			{
 				std::size_t o_s = i->offset_src;
 				auto src_first = &src[o_s];
@@ -159,12 +162,16 @@ template <typename Table>
 				auto src_last = src_first + sz;
 				std::size_t o_d = i->offset_dst;
 				auto dst_first = &dst[o_d];
+#if MCAS_HSTORE_USE_PMEM_PERSIST
+				::pmem_memcpy_persist(&*dst_first, &*src_first, (src_last - src_first) * sizeof *dst_first);
+#else
 				/* NOTE: could be replaced with a pmem persistent memcpy */
 				persist_range(
 					dst_first
 					, std::copy(src_first, src_last, dst_first)
 					, "atomic ctl"
 				);
+#endif
 			}
 			/* Unclear whether timestamps should be updated. The only guidance we have is the
 			 * mapstore implementation, which does update timestamps on a replace.
@@ -184,35 +191,41 @@ template <typename Table>
 template <typename Table>
 	auto impl::persist_atomic_controller<Table>::update_finish() -> void
 	{
-		std::size_t ct = std::size_t(_persist->mod_size);
+		std::size_t ct = std::size_t(_persisted->mod_size);
 		do_finish();
-		allocator_type(*this).deallocate(_persist->mod_ctl, ct);
+		allocator_type(*this).deallocate(_persisted->mod_ctl, ct);
 	}
+
+template <typename Table>
+	template <typename T>
+		void impl::persist_atomic_controller<Table>::copy_and_persist(T *dst, const void *src, const char *why)
+		{
+#if MCAS_HSTORE_USE_PMEM_PERSIST
+			::pmem_memcpy_persist(dst, src, sizeof *dst);
+			(void)why;
+#else
+	#pragma GCC diagnostic push
+	#if 9 <= __GNUC__
+	#pragma GCC diagnostic ignored "-Wclass-memaccess"
+	#endif
+			std::memcpy(dst, src, *dst);
+	#pragma GCC diagnostic pop
+			this->persist(dst_, sizeof *dst_, why);
+#endif
+		}
 
 template <typename Table>
 	auto impl::persist_atomic_controller<Table>::do_swap() -> void
 	{
-#pragma GCC diagnostic push
-#if 9 <= __GNUC__
-#pragma GCC diagnostic ignored "-Wclass-memaccess"
-#endif
-		std::memcpy(_persist->_swap.pd0, _persist->_swap.pd1, sizeof *_persist->_swap.pd0);
-#pragma GCC diagnostic pop
-		this->persist(_persist->_swap.pd0, sizeof *_persist->_swap.pd0, "do swap part 1");
-#pragma GCC diagnostic push
-#if 9 <= __GNUC__
-#pragma GCC diagnostic ignored "-Wclass-memaccess"
-#endif
-		std::memcpy(_persist->_swap.pd1, &_persist->_swap.temp[0], sizeof *_persist->_swap.pd1);
-#pragma GCC diagnostic pop
-		this->persist(_persist->_swap.pd1, sizeof *_persist->_swap.pd1, "do swap part 2");
+		copy_and_persist(_persisted->_swap.pd0, _persisted->_swap.pd1, "do swap part 1");
+		copy_and_persist(_persisted->_swap.pd1, &_persisted->_swap.temp[0], "do swap part 2");
 		/* Unclear whether timestamps should be updated. The only guidance we have is the
 		 * mapstore implementation, which does update timestamps on a swap.
 		 */
 #if ENABLE_TIMESTAMPS
 		auto now = tsc_now();
-		std::get<1>(*_persist->_swap.pd0) = now;
-		std::get<1>(*_persist->_swap.pd1) = now;
+		std::get<1>(*_persisted->_swap.pd0) = now;
+		std::get<1>(*_persisted->_swap.pd1) = now;
 #endif
 #if 0
 		if ( is_tick_expired() )
@@ -250,26 +263,26 @@ template <typename Table>
 		TM_SCOPE()
 		/* leaky */
 
-		_persist->mod_owner = 0;
+		_persisted->mod_owner = 0;
 		{
 			monitor_emplace<allocator_type> m(*this);
 #if USE_CC_HEAP == 4
 			{
 				auto pe = static_cast<allocator_type *>(this);
-				_persist->ase().em_record_owner_addr_and_bitmask(&_persist->mod_owner, 1, *pe);
+				_persisted->ase().em_record_owner_addr_and_bitmask(&_persisted->mod_owner, 1, *pe);
 			}
 #endif
-			_persist->mod_key.assign(AK_REF key.begin(), key.end(), lock_state::free, al_);
-			_persist->mod_mapped.assign(AK_REF data_, data_ + data_len_, zeros_extend_, alignment_, lock_, al_);
-			_persist->map = map_;
-			this->persist(&_persist->map, sizeof _persist->map);
-			_persist->mod_owner = 1;
-			this->persist(&_persist->mod_owner, sizeof _persist->mod_owner);
+			_persisted->mod_key.assign(AK_REF key.begin(), key.end(), lock_state::free, al_);
+			_persisted->mod_mapped.assign(AK_REF data_, data_ + data_len_, zeros_extend_, alignment_, lock_, al_);
+			_persisted->map = map_;
+			this->persist(&_persisted->map, sizeof _persisted->map);
+			_persisted->mod_owner = 1;
+			this->persist(&_persisted->mod_owner, sizeof _persisted->mod_owner);
 		}
 
 		/* 8-byte atomic write */
-		_persist->mod_size = -1;
-		this->persist(&_persist->mod_size, sizeof _persist->mod_size);
+		_persisted->mod_size = -1;
+		this->persist(&_persisted->mod_size, sizeof _persisted->mod_size);
 		do_op(TM_REF0);
 	}
 
@@ -313,8 +326,8 @@ template <typename Table>
 			}
 
 		/* leaky */
-		_persist->mod_key.assign(AK_REF key.begin(), key.end(), lock_state::free, al_);
-		_persist->mod_mapped.assign(AK_REF src.begin(), src.end(), lock_, al_);
+		_persisted->mod_key.assign(AK_REF key.begin(), key.end(), lock_state::free, al_);
+		_persisted->mod_mapped.assign(AK_REF src.begin(), src.end(), lock_, al_);
 
 		{
 			/* leaky ERROR: local pointer can leak */
@@ -326,20 +339,24 @@ template <typename Table>
 				, alignof(mod_control)
 			);
 			new (&*ptr) mod_control[mods.size()];
-			_persist->mod_ctl = ptr;
+			_persisted->mod_ctl = ptr;
 		}
 
-		std::copy(mods.begin(), mods.end(), &*_persist->mod_ctl);
+#if MCAS_HSTORE_USE_PMEM_PERSIST
+		::pmem_memcpy_persist(&*_persisted->mod_ctl, &*mods.begin(), (mods.end() - mods.begin()) * sizeof *_persisted->mod_ctl);
+#else
+		std::copy(mods.begin(), mods.end(), &*_persisted->mod_ctl);
 		persist_range(
-			&*_persist->mod_ctl
-			, &*_persist->mod_ctl + mods.size()
+			&*_persisted->mod_ctl
+			, &*_persisted->mod_ctl + mods.size()
 			, "mod control"
 		);
-		_persist->map = map_;
-		this->persist(&_persist->map, sizeof _persist->map);
+#endif
+		_persisted->map = map_;
+		this->persist(&_persisted->map, sizeof _persisted->map);
 		/* 8-byte atomic write */
-		_persist->mod_size = std::ptrdiff_t(mods.size());
-		this->persist(&_persist->mod_size, sizeof _persist->mod_size);
+		_persisted->mod_size = std::ptrdiff_t(mods.size());
+		this->persist(&_persisted->mod_size, sizeof _persisted->mod_size);
 		do_op(TM_REF0);
 	}
 
@@ -350,13 +367,17 @@ template <typename Table>
 	)
 	{
 		TM_ROOT()
-		_persist->_swap.pd0 = &d0;
-		_persist->_swap.pd1 = &d1;
-		std::memcpy(&_persist->_swap.temp[0], &d0, _persist->_swap.temp.size());
-		this->persist(&_persist->_swap, sizeof _persist->_swap);
+		_persisted->_swap.pd0 = &d0;
+		_persisted->_swap.pd1 = &d1;
+#if MCAS_HSTORE_USE_PMEM_PERSIST
+		::pmem_memcpy_persist(&_persisted->_swap.temp[0], &d0, _persisted->_swap.temp.size());
+#else
+		std::memcpy(&_persisted->_swap.temp[0], &d0, _persisted->_swap.temp.size());
+		this->persist(&_persisted->_swap, sizeof _persisted->_swap);
+#endif
 
 		/* 8-byte atomic write */
-		_persist->mod_size = -2;
-		this->persist(&_persist->mod_size, sizeof _persist->mod_size);
+		_persisted->mod_size = -2;
+		this->persist(&_persisted->mod_size, sizeof _persisted->mod_size);
 		do_op(TM_REF0);
 	}

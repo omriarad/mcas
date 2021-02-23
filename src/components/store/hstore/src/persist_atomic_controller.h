@@ -43,7 +43,7 @@ namespace impl
 				typename std::allocator_traits<typename table_type::allocator_type>::template rebind_alloc<mod_control>;
 
 			using persist_type = persist_atomic<table_type>;
-			persist_type *_persist; /* persist_atomic is a bad name. Should be a noun. */
+			persist_type *_persisted;
 #if 0
 			bool _tick_expired;
 #endif
@@ -67,6 +67,8 @@ namespace impl
 			bool is_tick_expired() { auto r = _tick_expired; _tick_expired = false; return r; }
 #endif
 			void persist_range(const void *first_, const void *last_, const char *what_);
+			template <typename T>
+				void copy_and_persist(T *dst, const void *src, const char *why);
 		public:
 			persist_atomic_controller(
 				persist_type &persist_

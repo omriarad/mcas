@@ -18,6 +18,9 @@
 #include "lock_state.h"
 #include <common/pointer_cast.h>
 #include <common/perf/tm.h>
+#if MCAS_HSTORE_USE_PMEM_PERSIST
+#include <libpmem.h>
+#endif
 #include <algorithm> /* fill_n, copy */
 #include <cassert>
 #include <cstddef> /* size_t */
@@ -42,6 +45,32 @@ namespace
 		{
 			auto g = gcd(a,b);
 			return g ? (a/g * b) : I();
+		}
+
+	/* paramenters and return like std::fill_n, but can use pmem_memset_persist */
+	template <typename IO_>
+		char *persisted_zero_n(IO_ dst_, std::size_t n_)
+		{
+#if MCAS_HSTORE_USE_PMEM_PERSIST
+			::pmem_memset_persist(&*dst_, 0, n_ * sizeof *dst_);
+			return dst_ + n_;
+#else
+			return std::fill_n( dst_, n_, 0);
+			/* persist call is owed */
+#endif
+		}
+
+	/* paramenters and return like std::copy, but can use pmem_memcpy_persist */
+	template <typename II_, typename IO_>
+		char *persisted_copy(const II_ first_, const II_ last_, IO_ dst_)
+		{
+#if MCAS_HSTORE_USE_PMEM_PERSIST
+			::pmem_memcpy_persist(&*dst_, &*first_, (last_ - first_) * sizeof *first_);
+			return dst_ + (last_ - first_);
+#else
+			return std::copy(first_, last_, dst_);
+			/* persist call is owed */
+#endif
 		}
 }
 
@@ -73,6 +102,19 @@ template <typename T>
 			return front_skip_element_count(alignment_) * sizeof(T);
 		}
 
+		static uint8_t log2(std::size_t a)
+		{
+			auto n = a ? __builtin_ctzl(a) : 0UL;
+			if ( (a >> n) > 1 )
+			{
+				throw
+					std::domain_error(
+						"object alignment " + std::to_string(a) + " not a power of 2"
+					);
+			}
+			return uint8_t(n);
+		}
+
 	public:
 		template <typename IT>
 			fixed_string(
@@ -90,17 +132,16 @@ template <typename T>
 				/* for small lengths we copy */
 				/* fill for alignment, returning address of first aligned byte */
 				const auto c0 =
-					std::fill_n(
+					persisted_zero_n(
 						common::pointer_cast<char>(this+1)
 						, front_pad()
-						, 0
-				);
+					);
+
 				/* first aligned element starts at first aligned byte */
 				const auto e0 = common::pointer_cast<T>(c0);
-				std::fill_n(
-					std::copy(first_, last_, e0)
+				persisted_zero_n(
+					persisted_copy(first_, last_, e0)
 					, pad_
-					, T()
 				);
 			}
 
@@ -113,25 +154,21 @@ template <typename T>
 		{
 		}
 
-		static uint8_t log2(std::size_t a)
-		{
-			auto n = a ? __builtin_ctzl(a) : 0UL;
-			if ( (a >> n) > 1 )
-			{
-				throw
-					std::domain_error(
-						"object alignment " + std::to_string(a) + " not a power of 2"
-					);
-			}
-			return uint8_t(n);
-		}
-
 	public:
 		template <typename Allocator>
 			void persist_this(const Allocator &al_)
 			{
+				/* If using native pmem persist functions, persist should only be necessary
+				 * for the header. Data should have been persistted by pmem_memcpy_persist
+				 * or pmem_memset_persist
+				 */
+#if MCAS_HSTORE_USE_PMEM_PERSIST
+				al_.persist(this, sizeof *this);
+#else
 				al_.persist(this, sizeof *this + alloc_element_count() * sizeof(T));
+#endif
 			}
+
 		uint64_t size() const { return _size; }
 		uint64_t alignment() const noexcept { return uint64_t(1) << _log_alignment; }
 		unsigned inc_ref(int, const char *) noexcept { return _ref_count++; }
