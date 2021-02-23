@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.5.1 FATAL_ERROR)
+cmake_minimum_required (VERSION 3.7 FATAL_ERROR)
 
 project(pmem C)
 enable_language(C)
@@ -22,7 +22,7 @@ link_directories(${CMAKE_INSTALL_PREFIX}/lib) # tbb tbbmalloc
 set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
 
 add_definitions(-DCONFIG_DEBUG)
-TRY_RUN(RUN_RESULT_VAR COMPILE_RESULT_VAR "${CMAKE_INSTALL_PREFIX}/bin" "${CMAKE_CURRENT_SOURCE_DIR}/avx512f_test.c" COMPILE_DEFINITIONS "-DCMAKE_C_FLAGS=mavx512f")
+TRY_RUN(RUN_RESULT_VAR COMPILE_RESULT_VAR "${CMAKE_INSTALL_PREFIX}/bin" "${CMAKE_CURRENT_SOURCE_DIR}/avx512f_test.c" COMPILE_DEFINITIONS "-mavx512f" COMPILE_OUTPUT_VARIABLE AV512_COMPILE_OUTPUT RUN_OUTPUT_VARIABLE AV512_RUN_OUTPUT)
 
 add_compile_options(-mavx)
 
@@ -31,9 +31,12 @@ file(GLOB SOURCES libpmem.c memops_generic.c pmem.c pmem_posix.c ./common/*.c ./
 add_library(pmem SHARED ${SOURCES})
 
 # if CPU supports avx512f, add that option and avx512f functions
-if(RUN_RESULT_VAR AND COMPILE_RESULT_VAR)
-add_compile_options(-mavx512f)
-file(GLOB SOURCES ./x86_64/memcpy/memcpy_*_avx512f_*.c ./x86_64/memset/memset_*_avx512f_*.c)
+if(COMPILE_RESULT_VAR AND (RUN_RESULT_VAR EQUAL 0))
+  add_compile_options(-mavx512f)
+  message(VERBOSE "Adding AVX512F")
+  file(GLOB SOURCES ./x86_64/memcpy/memcpy_*_avx512f_*.c ./x86_64/memset/memset_*_avx512f_*.c)
+else()
+  message(VERBOSE "AVX512 run failed compile ${COMPILE_RESULT_VAR} run ${RUN_RESULT_VAR} output ${AV512_RUN_OUTPUT}")
 endif()
 
 #target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:-O0>")
