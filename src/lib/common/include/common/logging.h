@@ -294,9 +294,13 @@ inline void PLOG2(const char * color, const char * format, ...)
 
 // clang-format off
 
-#define GET_MACRO(_1,_2,_3,_4,_5,_6,_7,_8,_9,_10,NAME,...) NAME
+#define GET_MACRO(_1,_2,_3,_4,_5,_6,_7,_8,_9,_A,_B,_C,_D,_E,NAME,...) NAME
 
-#define CPLOG_10(level,format,p0,p1,p2,p3,p4,p5,p6,p7) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7); }
+#define CPLOG_E(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb); }
+#define CPLOG_D(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa); }
+#define CPLOG_C(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9); }
+#define CPLOG_B(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8); }
+#define CPLOG_A(level,format,p0,p1,p2,p3,p4,p5,p6,p7) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7); }
 #define CPLOG_9(level,format,p0,p1,p2,p3,p4,p5,p6) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6); }
 #define CPLOG_8(level,format,p0,p1,p2,p3,p4,p5) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5); }
 #define CPLOG_7(level,format,p0,p1,p2,p3,p4) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4); }
@@ -306,9 +310,13 @@ inline void PLOG2(const char * color, const char * format, ...)
 #define CPLOG_3(level,format,p0) if ( (level) < this->debug_level() ) { PLOG(format,p0); }
 #define CPLOG_2(level,msg) if ( (level) < this->debug_level() ) { PLOG(msg); }
 #define CPLOG_1(level)
-#define CPLOG(...) GET_MACRO(__VA_ARGS__,CPLOG_10,CPLOG_9,CPLOG_8,CPLOG_7,CPLOG_6,CPLOG_5,CPLOG_4,CPLOG_3,CPLOG_2,CPLOG_1,CPLOG_0)(__VA_ARGS__)
+#define CPLOG(...) GET_MACRO(__VA_ARGS__,CPLOG_E,CPLOG_D,CPLOG_C,CPLOG_B,CPLOG_A,CPLOG_9,CPLOG_8,CPLOG_7,CPLOG_6,CPLOG_5,CPLOG_4,CPLOG_3,CPLOG_2,CPLOG_1,CPLOG_0)(__VA_ARGS__)
 
-#define CPINF_10(level,format,p0,p1,p2,p3,p4,p5,p6,p7) if ( (level) < this->debug_level() ) { PINF(format,p0,p1,p2,p3,p4,p5,p6,p7); }
+#define CPINF_E(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb) if ( (level) < this->debug_level() ) { PINF(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb); }
+#define CPINF_D(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa) if ( (level) < this->debug_level() ) { PINF(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa); }
+#define CPINF_C(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9) if ( (level) < this->debug_level() ) { PINF(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9); }
+#define CPINF_B(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8) if ( (level) < this->debug_level() ) { PINF(format,p0,p1,p2,p3,p4,p5,p6,p7,p8); }
+#define CPINF_A(level,format,p0,p1,p2,p3,p4,p5,p6,p7) if ( (level) < this->debug_level() ) { PINF(format,p0,p1,p2,p3,p4,p5,p6,p7); }
 #define CPINF_9(level,format,p0,p1,p2,p3,p4,p5,p6) if ( (level) < this->debug_level() ) { PINF(format,p0,p1,p2,p3,p4,p5,p6); }
 #define CPINF_8(level,format,p0,p1,p2,p3,p4,p5) if ( (level) < this->debug_level() ) { PINF(format,p0,p1,p2,p3,p4,p5); }
 #define CPINF_7(level,format,p0,p1,p2,p3,p4) if ( (level) < this->debug_level() ) { PINF(format,p0,p1,p2,p3,p4); }
@@ -318,9 +326,13 @@ inline void PLOG2(const char * color, const char * format, ...)
 #define CPINF_3(level,format,p0) if ( (level) < this->debug_level() ) { PINF(format,p0); }
 #define CPINF_2(level,msg) if ( (level) < this->debug_level() ) { PINF(msg); }
 #define CPINF_1(level)
-#define CPINF(...) GET_MACRO(__VA_ARGS__,CPINF_10,CPINF_9,CPINF_8,CPINF_7,CPINF_6,CPINF_5,CPINF_4,CPINF_3,CPINF_2,CPINF_1,CPINF_0)(__VA_ARGS__)
+#define CPINF(...) GET_MACRO(__VA_ARGS__,CPINF_E,CPINF_D,CPINF_C,CPINF_B,CPINF_A,CPINF_9,CPINF_8,CPINF_7,CPINF_6,CPINF_5,CPINF_4,CPINF_3,CPINF_2,CPINF_1,CPINF_0)(__VA_ARGS__)
 
-#define CPWRN_10(level,format,p0,p1,p2,p3,p4,p5,p6,p7) if ( (level) < this->debug_level() ) { PWRN(format,p0,p1,p2,p3,p4,p5,p6,p7); }
+#define CPWRN_E(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb) if ( (level) < this->debug_level() ) { PWRN(format,p0,p1,p2,p3,p4,p5,p6,p7p8,p9,pa,pb); }
+#define CPWRN_D(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa) if ( (level) < this->debug_level() ) { PWRN(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb); }
+#define CPWRN_C(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9) if ( (level) < this->debug_level() ) { PWRN(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9); }
+#define CPWRN_B(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8) if ( (level) < this->debug_level() ) { PWRN(format,p0,p1,p2,p3,p4,p5,p6,p7,p8); }
+#define CPWRN_A(level,format,p0,p1,p2,p3,p4,p5,p6,p7) if ( (level) < this->debug_level() ) { PWRN(format,p0,p1,p2,p3,p4,p5,p6,p7); }
 #define CPWRN_9(level,format,p0,p1,p2,p3,p4,p5,p6) if ( (level) < this->debug_level() ) { PWRN(format,p0,p1,p2,p3,p4,p5,p6); }
 #define CPWRN_8(level,format,p0,p1,p2,p3,p4,p5) if ( (level) < this->debug_level() ) { PWRN(format,p0,p1,p2,p3,p4,p5); }
 #define CPWRN_7(level,format,p0,p1,p2,p3,p4) if ( (level) < this->debug_level() ) { PWRN(format,p0,p1,p2,p3,p4); }
@@ -330,7 +342,7 @@ inline void PLOG2(const char * color, const char * format, ...)
 #define CPWRN_3(level,format,p0) if ( (level) < this->debug_level() ) { PWRN(format,p0); }
 #define CPWRN_2(level,msg) if ( (level) < this->debug_level() ) { PWRN(msg); }
 #define CPWRN_1(level)
-#define CPWRN(...) GET_MACRO(__VA_ARGS__,CPWRN_10,CPWRN_9,CPWRN_8,CPWRN_7,CPWRN_6,CPWRN_5,CPWRN_4,CPWRN_3,CPWRN_2,CPWRN_1,CPWRN_0)(__VA_ARGS__)
+#define CPWRN(...) GET_MACRO(__VA_ARGS__,CPWRN_E,CPWRN_D,CPWRN_C,CPWRN_B,CPWRN_A,CPWRN_9,CPWRN_8,CPWRN_7,CPWRN_6,CPWRN_5,CPWRN_4,CPWRN_3,CPWRN_2,CPWRN_1,CPWRN_0)(__VA_ARGS__)
 
 // clang-format on
 

@@ -19,6 +19,7 @@
 #if MCAS_HSTORE_USE_PMEM_PERSIST
 #include <libpmem.h>
 #endif
+#include <boost/align/aligned_allocator.hpp>
 #include <algorithm> /* copy, move */
 #include <array>
 #include <stdexcept> /* out_of_range */
@@ -156,12 +157,13 @@ template <typename Table>
 			auto mod_ctl = &*(_persisted->mod_ctl);
 			for ( auto i = mod_ctl; i != &mod_ctl[_persisted->mod_size]; ++i )
 			{
-				std::size_t o_s = i->offset_src;
-				auto src_first = &src[o_s];
-				std::size_t sz = i->size;
-				auto src_last = src_first + sz;
-				std::size_t o_d = i->offset_dst;
-				auto dst_first = &dst[o_d];
+				const std::size_t o_s = i->offset_src;
+				const auto src_first = &src[o_s];
+				const std::size_t sz = i->size;
+				const auto src_last = src_first + sz;
+				const std::size_t o_d = i->offset_dst;
+				const auto dst_first = &dst[o_d];
+
 #if MCAS_HSTORE_USE_PMEM_PERSIST
 				::pmem_memcpy_persist(&*dst_first, &*src_first, (src_last - src_first) * sizeof *dst_first);
 #else
@@ -198,14 +200,19 @@ template <typename Table>
 
 template <typename Table>
 	template <typename T>
-		void impl::persist_atomic_controller<Table>::copy_and_persist(T *dst, const void *src, const char *why)
+		void impl::persist_atomic_controller<Table>::copy_and_persist(T *dst_, const void *src_, const char *why_)
 		{
 #if MCAS_HSTORE_USE_PMEM_PERSIST
-			::pmem_memcpy_persist(dst, src, sizeof *dst);
-			(void)why;
+			::pmem_memcpy_persist(dst_, src_, sizeof *dst_);
+			(void)why_;
 #else
-			std::memcpy(dst, src, *dst);
-			this->persist(dst_, sizeof *dst_, why);
+	#pragma GCC diagnostic push
+	#if 9 <= __GNUC__
+	#pragma GCC diagnostic ignored "-Wclass-memaccess"
+	#endif
+			std::memcpy(dst_, src_, sizeof *dst_);
+	#pragma GCC diagnostic pop
+			this->persist(dst_, sizeof *dst_, why_);
 #endif
 		}
 
@@ -295,7 +302,7 @@ template <typename Table>
 		)
 		{
 			TM_SCOPE()
-			std::vector<char> src;
+			std::vector<char, boost::alignment::aligned_allocator<char, 64>> src;
 			std::vector<mod_control> mods;
 			for ( ; first != last ; ++first )
 			{
@@ -320,40 +327,39 @@ template <typename Table>
 				};
 			}
 
-		/* leaky */
-		_persisted->mod_key.assign(AK_REF key.begin(), key.end(), lock_state::free, al_);
-		_persisted->mod_mapped.assign(AK_REF src.begin(), src.end(), lock_, al_);
-
-		{
-			/* leaky ERROR: local pointer can leak */
-			persistent_t<typename std::allocator_traits<allocator_type>::pointer> ptr = nullptr;
-			allocator_type(*this).allocate(
-				AK_REF
-				ptr
-				, mods.size()
-				, alignof(mod_control)
-			);
-			new (&*ptr) mod_control[mods.size()];
-			_persisted->mod_ctl = ptr;
-		}
+			/* leaky */
+			_persisted->mod_key.assign(AK_REF key.begin(), key.end(), lock_state::free, al_);
+			_persisted->mod_mapped.assign(AK_REF src.begin(), src.end(), lock_, al_);
+			{
+				/* leaky ERROR: local pointer can leak */
+				persistent_t<typename std::allocator_traits<allocator_type>::pointer> ptr = nullptr;
+				allocator_type(*this).allocate(
+					AK_REF
+					ptr
+					, mods.size()
+					, alignof(mod_control)
+				);
+				new (&*ptr) mod_control[mods.size()];
+				_persisted->mod_ctl = ptr;
+			}
 
 #if MCAS_HSTORE_USE_PMEM_PERSIST
-		::pmem_memcpy_persist(&*_persisted->mod_ctl, &*mods.begin(), (mods.end() - mods.begin()) * sizeof *_persisted->mod_ctl);
+			::pmem_memcpy_persist(&*_persisted->mod_ctl, &*mods.begin(), (mods.end() - mods.begin()) * sizeof *_persisted->mod_ctl);
 #else
-		std::copy(mods.begin(), mods.end(), &*_persisted->mod_ctl);
-		persist_range(
-			&*_persisted->mod_ctl
+			std::copy(mods.begin(), mods.end(), &*_persisted->mod_ctl);
+			persist_range(
+				&*_persisted->mod_ctl
 			, &*_persisted->mod_ctl + mods.size()
-			, "mod control"
-		);
+				, "mod control"
+			);
 #endif
-		_persisted->map = map_;
-		this->persist(&_persisted->map, sizeof _persisted->map);
-		/* 8-byte atomic write */
-		_persisted->mod_size = std::ptrdiff_t(mods.size());
-		this->persist(&_persisted->mod_size, sizeof _persisted->mod_size);
-		do_op(TM_REF0);
-	}
+			_persisted->map = map_;
+			this->persist(&_persisted->map, sizeof _persisted->map);
+			/* 8-byte atomic write */
+			_persisted->mod_size = std::ptrdiff_t(mods.size());
+			this->persist(&_persisted->mod_size, sizeof _persisted->mod_size);
+			do_op(TM_REF0);
+		}
 
 template <typename Table>
 	void impl::persist_atomic_controller<Table>::enter_swap(

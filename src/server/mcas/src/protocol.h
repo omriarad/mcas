@@ -32,7 +32,6 @@
 #include <cstring>
 #include <limits>
 #include <sstream>
-#include <string>
 #include <stdexcept>
 
 //#define PROTOCOL_DEBUG
@@ -266,7 +265,7 @@ struct Message_pool_request : public Message {
                        size_t             pool_size,
                        size_t             expected_object_count,
                        OP_TYPE            op_,
-                       const std::string& pool_name,
+                       common::string_view pool_name,
                        uint64_t           pool_id_,
                        uint32_t           flags_,
                        const addr_t       base_addr_)
@@ -285,12 +284,12 @@ struct Message_pool_request : public Message {
     size_t len = pool_name.length();
     if (len >= max_data_len) throw std::length_error(description);
 
-    strncpy(data(), pool_name.c_str(), len);
+    strncpy(data(), pool_name.data(), len);
     data()[len] = '\0';
 
     increase_msg_len(len + 1);
   }
-  
+
  public:
   Message_pool_request(size_t             buffer_size,
                        uint64_t           auth_id,
@@ -298,7 +297,7 @@ struct Message_pool_request : public Message {
                        size_t             pool_size,
                        size_t             expected_object_count,
                        OP_TYPE            op_,
-                       const std::string& pool_name,
+                       common::string_view pool_name,
                        uint32_t           flags_,
                        const addr_t       base_addr_)
       : Message_pool_request(buffer_size,
@@ -411,6 +410,7 @@ struct Message_IO_request : public Message_numbered_request {
   auto data() const { return common::pointer_cast<const data_t>(this + 1); }
   auto cdata() const { return common::pointer_cast<const char>(this + 1); }
   auto data() { return common::pointer_cast<data_t>(this + 1); }
+  auto cache_aligned_value_offset() const { return round_up_t(_key_len, 64); }
 
  public:
   Message_IO_request(size_t      buffer_size,
@@ -431,7 +431,7 @@ struct Message_IO_request : public Message_numbered_request {
         _padding()
   {
     set_key_and_value(buffer_size, key_, key_len_, value, value_len_);
-    increase_msg_len(key_len_ + value_len_ + 1);
+    increase_msg_len(cache_aligned_value_offset() + value_len_);
   }
 
   Message_IO_request(uint64_t auth_id, uint64_t request_id_, uint64_t pool_id_, OP_TYPE op_, std::uint64_t target_)
@@ -468,8 +468,8 @@ struct Message_IO_request : public Message_numbered_request {
                      uint64_t           request_id,
                      uint64_t           pool_id_,
                      OP_TYPE            op_,
-                     const std::string& key,
-                     const std::string& value,
+                     common::string_view key,
+                     common::string_view value,
                      uint32_t           flags_)
       : Message_IO_request(buffer_size,
                            auth_id,
@@ -502,7 +502,7 @@ struct Message_IO_request : public Message_numbered_request {
         _padding()
   {
     set_key_value_len(buffer_size, key, key_len_, value_len);
-    increase_msg_len(key_len_ + 1); /* we don't add value len, this will be in next buffer */
+    increase_msg_len(key_len_); /* we don't add value len, this will be in next buffer */
   }
 
   Message_IO_request(size_t             buffer_size,
@@ -510,7 +510,7 @@ struct Message_IO_request : public Message_numbered_request {
                      uint64_t           request_id,
                      uint64_t           pool_id_,
                      OP_TYPE            op_,
-                     const std::string& key,
+                     common::string_view key,
                      size_t             value_len,
                      uint32_t           flags_)
       : Message_IO_request(buffer_size, auth_id, request_id, pool_id_, op_, key.data(), key.size(), value_len, flags_)
@@ -523,31 +523,29 @@ struct Message_IO_request : public Message_numbered_request {
                      uint64_t           request_id_,
                      uint64_t           pool_id_,
                      OP_TYPE            op_,
-                     const std::string& data)
+                     common::string_view data)
       : Message_IO_request(buffer_size, auth_id, request_id_, pool_id_, op_, data.data(), data.size(), 0, 0)
   {
   }
 
-  inline const uint8_t* key() const { return &data()[0]; }
-  auto                  skey() const { return std::string(cdata(), _key_len); }
-  inline const char*    cmd() const { return &cdata()[0]; }
-  inline const uint8_t* value() const { return &data()[_key_len + 1]; }
+  common::string_view   key() const { return common::string_view(cdata(), _key_len); }
+  common::string_view   cmd() const { return common::string_view(cdata(), _key_len); }
+  inline const uint8_t* value() const { return &data()[cache_aligned_value_offset()]; }
 
-  inline size_t get_key_len() const { return _key_len; }
-  inline size_t get_value_len() const { return _val_len; }
-  /* for OP_LOCATE */
-  inline size_t get_offset() const { return _key_len; }
-  inline size_t get_size() const { return _val_len; }
+  auto key_len() const { return _key_len; }
+  inline size_t value_len() const { return _val_len; }
+  /* for OP_LOCATE, the (offset, size) pair are in (_key_len, _val_len) */
+  inline size_t get_locate_offset() const { return _key_len; }
+  inline size_t get_locate_end() const { return _key_len + _val_len; }
 
   void set_key_value_len(size_t buffer_size, const void* key, const size_t key_len_, const size_t value_len)
   {
-    if (UNLIKELY((key_len_ + 1 + (sizeof *this)) > buffer_size))
+    if (UNLIKELY((key_len_ + (sizeof *this)) > buffer_size))
       throw API_exception("%s::%s - insufficient buffer for "
                           "key-value_len pair (key_len=%lu) (val_len=%lu)",
                           +description, __func__, key_len_, value_len);
 
     std::memcpy(data(), key, key_len_); /* only copy key and set value length */
-    data()[key_len_] = '\0';
     this->_val_len   = value_len;
     this->_key_len   = key_len_;
   }
@@ -559,16 +557,15 @@ struct Message_IO_request : public Message_numbered_request {
                          const size_t p_value_len)
   {
     assert(buffer_size > 0);
-    if (UNLIKELY((p_key_len + p_value_len + 1 + (sizeof *this)) > buffer_size))
+    if (UNLIKELY((p_key_len + p_value_len + (sizeof *this)) > buffer_size))
       throw API_exception("%s::%s - insufficient buffer for "
                           "key-value pair (key_len=%lu) (val_len=%lu) (buffer_size=%lu)",
                           +description, __func__, p_key_len, p_value_len, buffer_size);
 
     std::memcpy(data(), p_key, p_key_len);
-    data()[p_key_len] = '\0';
-    std::memcpy(&data()[p_key_len + 1], p_value, p_value_len);
     this->_val_len = p_value_len;
     this->_key_len = p_key_len;
+    std::memcpy(&data()[cache_aligned_value_offset()], p_value, p_value_len);
   }
 
   /* indicate that this is a direct request and register
@@ -592,7 +589,6 @@ struct Message_IO_request : public Message_numbered_request {
     return needed <= buffer_size - sizeof(Message_IO_request);
   }
 
-  auto key_len() const { return _key_len; }
   auto flags() const { return _flags; }
 
   // fields
@@ -637,7 +633,8 @@ class Message_IO_response : public Message_numbered_response {
       : Message_numbered_response(auth_id, (sizeof *this), id, OP_INVALID, request_id_),
         _data_len(0),
         addr(),
-        key()
+        key(),
+        pad{}
   {
   }
 
@@ -679,6 +676,7 @@ class Message_IO_response : public Message_numbered_response {
  public:
   uint64_t addr; /* for PUT_LOCATE/GET_LOCATE response */
   uint64_t key;  /* for PUT_LOCATE/GET_LOCATE/LOCATE response */
+  char pad[16];  /* pad to cache line multiple (64) */
   /* data immediately follows */
 } __attribute__((packed));
 
@@ -691,7 +689,7 @@ struct Message_INFO_request : public Message {
 
  private:
   using data_t = uint8_t; /* some trailing data is typed uint8_t, some is typed
-                             charu. This used to be char */
+                             char. This used to be char */
   auto data() const { return common::pointer_cast<const data_t>(this + 1); }
   auto cdata() const { return common::pointer_cast<const char>(this + 1); }
   auto data() { return common::pointer_cast<data_t>(this + 1); }
@@ -727,19 +725,21 @@ struct Message_INFO_request : public Message {
   {
   }
 
-  const char* key() const { return cdata(); }
+  common::string_view key() const { return common::string_view(cdata(), key_len); }
+ private:
   const char* c_str() const { return cdata(); }
+ public:
   size_t      base_message_size() const { return (sizeof *this); }
   size_t      message_size() const { return (sizeof *this) + key_len + 1; }
 
-  void set_key(const size_t buffer_size, const std::string& key)
+  void set_key(const size_t buffer_size, common::string_view key)
   {
     key_len = key.length();
     if ((key_len + base_message_size() + 1) > buffer_size)
       throw API_exception("%s::%s - insufficient buffer for key (len=%lu)", +description, __func__,
                           std::size_t(key_len));
 
-    std::memcpy(data(), key.c_str(), key_len);
+    std::memcpy(data(), key.data(), key_len);
     data()[key_len] = '\0';
   }
 
@@ -926,9 +926,9 @@ struct Message_ado_request : public Message_numbered_request {
                       size_t             odvl = 4096)
       : Message_numbered_request(auth_id, (sizeof *this), id, OP_INVALID, request_id, pool_id_),
         key_len(),
-        ondemand_val_len(odvl),
+        _ondemand_val_len(odvl),
         invocation_data_len(),
-        flags(flags_)
+        _flags(flags_)
   {
     this->invocation_data_len = boost::numeric_cast<decltype(this->invocation_data_len)>(invocation_data.size());
     key_len                   = key.size();
@@ -945,17 +945,21 @@ struct Message_ado_request : public Message_numbered_request {
 
   /* ca;er could use Message::msg_len */
   size_t         message_size() const { return msg_len(); }
-  const char*    key() const { return cdata(); }
-  const uint8_t* request() const { return (&data()[key_len + 1]); }
+  common::string_view key() const { return common::string_view(cdata(), key_len); }
+  common::basic_string_view<uint8_t> request() const { return common::basic_string_view<uint8_t>(&data()[key_len + 1], request_len()); }
+ private:
   size_t         request_len() const { return this->invocation_data_len; }
-  bool           is_async() const { return flags & component::IMCAS::ADO_FLAG_ASYNC; }
+ public:
+  bool           is_async() const { return _flags & component::IMCAS::ADO_FLAG_ASYNC; }
   size_t         get_key_len() const { return key_len; }
-
+  uint32_t       flags() const { return _flags; }
+  uint64_t       ondemand_val_len() const { return _ondemand_val_len; }
+ private:
   // fields
   uint64_t key_len; /*< does not include null terminator */
-  uint64_t ondemand_val_len;
+  uint64_t _ondemand_val_len;
   uint32_t invocation_data_len; /*< does not include null terminator */
-  uint32_t flags;
+  uint32_t _flags;
 } __attribute__((packed));
 
 struct Message_put_ado_request : public Message_numbered_request {
@@ -1011,8 +1015,7 @@ struct Message_put_ado_request : public Message_numbered_request {
   }
   /* caller could use Message::msg_len */
   std::size_t message_size() const { return msg_len(); }
-  const char* key() const { return cdata(); }
-  size_t      get_key_len() const { return key_len; }
+  common::string_view key() const { return common::string_view(cdata(), key_len); }
   const void* request() const { return static_cast<const void*>(&data()[key_len + 1]); }
   const void* value() const
   {
@@ -1141,8 +1144,8 @@ struct Message_ado_response : public Message_numbered_response {
   /* data immediately follows */
 } __attribute__((packed));
 
-static_assert(sizeof(Message_IO_request) % 8 == 0, "Message_IO_request should be 64bit aligned");
-static_assert(sizeof(Message_IO_response) % 8 == 0, "Message_IO_request should be 64bit aligned");
+static_assert(sizeof(Message_IO_request) % 64 == 0, "Message_IO_request size should be a cache line (64-byte) multiple to align following data");
+static_assert(sizeof(Message_IO_response) % 64 == 0, "Message_IO_response size should be a cache line (64-byte) multiple to align following data");
 
 }  // namespace protocol
 namespace Protocol = protocol;
