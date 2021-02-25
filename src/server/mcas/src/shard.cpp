@@ -1056,14 +1056,14 @@ void Shard::io_response_get_locate(Connection_handler *handler,
                                    buffer_t *iob)
 {
   CPLOG(2, "GET_LOCATE: (%p) key=(%.*s) value_len=0z%zx request_id=%lu", common::p_fmt(this),
-        static_cast<int>(msg->key_len()), msg->key(), msg->get_value_len(), msg->request_id());
+        static_cast<int>(msg->key().size()), msg->key().data(), msg->value_len(), msg->request_id());
 
   /* open memory */
   assert(msg->pool_id() > 0);
 
   auto status = S_OK;
 
-  std::string k = msg->skey();
+  const auto k = std::string(msg->key());
 
   /* lock value */
   component::IKVStore::key_t key_handle;
@@ -1161,7 +1161,7 @@ void Shard::io_response_put_advance(Connection_handler *handler,
                                     buffer_t *iob)
 {
   CPLOG(2, "PUT_ADVANCE: (%p) key=(%.*s) value_len=%zu request_id=%lu", common::p_fmt(this),
-        static_cast<int>(msg->key_len()), msg->key(), msg->get_value_len(), msg->request_id());
+        static_cast<int>(msg->key().size()), msg->key().data(), msg->value_len(), msg->request_id());
 
   /* open memory */
   assert(msg->pool_id() > 0);
@@ -1175,14 +1175,14 @@ void Shard::io_response_put_advance(Connection_handler *handler,
   else {
     auto status = S_OK;
 
-    std::string actual_key = msg->skey();
+    const auto actual_key = std::string(msg->key());
     std::string k("___pending_");
     k += actual_key; /* we embed the actual key for recovery purposes */
 
     /* create (if needed) and lock value */
     component::IKVStore::key_t key_handle;
     void *                     target     = nullptr;
-    size_t                     target_len = msg->get_value_len();
+    size_t                     target_len = msg->value_len();
     assert(target_len > 0);
     status_t rcx = _i_kvstore->lock(msg->pool_id(), k, IKVStore::STORE_LOCK_WRITE, target, target_len, key_handle);
 
@@ -1193,7 +1193,7 @@ void Shard::io_response_put_advance(Connection_handler *handler,
 
     locked_key lk(_i_kvstore.get(), msg->pool_id(), key_handle);
 
-    if (target_len != msg->get_value_len()) {
+    if (target_len != msg->value_len()) {
       PWRN("existing entry length does NOT equal request length");
       status = E_INVAL;
     }
@@ -1248,7 +1248,7 @@ void Shard::io_response_put_locate(Connection_handler *handler,
                                    buffer_t *iob)
 {
   CPLOG(2, "PUT_LOCATE: (%p) key=(%.*s) value_len=0x%zu request_id=%lu", common::p_fmt(this),
-        static_cast<int>(msg->key_len()), msg->key(), msg->get_value_len(), msg->request_id());
+        static_cast<int>(msg->key().size()), msg->key().data(), msg->value_len(), msg->request_id());
 
   /* open memory */
   assert(msg->pool_id() > 0);
@@ -1262,14 +1262,14 @@ void Shard::io_response_put_locate(Connection_handler *handler,
   else {
     auto status = S_OK;
 
-    std::string actual_key = msg->skey();
+    const auto actual_key = std::string(msg->key());
     std::string k("___pending_");
     k += actual_key; /* we embed the actual key for recovery purposes */
 
     /* create (if needed) and lock value */
     component::IKVStore::key_t key_handle;
     void *                     target     = nullptr;
-    size_t                     target_len = msg->get_value_len();
+    size_t                     target_len = msg->value_len();
     assert(target_len > 0);
 
     /* The initiative to unlock lies with the caller if status returns S_OK, else it lies with us. */
@@ -1366,13 +1366,11 @@ void Shard::io_response_put(Connection_handler *handler, const protocol::Message
      puts for larger data, we use a two-stage operation
   */
 
-  if (debug_level() > 2) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wconversion"
-    PMAJOR("PUT: (%p) key=(%.*s) value=(%.*s ...) len=(%zu)", common::p_fmt(this), int(msg->key_len()),
-           msg->key(), (min(int(msg->get_value_len()), 20)), msg->value(), msg->get_value_len());
+  CPLOG(2, "PUT: (%p) msg(%p) key(%p)=(%.*s) value(%p) =(%.*s ...) len=(%zu)", common::p_fmt(this), common::p_fmt(msg), common::p_fmt(msg->key().data()), int(msg->key().size()),
+           msg->key().data(), common::p_fmt(msg->value()), (min(int(msg->value_len()), 20)), msg->value(), msg->value_len());
 #pragma GCC diagnostic pop
-  }
   {
     int status = S_OK;
     if (UNLIKELY(msg->is_scbe())) {
@@ -1380,9 +1378,9 @@ void Shard::io_response_put(Connection_handler *handler, const protocol::Message
       CPLOG(2, "PUT: short-circuited backend");
     }
     else {
-      const std::string key = msg->skey();
+      const auto key = std::string(msg->key());
 
-      status = _i_kvstore->put(msg->pool_id(), key, msg->value(), msg->get_value_len(), msg->flags());
+      status = _i_kvstore->put(msg->pool_id(), key, msg->value(), msg->value_len(), msg->flags());
 
       if (debug_level() > 2) {
         if (status == E_ALREADY_EXISTS) {
@@ -1425,7 +1423,7 @@ void Shard::io_response_get(Connection_handler *handler, const protocol::Message
   if (debug_level() > 2)
     PMAJOR("GET: (%p) (request=%lu,buffer_size=%zu) key=(%.*s) ",
            common::p_fmt(this), msg->request_id(),
-           msg->get_value_len(), int(msg->key_len()), msg->key());
+           msg->value_len(), int(msg->key().size()), msg->key().data());
 
   if (msg->is_scbe()) {
     CPLOG(2, "GET: short-circuited backend");
@@ -1442,7 +1440,7 @@ void Shard::io_response_get(Connection_handler *handler, const protocol::Message
      */
     static constexpr std::size_t GET_DIRECT_THRESHOLD = KiB(8);
     static_assert(GET_DIRECT_THRESHOLD <= TWO_STAGE_THRESHOLD, "get_direct threshold must not exceed a single-message data size");
-    std::string k = msg->skey();
+    const auto k = std::string(msg->key());
 
     if ( ! ado_signal_post_get() )
     {
@@ -1454,9 +1452,9 @@ void Shard::io_response_get(Connection_handler *handler, const protocol::Message
       if ( rc == S_OK && data_len <= GET_DIRECT_THRESHOLD )
       {
         /* value can fit in message buffer, copy */
-        CPLOG(2, "Shard: performing memcpy for very small get");
-
         response->set_data_len(data_len);
+        CPLOG(2, "GET small: msg(%p) key(%p.%zx)=(%.*s)", common::p_fmt(response), common::p_fmt(k.data()), k.size(), int(k.size()), k.data());
+        CPLOG(2, "GET small: msg(%p) value(%p.%zx)=(%.*s ...)", common::p_fmt(response), common::p_fmt(response->data()), response->data_length(), min(int(response->data_length()), 20), response->data());
         iob->set_length(response->msg_len());
         handler->post_response(iob, response, __func__);
 
@@ -1547,7 +1545,7 @@ void Shard::io_response_get(Connection_handler *handler, const protocol::Message
         CPLOG(2, "Shard: get using two stage get response (value_out_len=%lu)", value_out.iov_len);
 
         /* check if client has allocated sufficient space */
-        if (msg->get_value_len() < value_out.iov_len) {
+        if (msg->value_len() < value_out.iov_len) {
           _i_kvstore->unlock(msg->pool_id(), lk.release()); /* no flush needed ? */
           PWRN("Shard: client posted insufficient space for get operation.");
           ++_stats.op_failed_request_count;
@@ -1609,7 +1607,7 @@ void Shard::io_response_get(Connection_handler *handler, const protocol::Message
 /////////////////////
 void Shard::io_response_erase(Connection_handler *handler, const protocol::Message_IO_request *msg, buffer_t *iob)
 {
-  std::string key = msg->skey();
+  const auto key = std::string(msg->key());
 
   status_t status;
 
@@ -1647,7 +1645,7 @@ void Shard::io_response_erase(Connection_handler *handler, const protocol::Messa
 /////////////////////
 void Shard::io_response_configure(Connection_handler *handler, const protocol::Message_IO_request *msg, buffer_t *iob)
 {
-  if (debug_level() > 1) PMAJOR("Shard: pool CONFIGURE (%s)", msg->cmd());
+  if (debug_level() > 1) PMAJOR("Shard: pool CONFIGURE (%.*s)", int(msg->cmd().size()), msg->cmd().data());
   respond(handler, iob, msg, process_configure(msg), __func__);
 }
 
@@ -1805,9 +1803,9 @@ auto Shard::offset_to_sg_list(range<std::uint64_t> t,
 /////////////////////
 void Shard::io_response_locate(Connection_handler *handler, const protocol::Message_IO_request *msg, buffer_t *iob)
 {
-  range<std::uint64_t> t(msg->get_offset(), msg->get_offset() + msg->get_size());
-  CPLOG(2, "LOCATE: (%p) offset 0x%zx size 0x%zx request_id=%lu", common::p_fmt(this), msg->get_offset(),
-        msg->get_size(), msg->request_id());
+  range<std::uint64_t> t(msg->get_locate_offset(), msg->get_locate_end());
+  CPLOG(2, "LOCATE: (%p) offset 0x%zx..0x%zx request_id=%lu", common::p_fmt(this), msg->get_locate_offset(),
+        msg->get_locate_end(), msg->request_id());
 
   nupm::region_descriptor regions;
   auto status = _i_kvstore->get_pool_regions(msg->pool_id(), regions);
@@ -1858,9 +1856,9 @@ void Shard::io_response_locate(Connection_handler *handler, const protocol::Mess
 /////////////////////
 void Shard::io_response_release(Connection_handler *handler, const protocol::Message_IO_request *msg, buffer_t *iob)
 {
-  range<std::uint64_t> t(msg->get_offset(), msg->get_offset() + msg->get_size());
-  CPLOG(2, "RELEASE: (%p) offset 0x%zx size %zu request_id=%lu", common::p_fmt(this), t.first,
-        msg->get_size(), msg->request_id());
+  range<std::uint64_t> t(msg->get_locate_offset(), msg->get_locate_end());
+  CPLOG(2, "RELEASE: (%p) offset 0x%zx..%zu request_id=%lu", common::p_fmt(this), t.first,
+        msg->get_locate_end(), msg->request_id());
 
   int status = S_OK;
   try {
@@ -1880,9 +1878,9 @@ void Shard::io_response_release(Connection_handler *handler, const protocol::Mes
 void Shard::io_response_release_with_flush(Connection_handler *handler, const protocol::Message_IO_request *msg, buffer_t *iob)
 {
   const char *tag = "RELEASE_WITH_FLUSH";
-  range<std::uint64_t> t(msg->get_offset(), msg->get_offset() + msg->get_size());
-  CPLOG(2, "%s: (%p) offset 0x%zx size %zu request_id=%lu", tag, common::p_fmt(this), t.first,
-        msg->get_size(), msg->request_id());
+  range<std::uint64_t> t(msg->get_locate_offset(), msg->get_locate_end());
+  CPLOG(2, "%s: (%p) offset 0x%zx..%zu request_id=%lu", tag, common::p_fmt(this), t.first,
+        msg->get_locate_end(), msg->request_id());
 
   nupm::region_descriptor regions;
   auto status = _i_kvstore->get_pool_regions(msg->pool_id(), regions);
@@ -1916,7 +1914,8 @@ void Shard::process_info_request(Connection_handler *handler, const protocol::Me
   handler->msg_recv_log(msg, __func__);
 
   if (msg->type() == protocol::INFO_TYPE_FIND_KEY) {
-    CPLOG(1, "Shard: INFO request INFO_TYPE_FIND_KEY (%s)", msg->c_str());
+    const auto key = std::string(msg->key());
+    CPLOG(1, "Shard: INFO request INFO_TYPE_FIND_KEY (%.*s)", int(key.size()), key.data());
 
     if (_index_map == nullptr) { /* index does not exist */
       PLOG("Shard: cannot perform regex request, no index!! use "
@@ -1930,7 +1929,7 @@ void Shard::process_info_request(Connection_handler *handler, const protocol::Me
     }
 
     try {
-      add_task_list(new Key_find_task(msg->c_str(),
+      add_task_list(new Key_find_task(key,
                                       msg->offset,
                                       handler,
                                       _index_map->at(msg->pool_id()).get(),
@@ -1974,7 +1973,7 @@ void Shard::process_info_request(Connection_handler *handler, const protocol::Me
   }
   else if (msg->type() == component::IKVStore::Attribute::VALUE_LEN) {
     std::vector<uint64_t> v;
-    std::string           key = msg->key();
+    const auto           key = std::string(msg->key());
     auto hr = _i_kvstore->get_attribute(msg->pool_id(), component::IKVStore::Attribute::VALUE_LEN, v, &key);
     response->set_status(hr);
 
@@ -1989,7 +1988,7 @@ void Shard::process_info_request(Connection_handler *handler, const protocol::Me
   }
   else {
     std::vector<uint64_t> v;
-    std::string           key = msg->key();
+    const auto           key = std::string(msg->key());
     auto                  hr =
       _i_kvstore->get_attribute(msg->pool_id(), static_cast<component::IKVStore::Attribute>(msg->type()), v, &key);
     response->set_status(hr);

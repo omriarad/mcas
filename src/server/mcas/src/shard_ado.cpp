@@ -270,7 +270,7 @@ void Shard::process_put_ado_request(Connection_handler* handler, const protocol:
   bool value_already_exists = false;
   if ((msg->flags & IMCAS::ADO_FLAG_NO_OVERWRITE) || (msg->flags & IMCAS::ADO_FLAG_DETACHED)) {
     std::vector<uint64_t> answer;
-    std::string           key(msg->key());
+    const auto key = std::string(msg->key());
 
     /* check if key exists */
     if (_i_kvstore->get_attribute(msg->pool_id(), IKVStore::Attribute::VALUE_LEN, answer, &key) !=
@@ -284,7 +284,7 @@ void Shard::process_put_ado_request(Connection_handler* handler, const protocol:
   if ((msg->flags & IMCAS::ADO_FLAG_DETACHED) && (msg->root_val_len > 0)) {
     value_len = msg->root_val_len;
 
-    status_t s = _i_kvstore->lock(msg->pool_id(), msg->key(), locktype, value, value_len, key_handle, &key_ptr);
+    status_t s = _i_kvstore->lock(msg->pool_id(), std::string(msg->key()), locktype, value, value_len, key_handle, &key_ptr);
     if (s < S_OK) {
       error_func("ADO!ALREADY_LOCKED");
       return;
@@ -321,7 +321,7 @@ void Shard::process_put_ado_request(Connection_handler* handler, const protocol:
   }
   else {
     /* write value passed with invocation message */
-    rc = _i_kvstore->put(msg->pool_id(), msg->key(), msg->value(), msg->value_len());
+    rc = _i_kvstore->put(msg->pool_id(), std::string(msg->key()), msg->value(), msg->value_len());
     if (rc != S_OK) throw Logic_exception("put_ado_invoke: put failed");
   }
 
@@ -330,7 +330,7 @@ void Shard::process_put_ado_request(Connection_handler* handler, const protocol:
     the ADO process via UIPC
   */
   if (!value) { /* now take the lock if not already locked */
-    if (_i_kvstore->lock(msg->pool_id(), msg->key(), locktype, value, value_len, key_handle, &key_ptr) != S_OK) {
+    if (_i_kvstore->lock(msg->pool_id(), std::string(msg->key()), locktype, value, value_len, key_handle, &key_ptr) != S_OK) {
       error_func("ADO!ALREADY_LOCKED(key)");
       return;
     }
@@ -341,7 +341,7 @@ void Shard::process_put_ado_request(Connection_handler* handler, const protocol:
 
   /* register outstanding work */
   work_request_t* wr = _wr_allocator.allocate();
-  *wr     = {handler, msg->pool_id(), key_handle, key_ptr, msg->get_key_len(), locktype, msg->request_id(), msg->flags};
+  *wr     = {handler, msg->pool_id(), key_handle, key_ptr, msg->key().size(), locktype, msg->request_id(), msg->flags};
 
   auto wr_key = reinterpret_cast<work_request_key_t>(wr); /* pointer to uint64_t */
   _outstanding_work.insert(wr_key);
@@ -349,7 +349,7 @@ void Shard::process_put_ado_request(Connection_handler* handler, const protocol:
   wmb();
 
   /* now send the work request */
-  if (ado->send_work_request(wr_key, key_ptr, msg->get_key_len(), value, value_len, detached_val_ptr, detached_val_len,
+  if (ado->send_work_request(wr_key, key_ptr, msg->key().size(), value, value_len, detached_val_ptr, detached_val_len,
                              msg->request(), msg->request_len(), new_root) != S_OK)
     throw General_exception("send_work_request failed");
 
@@ -396,19 +396,19 @@ void Shard::process_ado_request(Connection_handler* handler,
       return;
     }
 
-    if (msg->flags & IMCAS::ADO_FLAG_DETACHED) { /* not valid for plain invoke_ado */
+    if (msg->flags() & IMCAS::ADO_FLAG_DETACHED) { /* not valid for plain invoke_ado */
       error_func(E_INVAL, "ADO!INVALID_ARGS");
       CPLOG(1, "%s server error ADO!INVALID_ARGS circuit", __func__);
       return;
     }
 
     void*  value     = nullptr;
-    size_t value_len = msg->ondemand_val_len;
+    size_t value_len = msg->ondemand_val_len();
 
     /* handle ADO_FLAG_CREATE_ONLY - no invocation to ADO is made */
-    if (msg->flags & IMCAS::ADO_FLAG_CREATE_ONLY) {
+    if (msg->flags() & IMCAS::ADO_FLAG_CREATE_ONLY) {
       std::vector<uint64_t> answer;
-      std::string           key(msg->key(), msg->get_key_len());
+      std::string           key(msg->key());
 
       /* if pair exists, return with error */
       if (_i_kvstore->get_attribute(msg->pool_id(), IKVStore::Attribute::VALUE_LEN, answer, &key) !=
@@ -422,11 +422,11 @@ void Shard::process_ado_request(Connection_handler* handler,
       }
 
       IKVStore::key_t key_handle;
-      auto locktype = (msg->flags & IMCAS::ADO_FLAG_READ_ONLY)
+      auto locktype = (msg->flags() & IMCAS::ADO_FLAG_READ_ONLY)
         ? IKVStore::STORE_LOCK_READ : IKVStore::STORE_LOCK_WRITE;
 
       status_t s = _i_kvstore->lock(msg->pool_id(),
-                                    msg->key(),
+                                    std::string(msg->key()),
                                     locktype,
                                     value,
                                     value_len,
@@ -441,7 +441,7 @@ void Shard::process_ado_request(Connection_handler* handler,
       }
 
       /* optionally zero memory */
-      if (msg->flags & IMCAS::ADO_FLAG_ZERO_NEW_VALUE) {
+      if (msg->flags() & IMCAS::ADO_FLAG_ZERO_NEW_VALUE) {
         pmem_memset(value, 0, value_len, 0);
       }
 
@@ -474,12 +474,12 @@ void Shard::process_ado_request(Connection_handler* handler,
     status_t        s          = S_OK;
 
     /* if this is associated with a key-value pair, we have to lock */
-    if (msg->key_len > 0) {
-      locktype = (msg->flags & IMCAS::ADO_FLAG_READ_ONLY)
+    if (msg->key().size() > 0) {
+      locktype = (msg->flags() & IMCAS::ADO_FLAG_READ_ONLY)
         ? IKVStore::STORE_LOCK_READ : IKVStore::STORE_LOCK_WRITE;
 
       s = _i_kvstore->lock(msg->pool_id(),
-                           msg->key(),
+                           std::string(msg->key()),
                            locktype,
                            value,
                            value_len,
@@ -498,7 +498,7 @@ void Shard::process_ado_request(Connection_handler* handler,
         throw Logic_exception("lock gave KEY_NONE");
 
       if ((s == S_OK_CREATED) &&
-          (msg->flags & IMCAS::ADO_FLAG_ZERO_NEW_VALUE)) {
+          (msg->flags() & IMCAS::ADO_FLAG_ZERO_NEW_VALUE)) {
         CPLOG(2, "Shard_ado: new value memory is being zeroed.");
         pmem_memset(value, 0, value_len, 0);
       }
@@ -508,19 +508,20 @@ void Shard::process_ado_request(Connection_handler* handler,
 
     /* register outstanding work */
     auto wr = _wr_allocator.allocate();
-    *wr     = {handler, msg->pool_id(), key_handle, key_ptr, msg->get_key_len(), locktype, msg->request_id(), msg->flags};
+    *wr     = {handler, msg->pool_id(), key_handle, key_ptr, msg->get_key_len(), locktype, msg->request_id(), msg->flags()};
 
     auto wr_key = reinterpret_cast<work_request_key_t>(wr); /* pointer to uint64_t */
     _outstanding_work.insert(wr_key);                       /* save request by index on key-handle */
 
     /* now send the work request */
+    auto request = msg->request();
     if (ado->send_work_request(wr_key, key_ptr, msg->get_key_len(), value, value_len,
                                nullptr, /* no payload */
-                               0, msg->request(), msg->request_len(), (s == S_OK_CREATED)) != S_OK)
+                               0, request.data(), request.size(), (s == S_OK_CREATED)) != S_OK)
       throw General_exception("send_work_request failed");
 
     CPLOG(2, "Shard_ado: sent work request (len=%lu, key=%lx, key_ptr=%p)",
-          msg->request_len(), wr_key, static_cast<const void*>(key_ptr));
+          request.size(), wr_key, static_cast<const void*>(key_ptr));
 
     /* for "asynchronous" calls we don't send a message
        for "synchronous call" we don't send a response to the client
