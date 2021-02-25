@@ -185,7 +185,15 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 	union persist_fixed_string
 	{
 		using allocator_type = Allocator;
+#if MCAS_HSTORE_USE_PMEM_PERSIST
+		/* cache-line aligned, for better pmem_mem* performance.
+		 * Aligning only longer elements might be an even better
+		 * strategy.
+		 */
+		static constexpr std::size_t default_alignment = 64;
+#else
 		static constexpr std::size_t default_alignment = 8;
+#endif
 		using cptr_type = ::cptr;
 	private:
 		using element_type = fixed_string<T>;
