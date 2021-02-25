@@ -153,7 +153,7 @@ TEST_F(KV_test, BasicPutGetOperations)
 
   std::string out_value;
   ASSERT_OK(mcas->get(pool, key0, out_value));
-  ASSERT_TRUE(value0 == out_value);
+  EXPECT_EQ(value0, out_value);
 
   ASSERT_OK(mcas->put(pool, key0, value1, 0));
   ASSERT_OK(mcas->get(pool, key0, out_value));
@@ -232,7 +232,7 @@ std::size_t get_pool_size(component::Itf_ref<component::IMCAS> &mcas_, make_hand
 void wipe_and_restore(component::Itf_ref<component::IMCAS> &mcas_, make_handle_t mh_, component::IMCAS::pool_t pool_, std::size_t max_)
 {
   auto len = get_pool_size(mcas_, mh_, pool_, max_);
-  /* header_len must be larger than aregion" header (see hstore/src/region.h),
+  /* header_len must be larger than a "region" header (see hstore/src/region.h),
    * currently ox22c0, to avoid overwriting region data.
    */
   auto header_len = 0x3000;
@@ -247,7 +247,7 @@ void wipe_and_restore(component::Itf_ref<component::IMCAS> &mcas_, make_handle_t
     EXPECT_EQ(len, save_len);
   }
 
-  /* fill the entire pool (except the initial 0x2000 bytes, which should encompass the
+  /* fill the entire pool (except the initial header_len bytes, which should encompass the
    * hstore "heap" data
    * with xes, writing random sizes until all bytes are filled
    */
