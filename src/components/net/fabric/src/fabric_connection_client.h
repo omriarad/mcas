@@ -16,9 +16,9 @@
 #define _FABRIC_CONNECTION_CLIENT_H_
 
 #include "fabric_op_control.h"
+#include <common/string_view.h>
 
 #include <cstdint> /* uint16_t */
-#include <string>
 
 struct fi_info;
 
@@ -79,7 +79,7 @@ public:
     Fabric &fabric
     , event_producer &ep
     , ::fi_info & info
-    , const std::string & remote
+    , common::string_view remote
     , std::uint16_t control_port
   );
   ~Fabric_connection_client();

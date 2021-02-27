@@ -19,12 +19,9 @@
  *
  */
 
-#include <stdexcept> /* bad_alloc */
-#include <string>
-
-fabric_bad_alloc::fabric_bad_alloc(const std::string &what)
+fabric_bad_alloc::fabric_bad_alloc(common::string_view what)
   : std::bad_alloc{}
-  , _what{"fabric_bad_alloc: " + what}
+  , _what{"fabric_bad_alloc: " + std::string(what)}
 {}
 
 const char *fabric_bad_alloc::what() const noexcept

@@ -14,7 +14,7 @@
 
 #include "fabric_client.h"
 
-Fabric_client::Fabric_client(Fabric &fabric_, event_producer &ep_, ::fi_info & info_, const std::string & remote_, std::uint16_t control_port_)
+Fabric_client::Fabric_client(Fabric &fabric_, event_producer &ep_, ::fi_info & info_, const common::string_view remote_, std::uint16_t control_port_)
   : Fabric_connection_client(fabric_, ep_, info_, remote_, control_port_)
 {}
 

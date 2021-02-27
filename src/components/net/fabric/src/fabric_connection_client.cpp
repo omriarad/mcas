@@ -84,7 +84,7 @@ Fabric_connection_client::Fabric_connection_client(
   Fabric &fabric_
   , event_producer &ev_
   , ::fi_info &info_
-  , const std::string & remote_
+  , common::string_view remote_
   , std::uint16_t control_port_
 )
 try

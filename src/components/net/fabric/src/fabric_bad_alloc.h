@@ -20,8 +20,9 @@
  *
  */
 
-#include <stdexcept>
+#include <stdexcept> /* bad_alloc */
 
+#include <common/string_view.h>
 #include <string>
 
 /**
@@ -34,7 +35,7 @@ struct fabric_bad_alloc
 private:
   std::string _what;
 public:
-  fabric_bad_alloc(const std::string &what);
+  fabric_bad_alloc(common::string_view what);
   const char *what() const noexcept override;
 };
 

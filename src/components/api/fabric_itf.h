@@ -16,6 +16,7 @@
 
 #include <component/base.h> /* component::IBase, DECLARE_COMPONENT_UUID, DECLARE_INTERFACE_UUID */
 #include <common/byte_span.h>
+#include <common/string_view.h>
 
 #include <chrono>
 #include <cstddef> /* size_t */
@@ -70,7 +71,7 @@ namespace component
 
 class IFabric_runtime_error : public std::runtime_error {
  public:
-  explicit IFabric_runtime_error(const std::string &what_arg);
+  explicit IFabric_runtime_error(const common::string_view what_arg);
   /**
    * @return The libfabric error code (enumeration in <rdma/fi_errno.h>)
    */
@@ -615,7 +616,7 @@ class IFabric {
    * @throw IFabric_runtime_error - ::fi_pep_bind fail
    * @throw IFabric_runtime_error - ::fi_listen fail
    */
-  virtual IFabric_server_factory *open_server_factory(const std::string &json_configuration, std::uint16_t port) = 0;
+  virtual IFabric_server_factory *open_server_factory(const common::string_view json_configuration, std::uint16_t port) = 0;
   /**
    * Open a fabric "server grouped" factory. Endpoints usually correspond with
    * hardware resources, e.g. verbs queue pair. Options may not conflict with
@@ -632,7 +633,7 @@ class IFabric {
    * @throw IFabric_runtime_error - ::fi_pep_bind fail
    * @throw IFabric_runtime_error - ::fi_listen fail
    */
-  virtual IFabric_server_grouped_factory *open_server_grouped_factory(const std::string &json_configuration,
+  virtual IFabric_server_grouped_factory *open_server_grouped_factory(const common::string_view json_configuration,
                                                                       std::uint16_t      port) = 0;
   /**
    * Open a fabric client (active endpoint) connection to a server. Active
@@ -668,8 +669,8 @@ class IFabric {
    * @throw IFabric_runtime_error - ::fi_ep_bind fail (event registration)
    *
    */
-  virtual IFabric_client *open_client(const std::string &json_configuration,
-                                      const std::string &remote_endpoint,
+  virtual IFabric_client *open_client(const common::string_view json_configuration,
+                                      const common::string_view remote_endpoint,
                                       std::uint16_t      port) = 0;
   /**
    * Open a fabric endpoint for which communications are divided into smaller
@@ -705,8 +706,8 @@ class IFabric {
    * @throw IFabric_runtime_error - ::fi_ep_bind fail (event registration)
    *
    */
-  virtual IFabric_client_grouped *open_client_grouped(const std::string &json_configuration,
-                                                      const std::string &remote_endpoint,
+  virtual IFabric_client_grouped *open_client_grouped(const common::string_view json_configuration,
+                                                      const common::string_view remote_endpoint,
                                                       std::uint16_t      port) = 0;
   /*
    * provideri name in the fabric.
@@ -733,7 +734,7 @@ class IFabric_factory : public component::IBase {
    * @throw std::domain_error : json file parse-detected error
    * @throw IFabric_runtime_error - ::fi_control fail
    */
-  virtual IFabric *make_fabric(const std::string &json_configuration) = 0;
+  virtual IFabric *make_fabric(const common::string_view json_configuration) = 0;
 };
 
 }  // namespace component

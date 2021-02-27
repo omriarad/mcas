@@ -17,6 +17,7 @@
 
 #include <api/fabric_itf.h> /* component::IFabric */
 #include <common/moveable_value.h>
+#include <common/string_view.h>
 #include "event_producer.h"
 
 #include "rdma-fabric.h" /* fid_t */
@@ -56,8 +57,8 @@ public:
 			::unsetenv(_key.c_str());
 		}
 	}
-	const std::string key() const { return _key; }
-	const char *value() const { return std::getenv(key().c_str()); }
+	const common::string_view key() const { return _key; }
+	const char *value() const { return std::getenv(key().data()); }
 };
 
 std::ostream &operator<<(std::ostream &o, const env_replace &e);
@@ -104,7 +105,7 @@ class Fabric
    * @throw fabric_runtime_error : std::runtime_error : ::fi_pep_bind fail
    * @throw fabric_runtime_error : std::runtime_error : ::fi_listen fail
    */
-  component::IFabric_server_factory * open_server_factory(const std::string& json_configuration, std::uint16_t control_port) override;
+  component::IFabric_server_factory * open_server_factory(const common::string_view json_configuration, std::uint16_t control_port) override;
   /**
    * @throw std::domain_error : json file parse-detected error
    * @throw bad_dest_addr_alloc : std::bad_alloc
@@ -131,14 +132,14 @@ class Fabric
    * @throw std::system_error - writing event pipe (readerr_eq)
    * @throw std::system_error - receiving data on socket
    */
-  component::IFabric_client * open_client(const std::string& json_configuration, const std::string & remote, std::uint16_t control_port) override;
+  component::IFabric_client * open_client(const common::string_view json_configuration, const common::string_view remote, std::uint16_t control_port) override;
   /**
    * @throw std::domain_error : json file parse-detected error
    * @throw fabric_runtime_error : std::runtime_error : ::fi_passive_ep fail
    * @throw fabric_runtime_error : std::runtime_error : ::fi_pep_bind fail
    * @throw fabric_runtime_error : std::runtime_error : ::fi_listen fail
    */
-  component::IFabric_server_grouped_factory * open_server_grouped_factory(const std::string& json_configuration, std::uint16_t control_port) override;
+  component::IFabric_server_grouped_factory * open_server_grouped_factory(const common::string_view json_configuration, std::uint16_t control_port) override;
   /**
    * @throw std::domain_error : json file parse-detected error
    * @throw bad_dest_addr_alloc : std::bad_alloc
@@ -165,7 +166,7 @@ class Fabric
    * @throw std::system_error - writing event pipe (readerr_eq)
    * @throw std::system_error - receiving data on socket
    */
-  component::IFabric_client_grouped * open_client_grouped(const std::string& json_configuration, const std::string& remote_endpoint, std::uint16_t port) override;
+  component::IFabric_client_grouped * open_client_grouped(const common::string_view json_configuration, const common::string_view remote_endpoint, std::uint16_t port) override;
   /* END component::IFabric */
 
   /* BEGIN event_producer */
@@ -210,7 +211,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error : ::fi_eq_open fail
    * @throw fabric_runtime_error : std::runtime_error : ::fi_control fail
    */
-  explicit Fabric(const std::string& json_configuration);
+  explicit Fabric(const common::string_view json_configuration);
   int trywait(::fid **fids, std::size_t count) const;
   /**
    * @throw fabric_runtime_error : std::runtime_error : ::fi_domain fail

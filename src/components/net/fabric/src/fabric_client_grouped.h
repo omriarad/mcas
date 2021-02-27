@@ -119,7 +119,7 @@ public:
     Fabric &fabric
     , event_producer &ep
     , ::fi_info & info
-    , const std::string & remote
+    , common::string_view remote
     , std::uint16_t control_port
   );
 

@@ -128,7 +128,7 @@ namespace
     return make_fi_info(FI_VERSION(FI_MAJOR_VERSION,FI_MINOR_VERSION), nullptr, nullptr, &hints);
   }
 
-  std::shared_ptr<::fi_info> make_fi_info(const std::string& json_configuration)
+  std::shared_ptr<::fi_info> make_fi_info(const common::string_view json_configuration)
   {
     auto h0 = hints(parse_info(json_configuration));
     using p_to_mr = std::tuple<std::string, int>;
@@ -176,7 +176,7 @@ std::ostream &operator<<(std::ostream &o_, const env_replace &e_)
 	return o_ << e_.key() << "=" << e_.value();
 }
 
-Fabric::Fabric(const std::string& json_configuration_)
+Fabric::Fabric(const common::string_view json_configuration_)
 	/* libfabric 1.9.0 adds a "mr_cache_monitor" which hooks into various dl calls
 	 * concerning memory allocation, including dl_open. The hooking mechanism does
 	 * not seem to be thread-safe, meaning that dl_open calls in other threads may
@@ -244,14 +244,14 @@ std::uint16_t Fabric::choose_port(std::uint16_t port_)
   return port_;
 }
 
-component::IFabric_server_factory * Fabric::open_server_factory(const std::string& json_configuration_, std::uint16_t control_port_)
+component::IFabric_server_factory * Fabric::open_server_factory(const common::string_view json_configuration_, std::uint16_t control_port_)
 {
   _info = parse_info(json_configuration_, _info);
   control_port_ = choose_port(control_port_);
   return new Fabric_server_factory(*this, *this, *_info, listen_addr(control_port_), control_port_);
 }
 
-component::IFabric_server_grouped_factory * Fabric::open_server_grouped_factory(const std::string& json_configuration_, std::uint16_t control_port_)
+component::IFabric_server_grouped_factory * Fabric::open_server_grouped_factory(const common::string_view json_configuration_, std::uint16_t control_port_)
 {
   _info = parse_info(json_configuration_, _info);
   return new Fabric_server_grouped_factory(*this, *this, *_info, listen_addr(control_port_), control_port_);
@@ -435,13 +435,13 @@ catch ( const std::exception &e )
 
 namespace
 {
-  std::string while_in(const std::string &where)
+  std::string while_in(const common::string_view where)
   {
-    return " (while in " + where + ")";
+    return " (while in " + std::string(where) + ")";
   }
 }
 
-component::IFabric_client * Fabric::open_client(const std::string& json_configuration_, const std::string &remote_, std::uint16_t control_port_)
+component::IFabric_client * Fabric::open_client(const common::string_view json_configuration_, const common::string_view remote_, std::uint16_t control_port_)
 try
 {
   _info = parse_info(json_configuration_, _info);
@@ -456,7 +456,7 @@ catch ( const std::system_error &e )
   throw std::system_error(e.code(), e.what() + while_in(__func__));
 }
 
-component::IFabric_client_grouped * Fabric::open_client_grouped(const std::string& json_configuration_, const std::string& remote_, std::uint16_t control_port_)
+component::IFabric_client_grouped * Fabric::open_client_grouped(const common::string_view json_configuration_, const common::string_view remote_, std::uint16_t control_port_)
 try
 {
   _info = parse_info(json_configuration_, _info);

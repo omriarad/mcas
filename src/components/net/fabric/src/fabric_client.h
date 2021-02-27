@@ -16,6 +16,7 @@
 #define _FABRIC_CLIENT_H_
 
 #include <api/fabric_itf.h> /* component::IFabric_client */
+#include <common/string_view.h>
 #include "fabric_connection_client.h"
 
 #include <cstdint> /* uint{16,64}_t */
@@ -61,7 +62,7 @@ public:
    * @throw std::system_error - writing event pipe (readerr_eq)
    * @throw std::system_error - receiving data on socket
    */
-  explicit Fabric_client(Fabric &fabric, event_producer &ep, ::fi_info & info, const std::string & remote, std::uint16_t control_port);
+  explicit Fabric_client(Fabric &fabric, event_producer &ep, ::fi_info & info, const common::string_view remote, std::uint16_t control_port);
   ~Fabric_client();
 
   /* BEGIN IFabric_op_completer */
