@@ -16,18 +16,22 @@
 
 #include <api/kvstore_itf.h>
 
+#include <common/byte.h>
+#include <common/string_view.h>
 #include <cstddef> /* size_t */
 
 struct lock_result
 {
+	using string_view_byte = common::basic_string_view<common::byte>;
+	using string_view_key = string_view_byte;
+	using string_view_value = string_view_byte;
 	enum class e_state
 	{
 		extant, created, not_created, creation_failed
 	} state;
-	component::IKVStore::key_t key;
-	void *value;
-	std::size_t value_len;
-	const char *key_ptr;
+	component::IKVStore::key_t lock_key;
+	string_view_key key;
+	string_view_value value;
 };
 
 #endif

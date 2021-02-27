@@ -30,13 +30,15 @@
 #include <cstring> /* memcpy */
 #include <memory> /* allocator_traits */
 
+#include <common/byte.h>
 struct fixed_data_location_t {};
 constexpr fixed_data_location_t fixed_data_location = fixed_data_location_t();
 
 template <typename T, std::size_t SmallLimit>
 	struct inline_t
 	{
-		std::array<char, SmallLimit-1> value;
+		using value_type = T;
+		std::array<value_type, SmallLimit-1> value;
 	private:
 		/* _size == SmallLimit => data is stored out-of-line */
 		unsigned char _size; /* discriminant */
@@ -44,13 +46,13 @@ template <typename T, std::size_t SmallLimit>
 		inline_t(std::size_t size_)
 			: value{}
 			/* note: as of C++17, can use std::clamp */
-			, _size((assert(size_ < SmallLimit || value[7] == 0)  , static_cast<unsigned char>(size_ < SmallLimit ? size_ : SmallLimit)) )
+			, _size((assert(size_ < SmallLimit || int(value[7]) == 0)  , static_cast<unsigned char>(size_ < SmallLimit ? size_ : SmallLimit)) )
 		{
 		}
 
 		inline_t(fixed_data_location_t)
 			: value{}
-			, _size((assert(value[7] == 0), static_cast<unsigned char>(SmallLimit)))
+			, _size((assert(int(value[7]) == 0), static_cast<unsigned char>(SmallLimit)))
 
 		{
 		}
@@ -66,33 +68,31 @@ template <typename T, std::size_t SmallLimit>
 
 		void set_fixed()
 		{
-			assert(value[7] == 0);
+			assert(int(value[7]) == 0);
 			_size = SmallLimit;
 		}
 
-		template <typename IT>
+		template <typename C>
 			void assign(
-				IT first_
-				, IT last_
+				common::basic_string_view<C> source_
 				, std::size_t fill_len_
 			)
 			{
 				persisted_zero_n(
 					persisted_copy(
-						first_
-						, last_
-						, common::pointer_cast<T>(&value[0])
+						source_
+						, common::pointer_cast<value_type>(&value[0])
 					)
 					, fill_len_
 				);
 
-				auto full_size = static_cast<unsigned char>(std::size_t(last_ - first_) * sizeof(*first_));
+				auto full_size = static_cast<unsigned char>(source_.length() * sizeof(C));
 				assert(full_size < SmallLimit);
 				_size = full_size;
 			}
 
-		const T *const_data() const { return static_cast<const T *>(&value[0]); }
-		T *data() { return static_cast<T *>(&value[0]); }
+		const value_type *const_data() const { return static_cast<const value_type *>(&value[0]); }
+		value_type *data() { return static_cast<value_type *>(&value[0]); }
 	};
 
 template <typename T, std::size_t SmallSize, typename Allocator>
@@ -111,6 +111,7 @@ template <typename T, typename AllocatorChar, typename PtrT, typename Cptr, type
 		/* Ideally, this would be private */
 		, public Cptr
 	{
+		using value_type = T;
 		using ptr_t = PtrT;
 		using cptr_type = Cptr;
 		using element_type = ElementType;
@@ -133,11 +134,10 @@ template <typename T, typename AllocatorChar, typename PtrT, typename Cptr, type
 				);
 		}
 
-		template <typename IT, typename AL>
+		template <typename C, typename AL>
 			void assign(
 				AK_ACTUAL
-				IT first_
-				, IT last_
+				common::basic_string_view<C> source_
 				, std::size_t fill_len_
 				, std::size_t alignment_
 				, lock_state lock_
@@ -145,7 +145,7 @@ template <typename T, typename AllocatorChar, typename PtrT, typename Cptr, type
 			)
 			{
 				auto data_size =
-					std::size_t(last_ - first_) + fill_len_ * sizeof(T);
+					(source_.size() + fill_len_) * sizeof(value_type);
 				using local_allocator_char_type =
 					typename std::allocator_traits<AL>::template rebind_alloc<char>;
 				this->P = nullptr;
@@ -157,7 +157,7 @@ template <typename T, typename AllocatorChar, typename PtrT, typename Cptr, type
 					, alignment_
 				);
 				new (ptr())
-					element_type(first_, last_, fill_len_, alignment_, lock_);
+					element_type(source_, fill_len_, alignment_, lock_);
 				new (&al()) allocator_char_type(al_);
 				ptr()->persist_this(al_);
 			}
@@ -195,8 +195,9 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 		static constexpr std::size_t default_alignment = 8;
 #endif
 		using cptr_type = ::cptr;
+		using value_type = T;
 	private:
-		using element_type = fixed_string<T>;
+		using element_type = fixed_string<value_type>;
 		using allocator_type_element =
 			typename std::allocator_traits<Allocator>::
 				template rebind_alloc<element_type>;
@@ -209,10 +210,10 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 		using ptr_t = persistent_t<typename allocator_traits_type::pointer>;
 
 		/* First of two members of the union: _inline, for strings which are (a) moveable and (b) not more than SmallLimit bytes long */
-		using inline_type = inline_t<T, SmallLimit>;
+		using inline_type = inline_t<value_type, SmallLimit>;
 		inline_type _inline;
 		/* Second of two members of the union: _outline, for strings which (a) may not be moved, or (b) are more than SmallLimit bytes long */
-		using outline_type = outline_t<T, allocator_char_type, ptr_t, cptr_type, element_type>;
+		using outline_type = outline_t<value_type, allocator_char_type, ptr_t, cptr_type, element_type>;
 		outline_type _outline;
 	public:
 		template <typename U>
@@ -229,12 +230,11 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 			_outline.P = nullptr;
 		}
 
-		template <typename IT, typename AL>
+		template <typename C, typename AL>
 			persist_fixed_string(
 				AK_ACTUAL
 				const fixed_data_location_t &f_
-				, IT first_
-				, IT last_
+				, common::basic_string_view<C> source_
 				, std::size_t fill_len_
 				, std::size_t alignment_
 				, lock_state lock_
@@ -242,55 +242,72 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 			)
 				: _inline( f_ )
 			{
-				_outline.assign(AK_REF first_, last_, fill_len_, alignment_, lock_, al_);
+				_outline.assign(AK_REF source_, fill_len_, alignment_, lock_, al_);
 			}
 
-		template <typename IT, typename AL>
+		template <typename C, typename AL>
 			persist_fixed_string(
 				AK_ACTUAL
-				IT first_
-				, IT last_
+				common::basic_string_view<C> source_
 				, lock_state lock_
 				, AL al_
 			)
-				: persist_fixed_string(AK_REF first_, last_, 0U, default_alignment, lock_, al_)
+				: persist_fixed_string(AK_REF source_, 0U, default_alignment, lock_, al_)
 			{
 			}
 
-		template <typename IT, typename AL>
+		template <typename C, typename AL>
 			persist_fixed_string(
 				AK_ACTUAL
 				const fixed_data_location_t &f_
-				, IT first_
-				, IT last_
+				, common::basic_string_view<C> source_
 				, lock_state lock_
 				, AL al_
 			)
-				: persist_fixed_string(AK_REF f_, first_, last_, 0U, default_alignment, lock_, al_)
+				: persist_fixed_string(AK_REF f_, source_, 0U, default_alignment, lock_, al_)
 			{
 			}
 
+#if 0
+/usr/include/c++/10/tuple:1689:70: error: no matching function for call to
+
+persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::persist_fixed_string(
+  const std::byte*
+  , const std::byte*
+  , lock_state
+  , allocator_cc<char, persister_nupm>
+)
+#else
 		template <typename IT, typename AL>
 			persist_fixed_string(
 				AK_ACTUAL
-				IT first_
-				, IT last_
+				IT first_, IT last_
+				, lock_state lock_
+				, AL al_
+			)
+				: persist_fixed_string(AK_REF common::basic_string_view<common::byte>(first_, std::size_t(last_-first_)), 0U, default_alignment, lock_, al_)
+			{}
+#endif
+
+		template <typename C, typename AL>
+			persist_fixed_string(
+				AK_ACTUAL
+				common::basic_string_view<C> source_
 				, std::size_t fill_len_
 				, std::size_t alignment_
 				, lock_state lock_
 				, AL al_
 			)
 				: _inline(
-					static_cast<std::size_t>(std::size_t(last_ - first_) + fill_len_) * sizeof(T)
+					static_cast<std::size_t>(source_.length() + fill_len_) * sizeof(value_type)
 				)
 			{
 				if ( is_inline() )
 				{
 					persisted_zero_n(
 						persisted_copy(
-							first_
-							, last_
-							, common::pointer_cast<T>(&_inline.value[0])
+							source_
+							, common::pointer_cast<value_type>(&_inline.value[0])
 						)
 						, fill_len_
 					);
@@ -298,7 +315,7 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 				else
 				{
 					auto data_size =
-						static_cast<std::size_t>(std::size_t(last_ - first_) + fill_len_) * sizeof(T);
+						static_cast<std::size_t>(source_.length() + fill_len_) * sizeof(value_type);
 					using local_allocator_char_type =
 						typename std::allocator_traits<AL>::template rebind_alloc<char>;
 					new (&_outline.al()) allocator_char_type(al_);
@@ -311,7 +328,7 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 						, alignment_
 					);
 					new (_outline.ptr())
-						element_type(first_, last_, fill_len_, alignment_, lock_);
+						element_type(source_, fill_len_, alignment_, lock_);
 					_outline.ptr()->persist_this(al_);
 				}
 			}
@@ -327,7 +344,7 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 			)
 				: _inline(f_)
 			{
-				auto data_size = data_len_ * sizeof(T);
+				auto data_size = data_len_ * sizeof(value_type);
 				new (&_outline.al()) allocator_char_type(al_);
 				new (&_outline.P) cptr_type{nullptr};
 				al_.allocate(
@@ -355,6 +372,24 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 					, std::get<3>(p_)
 #if AK_USED
 					, std::get<4>(p_)
+#endif
+				)
+			{}
+
+		/* Needed because the persist_fixed_string arguments are sometimes conveyed via
+		 * forward_as_tuple, and the string is an element of a tuple, and std::tuple
+		 * (unlike pair) does not support piecewise_construct.
+		 */
+		template <typename View, typename AL>
+			persist_fixed_string(
+				std::tuple<AK_FORMAL View&&, lock_state &&, AL>&& p_
+			)
+				: persist_fixed_string(
+					std::get<0>(p_)
+					, std::get<1>(p_)
+					, std::get<2>(p_)
+#if AK_USED
+					, std::get<3>(p_)
 #endif
 				)
 			{}
@@ -409,11 +444,10 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 			{
 			}
 
-		template <typename IT, typename AL>
+		template <typename C, typename AL>
 			persist_fixed_string &assign(
 				AK_ACTUAL
-				IT first_
-				, IT last_
+				common::basic_string_view<C> source_
 				, std::size_t fill_len_
 				, std::size_t alignment_
 				, lock_state lock_
@@ -422,28 +456,27 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 			{
 				this->clear();
 
-				if ( (std::size_t(last_ - first_) + fill_len_) * (sizeof *first_) < SmallLimit )
+				if ( (source_.length() + fill_len_) * sizeof(C) < SmallLimit )
 				{
-					_inline.assign(first_, last_, fill_len_);
+					_inline.assign(source_, fill_len_);
 				}
 				else
 				{
-					_outline.assign(AK_REF first_, last_, fill_len_, alignment_, lock_, al_);
+					_outline.assign(AK_REF source_, fill_len_, alignment_, lock_, al_);
 					_inline.set_fixed();
 				}
 				return *this;
 			}
 
-		template <typename IT, typename AL>
+		template <typename C, typename AL>
 			persist_fixed_string & assign(
 				AK_ACTUAL
-				IT first_
-				, IT last_
+				common::basic_string_view<C> source_
 				, lock_state lock_
 				, AL al_
 			)
 			{
-				return assign(AK_REF first_, last_, 0, default_alignment, lock_, al_);
+				return assign(AK_REF source_, 0, default_alignment, lock_, al_);
 			}
 
 		void clear()
@@ -661,7 +694,7 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 						 * second reference, so the refcount must be set to one.
 						 */
 						alr.reconstitute(
-							_outline.ptr()->alloc_element_count() * sizeof(T), _outline.P
+							_outline.ptr()->alloc_element_count() * sizeof(value_type), _outline.P
 						);
 						new (_outline.P)
 							element_type( size(), _outline.ptr()->alignment(), lock_state::free );
@@ -684,13 +717,13 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 		}
 
 		/* performance help for size matching: precondition: both elements are inline */
-		bool inline_match(const persist_fixed_string<T, SmallLimit, Allocator> &other_) const
+		bool inline_match(const persist_fixed_string<value_type, SmallLimit, Allocator> &other_) const
 		{
 			assert(is_inline() && other_.is_inline());
 			return _inline == other_._inline;
 		}
 
-		bool general_match(const persist_fixed_string<T, SmallLimit, Allocator> &other) const
+		bool general_match(const persist_fixed_string<value_type, SmallLimit, Allocator> &other) const
 		{
 			return size() == other.size() && std::equal(data(), data() + size(), other.data());
 		}
@@ -707,32 +740,32 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 		 *   data_fixed (when the location must not change for the lifetime of the object,
 		 *     even if the object (key or value) moves)
 		 */
-		const T *data_fixed() const
+		const value_type *data_fixed() const
 		{
 			assert( ! is_inline() );
 			return _outline.ptr()->data();
 		}
 
-		T *data_fixed()
+		value_type *data_fixed()
 		{
 			assert( !is_inline() );
 			return _outline.ptr()->data();
 		}
 
-		const T *data() const
+		const value_type *data() const
 		{
 			return
 				is_inline()
-				? static_cast<const T *>(&_inline.value[0])
+				? static_cast<const value_type *>(&_inline.value[0])
 				: data_fixed()
 				;
 		}
 
-		T *data()
+		value_type *data()
 		{
 			return
 				is_inline()
-				? static_cast<T *>(&_inline.value[0])
+				? static_cast<value_type *>(&_inline.value[0])
 				: data_fixed()
 				;
 		}
@@ -826,12 +859,10 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 				std::memcpy(&temp, this, sizeof temp);
 #pragma GCC diagnostic pop
 				temp._outline.P = persistent_t<char *>{old_cptr};
-				hop_hash_log<false>::write(LOG_LOCATION, "size to copy ", old_cptr, " old cptr was ", old_cptr, " value ", std::string(temp.data(), temp.size()));
-				auto begin = temp.data();
-				auto end = begin + temp.size();
-				_outline.assign(AK_REF begin, end, 0, default_alignment, lock_state::free, al_);
+				hop_hash_log<false>::write(LOG_LOCATION, "size to copy ", old_cptr, " old cptr was ", old_cptr, " value ", std::string(common::pointer_cast<char>(temp.data()), temp.size()));
+				_outline.assign(AK_REF common::basic_string_view<value_type>(temp.data(), temp.size()), 0, default_alignment, lock_state::free, al_);
 				_inline.set_fixed();
-				hop_hash_log<false>::write(LOG_LOCATION, "result size ", this->size(), " value ", std::string(this->data_fixed(), this->size()));
+				hop_hash_log<false>::write(LOG_LOCATION, "result size ", this->size(), " value ", std::string(common::pointer_cast<char>(this->data_fixed()), this->size()));
 			}
 
 		static persist_fixed_string *pfs_from_cptr_ref(cptr_type &cptr_)

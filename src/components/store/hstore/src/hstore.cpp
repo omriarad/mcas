@@ -136,14 +136,14 @@ int hstore::get_capability(const Capability cap) const
 
 #include "session.h"
 
-auto hstore::create_pool(const std::string & name_,
+auto hstore::create_pool(common::string_view name_,
                          const std::size_t size_,
                          flags_t flags_,
                          const uint64_t expected_obj_count_,
                          Addr base_addr_unused) -> pool_t
 try
 {
-  CPLOG(1, PREFIX "pool_name=%s size %zu", LOCATION, name_.c_str(), size_);
+  CPLOG(1, PREFIX "pool_name=%.*s size %zu", LOCATION, int(name_.size()), name_.data(), size_);
   try
   {
     _pool_manager->pool_create_check(size_);
@@ -187,7 +187,7 @@ catch ( const std::bad_alloc &e )
   return POOL_ERROR; // E_TOO_LARGE incorrect type
 }
 
-auto hstore::open_pool(const std::string &name_,
+auto hstore::open_pool(common::string_view name_,
                        flags_t flags,
                        Addr) -> pool_t
 {
@@ -255,7 +255,7 @@ status_t hstore::close_pool(const pool_t p)
   return S_OK;
 }
 
-status_t hstore::delete_pool(const std::string& name_)
+status_t hstore::delete_pool(const common::string_view name_)
 {
   auto path = pool_path(name_);
 
@@ -271,7 +271,7 @@ status_t hstore::delete_pool(const std::string& name_)
     return E_INVAL;
   }
 
-  CPLOG(1, PREFIX "pool deleted: %s", LOCATION, name_.c_str());
+  CPLOG(1, PREFIX "pool deleted: %.*s", LOCATION, int(name_.size()), name_.data());
   return S_OK;
 }
 
@@ -298,23 +298,22 @@ auto hstore::grow_pool( //
 }
 
 auto hstore::put(const pool_t pool,
-                 const std::string &key,
-                 const void * value,
-                 const std::size_t value_len,
+                 string_view_key key,
+                 string_view_value value,
                  flags_t flags) -> status_t
 {
   TM_ROOT()
   CPLOG(
     1
-    , PREFIX "(key=%s) (value=%.*s)"
+    , PREFIX "(key=%.*s) (value=%.*s)"
     , LOCATION
-    , key.c_str()
-    , int(value_len)
-    , static_cast<const char*>(value)
+    , int(key.size()), common::pointer_cast<char>(key.data())
+    , int(value.size())
+    , common::pointer_cast<char>(value.data())
   );
 
   /* Strangely, zero is not allowed as a value length */
-  if ( value_len == 0 )
+  if ( value.size() == 0 )
   {
     return E_BAD_PARAM;
   }
@@ -335,7 +334,7 @@ auto hstore::put(const pool_t pool,
     try
     {
       TM_SCOPE(insert_or_update)
-      auto it = session->insert(AK_INSTANCE TM_REF key, value, value_len);
+      auto it = session->insert(AK_INSTANCE TM_REF key, value);
 
       TM_SCOPE(update)
       return
@@ -347,7 +346,6 @@ auto hstore::put(const pool_t pool,
               TM_REF
               key
               , value
-              , value_len
               , std::get<0>(it.first->second).data()
               , std::get<0>(it.first->second).size())
             , S_OK
@@ -388,7 +386,7 @@ auto hstore::get_pool_regions(const pool_t pool, nupm::region_descriptor & out_r
 }
 
 auto hstore::put_direct(const pool_t pool,
-                        const std::string& key,
+                        const string_view_key key,
                         const void * value,
                         const std::size_t value_len,
                         memory_handle_t,
@@ -398,7 +396,7 @@ auto hstore::put_direct(const pool_t pool,
 }
 
 auto hstore::get(const pool_t pool,
-                 const std::string &key,
+                 string_view_key key,
                  void*& out_value,
                  std::size_t& out_value_len) -> status_t
 {
@@ -454,7 +452,7 @@ auto hstore::get(const pool_t pool,
 }
 
 auto hstore::get_direct(const pool_t pool,
-                        const std::string & key,
+                        string_view_key key,
                         void* out_value,
                         std::size_t& out_value_len,
                         memory_handle_t) -> status_t
@@ -487,7 +485,7 @@ auto hstore::get_attribute(
   const pool_t pool,
   const Attribute attr,
   std::vector<uint64_t>& out_attr,
-  const std::string* key) -> status_t
+  const string_view_key key) -> status_t
 {
   out_attr.clear();
 
@@ -505,7 +503,7 @@ auto hstore::get_attribute(
       return S_OK;
     }
   case VALUE_LEN:
-    if ( ! key )
+    if ( ! key.data() )
     {
       return E_BAD_PARAM;
     }
@@ -514,7 +512,7 @@ auto hstore::get_attribute(
       /* interface does not say what we do to the out_attr vector;
        * push_back is at least non-destructive.
        */
-      out_attr.push_back(session->get_value_len(*key));
+      out_attr.push_back(session->get_value_len(key));
       return S_OK;
     }
     catch ( const impl::key_not_found &e )
@@ -546,13 +544,13 @@ auto hstore::get_attribute(
     break;
 #if ENABLE_TIMESTAMPS
   case IKVStore::Attribute::WRITE_EPOCH_TIME:
-    if ( ! key )
+    if ( ! key.data() )
     {
       return E_BAD_PARAM;
     }
     try
     {
-      out_attr.push_back(session->get_write_epoch_time(*key));
+      out_attr.push_back(session->get_write_epoch_time(key));
       return S_OK;
     }
     catch ( const impl::key_not_found &e )
@@ -572,7 +570,7 @@ auto hstore::set_attribute(
   const pool_t pool,
   const Attribute attr
   , const std::vector<uint64_t> & value
-  , const std::string *) -> status_t
+  , const string_view_byte) -> status_t
 {
   auto session = static_cast<session_type *>(locate_session(pool));
   if ( ! session )
@@ -598,7 +596,7 @@ auto hstore::set_attribute(
 
 auto hstore::resize_value(
   const pool_t pool
-  , const std::string &key
+  , string_view_key key
   , const std::size_t new_value_len
   , const std::size_t alignment
 ) -> status_t
@@ -638,7 +636,7 @@ auto hstore::resize_value(
 
 auto hstore::lock(
   const pool_t pool
-  , const std::string &key
+  , string_view_key key
   , lock_type_t type
   , void *& out_value
   , std::size_t & out_value_len
@@ -652,28 +650,28 @@ try
   if(!session) return E_FAIL;
   auto r = session->lock(AK_INSTANCE TM_REF key, type, out_value, out_value_len);
 
-  out_key = r.key;
+  out_key = r.lock_key;
   if ( out_key_ptr )
   {
-    *out_key_ptr = r.key_ptr;
+    *out_key_ptr = common::pointer_cast<char>(r.key.data());
   }
   /* If lock valid, safe to provide access to the key */
-  if ( r.key != KEY_NONE )
+  if ( r.lock_key != KEY_NONE )
   {
-    out_value = r.value;
-    out_value_len = r.value_len;
+    out_value = const_cast<void *>(static_cast<const void *>(r.value.data()));
+    out_value_len = r.value.size();
   }
 
   switch ( r.state )
   {
   case lock_result::e_state::created:
     /* Returns undocumented "E_LOCKED" if lock not held */
-    return r.key == KEY_NONE ? E_LOCKED : S_OK_CREATED;
+    return r.lock_key == KEY_NONE ? E_LOCKED : S_OK_CREATED;
   case lock_result::e_state::not_created:
     return E_KEY_NOT_FOUND;
   case lock_result::e_state::extant:
     /* Returns undocumented "E_LOCKED" if lock not held */
-    return r.key == KEY_NONE ? E_LOCKED : S_OK;
+    return r.lock_key == KEY_NONE ? E_LOCKED : S_OK;
   case lock_result::e_state::creation_failed:
     /* should not happen. */
     return E_KEY_EXISTS;
@@ -703,7 +701,7 @@ auto hstore::unlock(const pool_t pool,
 }
 
 auto hstore::erase(const pool_t pool,
-                   const std::string &key
+                   string_view_key key
                    ) -> status_t
 {
   TM_ROOT()
@@ -748,8 +746,8 @@ auto hstore::map(
                  pool_t pool,
                  std::function
                  <
-                   int(const void * key, std::size_t key_len,
-                       const void * val, std::size_t val_len)
+                   int(string_view_key key,
+                       string_view_value value)
                  > f_
                  ) -> status_t
 {
@@ -765,10 +763,8 @@ auto hstore::map(
   pool_t pool_,
   std::function<
     int(
-      const void * key,
-      std::size_t key_len,
-      const void * value,
-      std::size_t value_len,
+      string_view_key key,
+      string_view_value value,
       common::tsc_time_t timestamp
     )
   > f_,
@@ -788,17 +784,16 @@ auto hstore::map_keys(
                  pool_t pool,
                  std::function
                  <
-                   int(const std::string &key)
+                   int(string_view_key key)
                  > f_
                  ) -> status_t
 {
   const auto session = static_cast<session_type *>(locate_session(pool));
 
   return session
-    ? ( session->map([&f_] (const void * key, std::size_t key_len,
-                            const void *, std::size_t) -> int
+    ? ( session->map([&f_] (string_view_key key, string_view_byte) -> int
                      {
-                       f_(std::string(static_cast<const char*>(key), key_len));
+                       f_(key);
                        return 0;
                      }), S_OK )
     : int(E_POOL_NOT_FOUND)
@@ -813,7 +808,7 @@ auto hstore::free_memory(void * p) -> status_t
 
 auto hstore::atomic_update(
     const pool_t pool
-    , const std::string& key
+    , const string_view_key key
     , const std::vector<IKVStore::Operation *> &op_vector
     , const bool take_lock) -> status_t
 try
@@ -860,8 +855,8 @@ catch ( const std::system_error &e )
 
 auto hstore::swap_keys(
   const pool_t pool
-  , const std::string key0
-  , const std::string key1
+  , const string_view_key key0
+  , const string_view_key key1
 ) -> status_t
 try
 {

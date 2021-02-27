@@ -49,7 +49,7 @@ namespace
 
 	/* paramenters and return like std::fill_n, but can use pmem_memset_persist */
 	template <typename IO_>
-		char *persisted_zero_n(IO_ dst_, std::size_t n_)
+		IO_ persisted_zero_n(IO_ dst_, std::size_t n_)
 		{
 #if MCAS_HSTORE_USE_PMEM_PERSIST
 			::pmem_memset_persist(&*dst_, 0, n_ * sizeof *dst_);
@@ -61,14 +61,14 @@ namespace
 		}
 
 	/* paramenters and return like std::copy, but can use pmem_memcpy_persist */
-	template <typename II_, typename IO_>
-		char *persisted_copy(const II_ first_, const II_ last_, IO_ dst_)
+	template <typename C, typename IO_>
+		IO_ persisted_copy(const common::basic_string_view<C> source_, IO_ dst_)
 		{
 #if MCAS_HSTORE_USE_PMEM_PERSIST
-			::pmem_memcpy_persist(&*dst_, &*first_, (last_ - first_) * sizeof *first_);
-			return dst_ + (last_ - first_);
+			::pmem_memcpy_persist(&*dst_, &*source_.begin(), source_.size() * sizeof(C));
+			return dst_ + source_.size();
 #else
-			return std::copy(first_, last_, dst_);
+			return std::copy(source_.begin(), source.end(), dst_);
 			/* persist call is owed */
 #endif
 		}
@@ -116,15 +116,15 @@ template <typename T>
 		}
 
 	public:
-		template <typename IT>
+		template <typename C>
 			fixed_string(
-				IT first_, IT last_
+				common::basic_string_view<C> source_
 				, std::size_t pad_
 				, std::size_t alignment_
 				, lock_state lock_
 			)
 				: fixed_string(
-					std::size_t(last_-first_) + pad_
+					source_.size() + pad_
 					, alignment_
 					, lock_
 				)
@@ -133,14 +133,14 @@ template <typename T>
 				/* fill for alignment, returning address of first aligned byte */
 				const auto c0 =
 					persisted_zero_n(
-						common::pointer_cast<char>(this+1)
+						common::pointer_cast<C>(this+1)
 						, front_pad()
 					);
 
 				/* first aligned element starts at first aligned byte */
 				const auto e0 = common::pointer_cast<T>(c0);
 				persisted_zero_n(
-					persisted_copy(first_, last_, e0)
+					persisted_copy(source_, e0)
 					, pad_
 				);
 			}

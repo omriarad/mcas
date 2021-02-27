@@ -62,6 +62,8 @@ private:
   using mapped_type = typename hstore_kv_types<dealloc_type>::mapped_type;
   using allocator_segment_type = std::allocator_traits<alloc_type>::rebind_alloc<std::pair<const key_type, mapped_type>>;
   using string_view = common::string_view;
+  using string_view_key = common::basic_string_view<byte>;
+  using string_view_value = common::basic_string_view<byte>;
 #if THREAD_SAFE_HASH == 1
   /* thread-safe hash */
   using hstore_shared_mutex = std::shared_timed_mutex;
@@ -145,19 +147,19 @@ public:
    */
   int get_capability(Capability cap) const override;
 
-  pool_t create_pool(const std::string &name,
+  pool_t create_pool(common::string_view name,
                      std::size_t size,
                      flags_t flags,
                      std::uint64_t expected_obj_count,
                      Addr base_addr_unused
                      ) override;
 
-  pool_t open_pool(const std::string &name,
+  pool_t open_pool(common::string_view name,
                    flags_t flags,
                    Addr base_addr_unused
                    ) override;
 
-  status_t delete_pool(const std::string &name) override;
+  status_t delete_pool(common::string_view name) override;
 
   status_t close_pool(pool_t pid) override;
 
@@ -166,25 +168,37 @@ public:
                              std::size_t& reconfigured_size ) override;
 
   status_t put(pool_t pool,
-               const std::string &key,
+               string_view_key key,
                const void * value,
                std::size_t value_len,
-               flags_t flags) override;
+               flags_t flags) override
+  {
+    return put(
+      pool
+      , key
+      , string_view_value(common::pointer_cast<string_view_value::value_type>(value), value_len)
+      , flags);
+  }
+
+  auto put(pool_t pool,
+                 string_view_byte key,
+                 string_view_value value,
+                 flags_t flags) -> status_t;
 
   status_t put_direct(pool_t pool,
-                      const std::string& key,
+                      string_view_key key,
                       const void * value,
                       std::size_t value_len,
                       memory_handle_t handle,
                       flags_t flags) override;
 
   status_t get(pool_t pool,
-               const std::string &key,
+               string_view_key key,
                void*& out_value,
                std::size_t& out_value_len) override;
 
   status_t get_direct(pool_t pool,
-                      const std::string &key,
+                      string_view_key key,
                       void* out_value,
                       std::size_t& out_value_len,
                       memory_handle_t handle) override;
@@ -192,15 +206,15 @@ public:
   status_t get_attribute(pool_t pool,
                                  Attribute attr,
                                  std::vector<uint64_t>& out_attr,
-                                 const std::string* key) override;
+                                 string_view_key key) override;
 
   status_t set_attribute(const pool_t pool,
                                  Attribute attr,
                                  const std::vector<uint64_t>& value,
-                                 const std::string* key) override;
+                                 string_view_key key) override;
 
   status_t lock(const pool_t pool,
-                const std::string& key,
+                string_view_key key,
                 lock_type_t type,
                 void*& out_value,
                 std::size_t& out_value_len,
@@ -208,7 +222,7 @@ public:
                 const char ** out_key_ptr) override;
 
   status_t resize_value(pool_t pool
-                        , const std::string& key
+                        , string_view_key key
                         , std::size_t        new_value_len
                         , std::size_t        alignment) override;
 
@@ -217,33 +231,30 @@ public:
                   unlock_flags_t flags) override;
 
   status_t apply(pool_t pool,
-                 const std::string& key,
+                 string_view_key key,
                  std::function<void(void*, std::size_t)> functor,
                  std::size_t object_size,
                  bool take_lock);
 
   status_t erase(pool_t pool,
-                 const std::string &key) override;
+                 string_view_key key) override;
 
   std::size_t count(pool_t pool) override;
 
   status_t map(pool_t pool,
-               std::function<int(const void * key,
-                                 std::size_t key_len,
-                                 const void * value,
-                                 std::size_t value_len)> function) override;
+               std::function<int(string_view_key key,
+                                 string_view_value value
+                                 )> function) override;
 
   status_t map(pool_t pool,
-               std::function<int(const void * key,
-                                 std::size_t key_len,
-                                 const void * value,
-                                 std::size_t value_len,
+               std::function<int(string_view_key key,
+                                 string_view_value value,
                                  common::tsc_time_t timestamp)> function,
                common::epoch_time_t t_begin,
                common::epoch_time_t t_end) override;
 
   status_t map_keys(pool_t pool,
-               std::function<int(const std::string& key)> function) override;
+               std::function<int(string_view_key key)> function) override;
 
   status_t free_memory(void * p) override;
 
@@ -251,7 +262,7 @@ public:
 
   status_t atomic_update(
     pool_t pool,
-    const std::string& key,
+    string_view_key key,
     const std::vector<Operation *> &op_vector,
     bool take_lock) override;
 
@@ -262,8 +273,8 @@ public:
    */
   status_t swap_keys(
     pool_t pool,
-    std::string key0,
-    std::string key1
+    string_view_key key0,
+    string_view_key key1
   ) override;
 
   status_t get_pool_regions(

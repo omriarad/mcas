@@ -61,7 +61,12 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		using data_type = typename std::tuple_element<0, mapped_type>::type;
 		using pool_iterator_type = pool_iterator<typename table_type::const_iterator>;
 		using definite_lock_type = definite_lock<table_type, allocator_type>;
+#if 0
 		using string_view = common::string_view;
+#endif
+		using string_view_byte = common::basic_string_view<common::byte>;
+		using string_view_key = string_view_byte;
+		using string_view_value = string_view_byte;
 
 		allocator_type _heap;
 		bool _pin_seq; /* used only for force undo_redo call */
@@ -72,8 +77,8 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		static bool try_lock(typename std::tuple_element<0, mapped_type>::type &d, lock_type type);
 
 		auto allocator() const noexcept -> allocator_type { return _heap; }
-		auto locate_map(string_view key) -> table_type &;
-		auto locate_map(string_view key) const -> const table_type &;
+		auto locate_map(string_view_key key) -> table_type &;
+		auto locate_map(string_view_key key) const -> const table_type &;
 
 	public:
 		/* PMEMoid, persist_data_t */
@@ -127,39 +132,37 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		auto insert(
 			AK_FORMAL
 			TM_FORMAL
-			const std::string & key,
-			const void * value,
-			const std::size_t value_len
+			string_view_key key,
+			string_view_value value
 		) -> std::pair<typename table_type::iterator, bool>;
 
 		void update_by_issue_41(
 			AK_FORMAL
 			TM_FORMAL
-			const std::string & key,
-			const void * value,
-			const std::size_t value_len,
+			string_view_key key,
+			string_view_value value,
 			void * /* old_value */,
 			const std::size_t old_value_len
 		);
 
 		auto get(
 			TM_FORMAL
-			const std::string & key,
+			string_view_key key,
 			void* buffer,
 			std::size_t buffer_size
 		) const -> std::size_t;
 
 		auto get_alloc(
-			const std::string & key
+			string_view_key key
 		) const -> std::tuple<void *, std::size_t>;
 
 		auto get_value_len(
-			const std::string & key
+			string_view_key key
 		) const -> std::size_t;
 
 #if ENABLE_TIMESTAMPS
 		auto get_write_epoch_time(
-			const std::string & key
+			string_view_key key
 		) const -> std::size_t;
 #endif
 
@@ -171,7 +174,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		void resize_mapped(
 			AK_FORMAL
 			TM_FORMAL
-			const std::string & key
+			string_view_key key
 			, std::size_t new_mapped_len
 			, std::size_t alignment
 		);
@@ -179,7 +182,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		auto lock(
 			AK_FORMAL
 			TM_FORMAL
-			const std::string & key
+			string_view_key key
 			, lock_type type
 			, void *const value
 			, const std::size_t value_len
@@ -197,7 +200,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 
 		auto erase(
 			TM_FORMAL
-			const std::string & key
+			string_view_key key
 		) -> status_t;
 
 		auto count() const -> std::size_t;
@@ -207,18 +210,16 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		auto map(
 			std::function
 			<
-				int(const void * key, std::size_t key_len,
-				const void * val, std::size_t val_len)
+				int(string_view_key key
+				, string_view_value value)
 			> function_
 		) -> void;
 
 		auto map(
 			std::function
 			<
-				int(const void * key
-				, std::size_t key_len
-				, const void * val
-				, std::size_t val_len
+				int(string_view_key key
+				, string_view_value value
 				, common::tsc_time_t timestamp
 				)
 			> function_
@@ -230,7 +231,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			void atomic_update_inner(
 				AK_FORMAL
 				TM_FORMAL
-				const string_view key
+				const string_view_key key
 				, table_type &map
 				, IT first
 				, IT last
@@ -241,7 +242,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			void atomic_update(
 				AK_FORMAL
 				TM_FORMAL
-				const std::string & key
+				string_view_key key
 				, IT first
 				, IT last
 			);
@@ -250,7 +251,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			void lock_and_atomic_update(
 				AK_FORMAL
 				TM_FORMAL
-				const std::string & key
+				string_view_key key
 				, IT first
 				, IT last
 		);
@@ -276,8 +277,8 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		auto swap_keys(
 			AK_FORMAL
 			TM_FORMAL
-			const std::string & key0
-			, const std::string & key1
+			string_view_key key0
+			, string_view_key key1
 		) -> status_t;
 
 		auto open_iterator() -> component::IKVStore::pool_iterator_t;

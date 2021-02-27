@@ -229,7 +229,7 @@ namespace impl
 				TM_FORMAL
 				owner::value_type ownership_bits_
 				, segment_and_bucket_t sb_
-				, common::string_view k_
+				, common::basic_string_view<typename Key::value_type> k_
 			) const -> segment_and_bucket_t;
 
 			void resize(AK_FORMAL0);

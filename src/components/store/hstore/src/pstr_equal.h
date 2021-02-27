@@ -18,14 +18,15 @@
 #include <cstring>
 
 template <typename Key>
-  struct pstr_equal
-  {
-    using argument_type = Key;
-    using result_type = bool;
-    result_type operator()(const argument_type &a, const common::string_view b) const
-    {
-      return a.size() == b.size() && 0 == std::memcmp(a.data(), b.data(), a.size());
-    }
-  };
+	struct pstr_equal
+	{
+		using argument_type = Key;
+		using result_type = bool;
+
+		result_type operator()(const argument_type &a, const common::basic_string_view<typename Key::value_type> b) const
+		{
+			return a.size() == b.size() && 0 == std::memcmp(a.data(), b.data(), a.size());
+		}
+	};
 
 #endif

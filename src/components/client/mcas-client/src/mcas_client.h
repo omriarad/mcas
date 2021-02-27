@@ -55,6 +55,9 @@ class MCAS_client
     , private common::log_source
 {
   friend class MCAS_client_factory;
+  using string_view = component::IKVStore::string_view;
+  using string_view_key = component::IKVStore::string_view_key;
+  using string_view_value = component::IKVStore::string_view_value;
 
  private:
   //  static constexpr bool option_DEBUG = true;
@@ -72,13 +75,13 @@ class MCAS_client
    */
  public:
   MCAS_client(unsigned                            debug_level,
-              const boost::optional<std::string> &src_device,
-              const boost::optional<std::string> &src_addr,
-              const boost::optional<std::string> &provider,
-              const std::string &                 dest_addr,
+              const common::string_view           src_device,
+              const common::string_view           src_addr,
+              const common::string_view           provider,
+              const common::string_view           dest_addr,
               std::uint16_t                       port,
               unsigned                            patience,
-              const std::string                   other = "");
+              const common::string_view           other = common::string_view() );
 
   MCAS_client(const MCAS_client &) = delete;
   MCAS_client &operator=(const MCAS_client &) = delete;
@@ -116,46 +119,46 @@ class MCAS_client
 
   virtual int get_capability(Capability cap) const override;
 
-  virtual pool_t create_pool(const std::string &  name,
+  virtual pool_t create_pool(const string_view    name,
                              const size_t         size,
                              const unsigned int   flags              = 0,
                              const uint64_t       expected_obj_count = 0,
                              const IKVStore::Addr base = IKVStore::Addr{0}) override;
 
-  virtual pool_t open_pool(const std::string &  name,
+  virtual pool_t open_pool(const string_view    name,
                            const unsigned int   flags = 0,
                            const IKVStore::Addr base = IKVStore::Addr{0}) override;
 
   virtual status_t close_pool(const pool_t pool) override;
 
-  virtual status_t delete_pool(const std::string &name) override;
+  virtual status_t delete_pool(const common::string_view name) override;
 
   virtual status_t delete_pool(const IKVStore::pool_t pool) override;
 
-  virtual status_t configure_pool(const component::IKVStore::pool_t pool, const std::string &json) override;
+  virtual status_t configure_pool(const component::IKVStore::pool_t pool, const string_view json) override;
 
   virtual status_t put(const pool_t       pool,
-                       const std::string &key,
+                       const string_view_key key,
                        const void *       value,
                        const size_t       value_len,
                        const unsigned int flags = IMCAS::FLAGS_NONE) override;
 
   virtual status_t put_direct(const pool_t                 pool,
-                              const std::string &          key,
+                              const string_view_key    key,
                               const void *                 value,
                               const size_t                 value_len,
                               const IMCAS::memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE,
                               const unsigned int           flags  = IMCAS::FLAGS_NONE) override;
 
   virtual status_t async_put(const IKVStore::pool_t pool,
-                             const std::string &    key,
+                             const string_view_key  key,
                              const void *           value,
                              const size_t           value_len,
                              async_handle_t &       out_handle,
                              const unsigned int     flags = IMCAS::FLAGS_NONE) override;
 
   virtual status_t async_put_direct(const IKVStore::pool_t          pool,
-                                    const std::string &             key,
+                                    const string_view_key           key,
                                     const void *                    value,
                                     const size_t                    value_len,
                                     async_handle_t &                out_handle,
@@ -165,19 +168,19 @@ class MCAS_client
   virtual status_t check_async_completion(async_handle_t &handle) override;
 
   virtual status_t get(const pool_t       pool,
-                       const std::string &key,
+                       const string_view_key key,
                        void *&            out_value, /* release with free() */
                        size_t &           out_value_len) override;
 
-  virtual status_t async_get_direct(const pool_t                 pool,
-                              const std::string &          key,
+  virtual status_t async_get_direct(const pool_t           pool,
+                              const string_view_key        key,
                               void *                       out_value,
                               size_t &                     out_value_len,
                               async_handle_t &          out_handle,
                               const IMCAS::memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE) override;
 
   virtual status_t get_direct(const pool_t                 pool,
-                              const std::string &          key,
+                              const string_view_key    key,
                               void *                       out_value,
                               size_t &                     out_value_len,
                               const IMCAS::memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE) override;
@@ -208,16 +211,16 @@ class MCAS_client
                                            async_handle_t &             out_handle,
                                            const IMCAS::memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE) override;
 
-  virtual status_t erase(const pool_t pool, const std::string &key) override;
+  virtual status_t erase(const pool_t pool, const string_view_key key) override;
 
-  virtual status_t async_erase(const IMCAS::pool_t pool, const std::string &key, async_handle_t &out_handle) override;
+  virtual status_t async_erase(const IMCAS::pool_t pool, const string_view_key key, async_handle_t &out_handle) override;
 
   virtual size_t count(const pool_t pool) override;
 
   virtual status_t get_attribute(const IKVStore::pool_t    pool,
                                  const IKVStore::Attribute attr,
                                  std::vector<uint64_t> &   out_attr,
-                                 const std::string *       key) override;
+                                 const string_view_key key) override;
 
   virtual status_t get_statistics(Shard_stats &out_stats) override;
 
@@ -231,38 +234,38 @@ class MCAS_client
 
   /* IMCAS specific methods */
   virtual status_t find(const IKVStore::pool_t pool,
-                        const std::string &    key_expression,
+                        const string_view      key_expression,
                         const offset_t         offset,
                         offset_t &             out_matched_offset,
                         std::string &          out_matched_key) override;
 
   virtual status_t invoke_ado(const IKVStore::pool_t            pool,
-                              const basic_string_view<byte>     key,
-                              const basic_string_view<byte>     request,
+                              const string_view_key             key,
+                              const string_view_request         request,
                               const uint32_t                    flags,
                               std::vector<IMCAS::ADO_response> &out_response,
                               const size_t                      value_size = 0) override;
 
   virtual status_t async_invoke_ado(const IMCAS::pool_t               pool,
-                                    const basic_string_view<byte>     key,
-                                    const basic_string_view<byte>     request,
+                                    const string_view_key             key,
+                                    const string_view_request         request,
                                     const ado_flags_t                 flags,
                                     std::vector<IMCAS::ADO_response> &out_response,
                                     async_handle_t &                  out_async_handle,
                                     const size_t                      value_size = 0) override;
 
   virtual status_t invoke_put_ado(const IKVStore::pool_t            pool,
-                                  const basic_string_view<byte>     key,
-                                  const basic_string_view<byte>     request,
-                                  const basic_string_view<byte>     value,
+                                  const string_view_key             key,
+                                  const string_view_request         request,
+                                  const string_view_value           value,
                                   const size_t                      root_len,
                                   const ado_flags_t                 flags,
                                   std::vector<IMCAS::ADO_response> &out_response) override;
   
   virtual status_t async_invoke_put_ado(const IMCAS::pool_t           pool,
-                                        const basic_string_view<byte> key,
-                                        const basic_string_view<byte> request,
-                                        const basic_string_view<byte> value,
+                                        const string_view_key key,
+                                        const string_view_request   request,
+                                        const string_view_value value,
                                         const size_t                  root_len,
                                         const ado_flags_t             flags,
                                         std::vector<ADO_response>&    out_response,
@@ -279,14 +282,14 @@ class MCAS_client
  private:
   static void set_debug(unsigned debug_level, const void *ths, const std::string &ip_addr, std::uint16_t port);
   static auto load_factory() -> component::IFabric_factory *;
-  static auto make_fabric(component::IFabric_factory &,
-                          const std::string &ip_addr,
-                          const std::string &provider,
-                          const std::string &device) -> component::IFabric *;
-  static auto make_fabric(component::IFabric_factory &,
-                          const boost::optional<std::string> &src_addr,
-                          const boost::optional<std::string> &interface,
-                          const boost::optional<std::string> &provider) -> component::IFabric *;
+  static auto make_fabric_apd(component::IFabric_factory &,
+                          const common::string_view ip_addr,
+                          const common::string_view provider,
+                          const common::string_view device) -> component::IFabric *;
+  static auto make_fabric_sip(component::IFabric_factory &,
+                          const common::string_view src_addr,
+                          const common::string_view interface,
+                          const common::string_view provider) -> component::IFabric *;
 
   void open_transport(const std::string &device,
                       const std::string &ip_addr,
@@ -295,6 +298,7 @@ class MCAS_client
 };
 
 class MCAS_client_factory : public component::IMCAS_factory {
+  using string_view = common::string_view;
  public:
   /**
    * Component/interface management
@@ -320,18 +324,18 @@ class MCAS_client_factory : public component::IMCAS_factory {
 
   void unload() override { delete this; }
 
-  component::IMCAS *mcas_create(unsigned                            debug_level,
-                                unsigned                            patience,
-                                const std::string &                 owner,
-                                const boost::optional<std::string> &src_nic_device,
-                                const boost::optional<std::string> &src_ip_addr,
-                                const std::string &                 dest_addr_with_port,
-                                const std::string                   other) override;
+  component::IMCAS *mcas_create_nsd(unsigned          debug_level,
+                                unsigned          patience,
+                                const string_view owner,
+                                const string_view src_nic_device,
+                                const string_view src_ip_addr,
+                                const string_view dest_addr_with_port,
+                                const string_view other) override;
 
   component::IKVStore *create(unsigned           debug_level,
-                              const std::string &owner,
-                              const std::string &addr,
-                              const std::string &device) override;
+                              const string_view owner,
+                              const string_view addr,
+                              const string_view device) override;
 
   component::IKVStore *create(unsigned debug_level, const std::map<std::string, std::string> &) override;
 };

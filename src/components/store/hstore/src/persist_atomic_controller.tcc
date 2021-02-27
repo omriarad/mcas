@@ -150,10 +150,10 @@ template <typename Table>
 		TM_SCOPE()
 		{
 			update_finisher uf(*this);
-			char *src = _persisted->mod_mapped.data();
+			auto *src = _persisted->mod_mapped.data();
 			/* NOTE: depends on mapped type */
 			auto &v = _persisted->map->at(TM_REF _persisted->mod_key);
-			char *dst = std::get<0>(v).data();
+			auto *dst = std::get<0>(v).data();
 			auto mod_ctl = &*(_persisted->mod_ctl);
 			for ( auto i = mod_ctl; i != &mod_ctl[_persisted->mod_size]; ++i )
 			{
@@ -255,9 +255,8 @@ template <typename Table>
 		typename table_type::allocator_type al_
 		, table_type *map_
 		, lock_state lock_
-		, const string_view key
-		, const char *data_
-		, std::size_t data_len_
+		, const string_view_key key
+		, const string_view_value value_
 		, std::size_t zeros_extend_
 		, std::size_t alignment_
 	)
@@ -274,8 +273,16 @@ template <typename Table>
 				_persisted->ase().em_record_owner_addr_and_bitmask(&_persisted->mod_owner, 1, *pe);
 			}
 #endif
-			_persisted->mod_key.assign(AK_REF key.begin(), key.end(), lock_state::free, al_);
-			_persisted->mod_mapped.assign(AK_REF data_, data_ + data_len_, zeros_extend_, alignment_, lock_, al_);
+			_persisted->mod_key.assign(AK_REF key, lock_state::free, al_);
+/*
+no matching function for call to ‘persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::assign(
+const string_view_key&
+, lock_state
+, impl::hop_hash_base<persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >, std::tuple<persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >, common::Timestamp<common::Timepoint> >, pstr_hash<persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> > >, pstr_equal<persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> > >, allocator_cc<std::pair<const persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >, std::tuple<persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >, common::Timestamp<common::Timepoint> > >, persister_nupm>, dummy::shared_mutex>::allocator_type&
+) const’
+
+*/
+			_persisted->mod_mapped.assign(AK_REF value_, zeros_extend_, alignment_, lock_, al_);
 			_persisted->map = map_;
 			this->persist(&_persisted->map, sizeof _persisted->map);
 			_persisted->mod_owner = 1;
@@ -296,13 +303,13 @@ template <typename Table>
 			typename table_type::allocator_type al_
 			, table_type *map_
 			, lock_state lock_
-			, const string_view key
+			, const string_view_key key
 			, IT first
 			, IT last
 		)
 		{
 			TM_SCOPE()
-			std::vector<char, boost::alignment::aligned_allocator<char, 64>> src;
+			std::vector<string_view_value::value_type, boost::alignment::aligned_allocator<string_view_value::value_type, 64>> src;
 			std::vector<mod_control> mods;
 			for ( ; first != last ; ++first )
 			{
@@ -317,7 +324,7 @@ template <typename Table>
 						auto src_offset = src.size();
 						auto dst_offset = wr.offset();
 						auto size = wr.size();
-						auto op_src = static_cast<const char *>(wr.data());
+						auto op_src = static_cast<const string_view_value::value_type *>(wr.data());
 						std::copy(op_src, op_src + size, std::back_inserter(src));
 						mods.emplace_back(src_offset, dst_offset, size);
 					}
@@ -328,8 +335,8 @@ template <typename Table>
 			}
 
 			/* leaky */
-			_persisted->mod_key.assign(AK_REF key.begin(), key.end(), lock_state::free, al_);
-			_persisted->mod_mapped.assign(AK_REF src.begin(), src.end(), lock_, al_);
+			_persisted->mod_key.assign(AK_REF key, lock_state::free, al_);
+			_persisted->mod_mapped.assign(AK_REF string_view_value(&*src.begin(), src.size()), lock_, al_);
 			{
 				/* leaky ERROR: local pointer can leak */
 				persistent_t<typename std::allocator_traits<allocator_type>::pointer> ptr = nullptr;

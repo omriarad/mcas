@@ -18,7 +18,7 @@
 #include <api/kvindex_itf.h>
 #include <api/kvstore_itf.h>
 #include <boost/optional.hpp>
-#include <common/byte_span.h>
+#include <common/byte.h>
 #include <common/pointer_cast.h>
 #include <common/string_view.h>
 
@@ -82,8 +82,11 @@ public:
   using Addr            = IKVStore::Addr;
   using byte            = common::byte;
   
-  template <typename T>
-    using basic_string_view = std::experimental::basic_string_view<T>;
+  using string_view = common::string_view;
+  using string_view_byte = common::basic_string_view<byte>;
+  using string_view_key = string_view_byte;
+  using string_view_request = string_view_byte;
+  using string_view_value = string_view_byte;
 
   static constexpr key_t           KEY_NONE           = IKVStore::KEY_NONE;
   static constexpr memory_handle_t MEMORY_HANDLE_NONE = IKVStore::HANDLE_NONE;
@@ -169,7 +172,7 @@ public:
    *
    * @return Pool handle
    */
-  virtual IMCAS::pool_t create_pool(const std::string& pool_name,
+  virtual IMCAS::pool_t create_pool(const string_view pool_name,
                                     const size_t       size,
                                     const unsigned int flags              = 0,
                                     const uint64_t     expected_obj_count = 0,
@@ -185,7 +188,7 @@ public:
    *
    * @return Pool handle
    */
-  virtual IMCAS::pool_t open_pool(const std::string& pool_name,
+  virtual IMCAS::pool_t open_pool(const string_view pool_name,
                                   const unsigned int flags = 0,
                                   const Addr base = Addr{0}) = 0;
 
@@ -203,7 +206,7 @@ public:
    *
    * @return S_OK or E_ALREADY_OPEN
    */
-  virtual status_t delete_pool(const std::string& pool_name) = 0;
+  virtual status_t delete_pool(const common::string_view pool_name) = 0;
 
   /**
    * Close and delete an existing pool from a pool handle. Only one
@@ -224,7 +227,7 @@ public:
    *
    * @return S_OK on success
    */
-  virtual status_t configure_pool(const IMCAS::pool_t pool, const std::string& setting) = 0;
+  virtual status_t configure_pool(const IMCAS::pool_t pool, const string_view setting) = 0;
 
   /**
    * Write or overwrite an object value. If there already exists a
@@ -240,18 +243,37 @@ public:
    * @return S_OK or error code
    */
   virtual status_t put(const IMCAS::pool_t pool,
-                       const std::string&  key,
+                       string_view_byte    key,
                        const void*         value,
                        const size_t        value_len,
                        const unsigned int  flags = IMCAS::FLAGS_NONE) = 0;
 
-  virtual status_t put(const IMCAS::pool_t pool,
-                       const std::string&  key,
-                       const std::string&  value,
+  /* other-type-of-key-string put operation */
+  status_t put(const pool_t pool,
+    string_view             key,
+    const void*             value,
+    const size_t            value_len,
+    const unsigned int      flags = IMCAS::FLAGS_NONE)
+  {
+    return put(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), value, value_len, flags); 
+  }
+
+  status_t put(const IMCAS::pool_t pool,
+                       string_view_byte    key,
+                       string_view_byte    value,
                        const unsigned int  flags = IMCAS::FLAGS_NONE)
   {
     /* this does not store any null terminator */
     return put(pool, key, value.data(), value.length(), flags);
+  }
+
+  status_t put(const IMCAS::pool_t pool,
+                       string_view         key,
+                       string_view         value,
+                       const unsigned int  flags = IMCAS::FLAGS_NONE)
+  {
+    /* this does not store any null terminator */
+    return put(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), value.data(), value.length(), flags);
   }
 
   /**
@@ -268,11 +290,21 @@ public:
    * @return S_OK or error code
    */
   virtual status_t put_direct(const IMCAS::pool_t   pool,
-                              const std::string&    key,
+                              const string_view_byte key,
                               const void*           value,
                               const size_t          value_len,
                               const memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE,
                               const unsigned int    flags  = IMCAS::FLAGS_NONE) = 0;
+
+  status_t put_direct(const IMCAS::pool_t   pool,
+                              const common::string_view key,
+                              const void*           value,
+                              const size_t          value_len,
+                              const memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE,
+                              const unsigned int    flags  = IMCAS::FLAGS_NONE)
+  {
+    return put_direct(pool, string_view_byte(common::pointer_cast<common::byte>(key.data()), key.size()), value, value_len, handle, flags);
+  }
 
   /**
    * Asynchronous put operation.  Use check_async_completion to check for
@@ -288,15 +320,25 @@ public:
    * @return S_OK or other error code
    */
   virtual status_t async_put(const IMCAS::pool_t pool,
-                             const std::string&  key,
+                             const string_view_byte key,
                              const void*         value,
                              const size_t        value_len,
                              async_handle_t&     out_handle,
                              const unsigned int  flags = IMCAS::FLAGS_NONE) = 0;
 
+  status_t async_put(const IMCAS::pool_t pool,
+                             const common::string_view key,
+                             const void*         value,
+                             const size_t        value_len,
+                             async_handle_t&     out_handle,
+                             const unsigned int  flags = IMCAS::FLAGS_NONE)
+  {
+    return async_put(pool, string_view_byte(common::pointer_cast<common::byte>(key.data()), key.size()), value, value_len, out_handle, flags);
+  }
+
   virtual status_t async_put(const IMCAS::pool_t pool,
-                             const std::string&  key,
-                             const std::string&  value,
+                             const string_view_byte key,
+                             const string_view_byte value,
                              async_handle_t&     out_handle,
                              const unsigned int  flags = IMCAS::FLAGS_NONE)
   {
@@ -319,12 +361,24 @@ public:
    * @return S_OK or other error code
    */
   virtual status_t async_put_direct(const IMCAS::pool_t   pool,
-                                    const std::string&    key,
+                                    const string_view_byte key,
                                     const void*           value,
                                     const size_t          value_len,
                                     async_handle_t&       out_handle,
                                     const memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE,
                                     const unsigned int    flags  = IMCAS::FLAGS_NONE) = 0;
+
+  status_t async_put_direct(const IMCAS::pool_t   pool,
+                                    const common::string_view key,
+                                    const void*           value,
+                                    const size_t          value_len,
+                                    async_handle_t&       out_handle,
+                                    const memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE,
+                                    const unsigned int    flags  = IMCAS::FLAGS_NONE)
+  {
+    return async_put_direct(pool, string_view_byte(common::pointer_cast<common::byte>(key.data()), key.size()), value, value_len, out_handle, handle, flags);
+  }
+
   /**
    * Read an object value
    *
@@ -336,12 +390,20 @@ public:
    * @return S_OK or error code
    */
   virtual status_t get(const IMCAS::pool_t pool,
-                       const std::string&  key,
+                       const string_view_byte key,
                        void*&              out_value, /* release with free_memory() API */
                        size_t&             out_value_len) = 0;
 
   virtual status_t get(const IMCAS::pool_t pool,
-                       const std::string& key,
+                       const common::string_view key,
+                       void*&              out_value, /* release with free_memory() API */
+                       size_t&             out_value_len)
+  {
+    return get(pool, string_view_byte(common::pointer_cast<common::byte>(key.data()), key.size()), out_value, out_value_len);
+  }
+
+  virtual status_t get(const IMCAS::pool_t pool,
+                       const string_view_byte key,
                        std::string& out_value)
   {
     void*  val      = nullptr;
@@ -356,6 +418,12 @@ public:
     return s;
   }
 
+  virtual status_t get(const IMCAS::pool_t pool,
+                       const string_view key,
+                       std::string& out_value)
+  {
+    return get(pool, string_view_byte(common::pointer_cast<common::byte>(key.data()), key.size()), out_value);
+  }
 
   /**
    * Read an object value directly into client-provided memory.
@@ -371,10 +439,19 @@ public:
    * invalid alignment, or other error code
    */
   virtual status_t get_direct(const IMCAS::pool_t          pool,
-                              const std::string&           key,
+                              const string_view_byte       key,
                               void*                        out_value,
                               size_t&                      out_value_len,
                               const IMCAS::memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE) = 0;
+
+  status_t get_direct(const IMCAS::pool_t          pool,
+                              const common::string_view    key,
+                              void*                        out_value,
+                              size_t&                      out_value_len,
+                              const IMCAS::memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE)
+  {
+    return get_direct(pool, string_view_byte(common::pointer_cast<common::byte>(key.data()), key.size()), out_value, out_value_len, handle);
+  }
 
   /**
    * Asynchronously read an object value directly into client-provided memory.
@@ -390,11 +467,21 @@ public:
    * invalid alignment, or other error code
    */
   virtual status_t async_get_direct(const IMCAS::pool_t          pool,
-                                    const std::string&           key,
+                                    const string_view_byte       key,
                                     void*                        out_value,
                                     size_t&                      out_value_len,
                                     async_handle_t&              out_handle,
                                     const IMCAS::memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE) = 0;
+
+   status_t async_get_direct(const IMCAS::pool_t          pool,
+                                    const common::string_view    key,
+                                    void*                        out_value,
+                                    size_t&                      out_value_len,
+                                    async_handle_t&              out_handle,
+                                    const IMCAS::memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE)
+  {
+    return async_get_direct(pool, string_view_byte(common::pointer_cast<common::byte>(key.data()), key.size()), out_value, out_value_len, out_handle, handle);
+  }
 
   /**
    * Read memory directly into client-provided memory.
@@ -467,7 +554,7 @@ public:
    * @return S_OK on success
    */
   virtual status_t find(const IMCAS::pool_t pool,
-                        const std::string&  key_expression,
+                        const common::string_view key_expression,
                         const offset_t      offset,
                         offset_t&           out_matched_offset,
                         std::string&        out_matched_key) = 0;
@@ -480,7 +567,8 @@ public:
    *
    * @return S_OK or error code
    */
-  virtual status_t erase(const IMCAS::pool_t pool, const std::string& key) = 0;
+  virtual status_t erase(const IMCAS::pool_t pool, const string_view_key key) = 0;
+  status_t erase(const IMCAS::pool_t pool, const string_view key) { return erase(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size())); }
 
   /**
    * Erase an object asynchronously
@@ -491,7 +579,14 @@ public:
    *
    * @return S_OK or error code
    */
-  virtual status_t async_erase(const IMCAS::pool_t pool, const std::string& key, async_handle_t& out_handle) = 0;
+  virtual status_t async_erase(const IMCAS::pool_t pool, const string_view_key key, async_handle_t& out_handle) = 0;
+  status_t async_erase(
+    const IMCAS::pool_t pool
+    , const string_view key
+    , async_handle_t& out_handle)
+  {
+    return async_erase(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), out_handle);
+  }
   /**
    * Return number of objects in the pool
    *
@@ -514,7 +609,17 @@ public:
   virtual status_t get_attribute(const IMCAS::pool_t    pool,
                                  const IMCAS::Attribute attr,
                                  std::vector<uint64_t>& out_attr,
-                                 const std::string*     key = nullptr) = 0;
+                                 const string_view_key key = string_view_key()) = 0;
+
+  status_t get_attribute(
+    const IMCAS::pool_t pool,
+    const IMCAS::Attribute attr,
+    std::vector<uint64_t>& out_attr,
+    const std::string *key)
+  {
+    string_view_key sv();
+    return get_attribute(pool, attr, out_attr, key ? string_view_key(common::pointer_cast<string_view_key::value_type>(key->data()), key->size()) : string_view_key());
+  }
 
   /**
    * Retrieve shard statistics
@@ -612,15 +717,16 @@ public:
    *
    * @return S_OK on success
    */
-  virtual status_t invoke_ado(const IMCAS::pool_t           pool,
-                              const basic_string_view<byte> key,
-                              const basic_string_view<byte> request,
-                              const ado_flags_t             flags,
-                              std::vector<ADO_response>&    out_response,
-                              const size_t                  value_size = 0) = 0;
 
   virtual status_t invoke_ado(const IMCAS::pool_t        pool,
-                              const std::string&         key,
+                              const string_view_key      key,
+                              const string_view_request  request,
+                              const ado_flags_t          flags,
+                              std::vector<ADO_response>& out_response,
+                              const size_t               value_size = 0) = 0;
+  /* classic */
+  virtual status_t invoke_ado(const IMCAS::pool_t        pool,
+                              const string_view          key,
                               const void*                request,
                               const size_t               request_len,
                               const ado_flags_t          flags,
@@ -629,14 +735,14 @@ public:
   {
     return
       invoke_ado(pool,
-        basic_string_view<byte>(common::pointer_cast<const byte>(key.data()), key.size()),
-        basic_string_view<byte>(static_cast<const byte *>(request), request_len),
+        string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()),
+        string_view_request(static_cast<const string_view_request::value_type *>(request), request_len),
         flags, out_response, value_size);
   }
-
+  /* character */
   inline status_t invoke_ado(const IMCAS::pool_t        pool,
-                             const std::string&         key,
-                             const std::string&         request,
+                             const string_view          key,
+                             const string_view          request,
                              const ado_flags_t          flags,
                              std::vector<ADO_response>& out_response,
                              const size_t               value_size = 0)
@@ -644,7 +750,6 @@ public:
     return
       invoke_ado(pool, key, request.data(), request.length(), flags, out_response, value_size);
   }
-
 
   /**
    * Used to asynchronously invoke an operation on an ADO
@@ -663,16 +768,17 @@ public:
    * @return S_OK on success
    */
   virtual status_t async_invoke_ado(const IMCAS::pool_t           pool,
-                                    const basic_string_view<byte> key,
-                                    const basic_string_view<byte> request,
+                                    const string_view_key         key,
+                                    const string_view_request     request,
                                     const ado_flags_t             flags,
                                     std::vector<ADO_response>&    out_response,
                                     async_handle_t&               out_async_handle,
                                     const size_t                  value_size = 0) = 0;
 
+  /* character version */
   inline status_t async_invoke_ado(const IMCAS::pool_t        pool,
-                                   const std::string&         key,
-                                   const std::string&         request,
+                                   const string_view          key,
+                                   const string_view          request,
                                    const ado_flags_t          flags,
                                    std::vector<ADO_response>& out_response,
                                    async_handle_t&            out_async_handle,
@@ -680,13 +786,13 @@ public:
   {
     return
       async_invoke_ado(pool,
-        basic_string_view<byte>(common::pointer_cast<const byte>(key.data()), key.size()),
-        basic_string_view<byte>(common::pointer_cast<const byte>(request.data()), request.length()),
+        string_view_key(common::pointer_cast<const byte>(key.data()), key.size()),
+        string_view_request(common::pointer_cast<const byte>(request.data()), request.length()),
         flags, out_response, out_async_handle, value_size);
   }
-
+  /* classic version */
   inline status_t async_invoke_ado(const IMCAS::pool_t        pool,
-                                   const std::string&         key,
+                                   const string_view          key,
                                    const void*                request,
                                    const size_t               request_len,
                                    const ado_flags_t          flags,
@@ -696,8 +802,8 @@ public:
   {
     return
       async_invoke_ado(pool,
-        basic_string_view<byte>(common::pointer_cast<const byte>(key.data()), key.size()),
-        basic_string_view<byte>(static_cast<const byte *>(request), request_len),
+        string_view_key(common::pointer_cast<const byte>(key.data()), key.size()),
+        string_view_request(static_cast<const byte *>(request), request_len),
         flags, out_response, out_async_handle, value_size);
   }
 
@@ -720,15 +826,15 @@ public:
    * @return S_OK on success
    */
   virtual status_t invoke_put_ado(const IMCAS::pool_t           pool,
-                                  const basic_string_view<byte> key,
-                                  const basic_string_view<byte> request,
-                                  const basic_string_view<byte> value,
+                                  const string_view_key         key,
+                                  const string_view_request     request,
+                                  const string_view_value       value,
                                   const size_t                  root_len,
                                   const ado_flags_t             flags,
                                   std::vector<ADO_response>&    out_response) = 0;
-
+  /* classic version */
   virtual status_t invoke_put_ado(const IMCAS::pool_t        pool,
-                                  const std::string&         key,
+                                  const string_view          key,
                                   const void*                request,
                                   const size_t               request_len,
                                   const void*                value,
@@ -739,16 +845,16 @@ public:
   {
     return
       invoke_put_ado(pool,
-        basic_string_view<byte>(common::pointer_cast<const byte>(key.data()), key.size()),
-        basic_string_view<byte>(static_cast<const byte *>(request), request_len),
-        basic_string_view<byte>(static_cast<const byte *>(value), value_len),
+        string_view_byte(common::pointer_cast<const byte>(key.data()), key.size()),
+        string_view_byte(static_cast<const byte *>(request), request_len),
+        string_view_byte(static_cast<const byte *>(value), value_len),
         root_len, flags, out_response);
   }
-
+  /* character version */
   inline status_t invoke_put_ado(const IMCAS::pool_t        pool,
-                                 const std::string&         key,
-                                 const std::string&         request,
-                                 const std::string&         value,
+                                 const string_view          key,
+                                 const string_view          request,
+                                 const string_view          value,
                                  const size_t               root_len,
                                  const ado_flags_t          flags,
                                  std::vector<ADO_response>& out_response)
@@ -783,16 +889,17 @@ public:
    * @return S_OK on success
    */
   virtual status_t async_invoke_put_ado(const IMCAS::pool_t           pool,
-                                        const basic_string_view<byte> key,
-                                        const basic_string_view<byte> request,
-                                        const basic_string_view<byte> value,
+                                        const string_view_key key,
+                                        const string_view_request request,
+                                        const string_view_value value,
                                         const size_t                  root_len,
                                         const ado_flags_t             flags,
                                         std::vector<ADO_response>&    out_response,
                                         async_handle_t&               out_async_handle) = 0;
 
+  /* classic */
   virtual status_t async_invoke_put_ado(const IMCAS::pool_t        pool,
-                                        const std::string&         key,
+                                        const string_view          key,
                                         const void*                request,
                                         const size_t               request_len,
                                         const void*                value,
@@ -804,16 +911,17 @@ public:
   {
     return
       async_invoke_put_ado(pool,
-        basic_string_view<byte>(common::pointer_cast<const byte>(key.data()), key.size()),
-        basic_string_view<byte>(static_cast<const byte *>(request), request_len),
-        basic_string_view<byte>(static_cast<const byte *>(value), value_len),
+        string_view_byte(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()),
+        string_view_byte(static_cast<const string_view_request::value_type *>(request), request_len),
+        string_view_byte(static_cast<const string_view_value::value_type *>(value), value_len),
                            root_len, flags, out_response, out_async_handle);
   }
 
+  /* character */
   inline status_t async_invoke_put_ado(const IMCAS::pool_t        pool,
-                                       const std::string&         key,
-                                       const std::string&         request,
-                                       const std::string&         value,
+                                       const string_view          key,
+                                       const string_view          request,
+                                       const string_view          value,
                                        const size_t               root_len,
                                        const ado_flags_t          flags,
                                        std::vector<ADO_response>& out_response,
@@ -845,6 +953,7 @@ public:
 
 
 class IMCAS_factory : public IKVStore_factory {
+  using string_view = common::string_view;
 public:
   // clang-format off
   DECLARE_INTERFACE_UUID(0xfacf1b99,0xbc51,0x49ff,0xa27b,0xd4,0xe8,0x19,0x03,0xbb,0x02);
@@ -861,26 +970,26 @@ public:
    *
    * @return Pointer to IMCAS instance. Use release_ref() to close.
    */
-  virtual IMCAS* mcas_create(const unsigned, // debug_level
+  virtual IMCAS* mcas_create_nsd(const unsigned, // debug_level
                              const unsigned, // patience with server (in seconds)
-                             const std::string&, // owner
-                             const boost::optional<std::string>&, // src_nic_device
-                             const boost::optional<std::string>&, // src_ip_addr
-                             const std::string&, // dest_addr_with_port
-                             const std::string = "") // other
+                             const string_view, // owner
+                             const string_view, // src_nic_device
+                             const string_view, // source: src_ip_addr
+                             const string_view, // destination: dest_addr_with_port
+                             const string_view = string_view()) // other
   {
     throw API_exception("IMCAS_factory::mcas_create(debug_level,patience,owner,addr_with_port,"
                         "nic_device) not implemented");
   }
 
-  IMCAS* mcas_create(const unsigned     debug_level,
-                     const unsigned     patience,
-                     const std::string& owner,
-                     const std::string& dest_addr_with_port,
-                     const std::string& nic_device,
-                     const std::string  other = "")
+  IMCAS* mcas_create(const unsigned    debug_level,
+                     const unsigned    patience,
+                     const string_view owner,
+                     const string_view dest_addr_with_port,
+                     const string_view nic_device,
+                     const string_view other = string_view())
   {
-    return mcas_create(debug_level, patience, owner, nic_device, boost::optional<std::string>(), dest_addr_with_port, other);
+    return mcas_create_nsd(debug_level, patience, owner, nic_device, string_view(), dest_addr_with_port, other);
   }
 };
 

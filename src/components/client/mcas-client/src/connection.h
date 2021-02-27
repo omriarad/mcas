@@ -86,14 +86,17 @@ using Connection_base = mcas::client::Fabric_transport;
 class Connection_handler : public Connection_base {
   using iob_ptr        = std::unique_ptr<client::Fabric_transport::buffer_t, iob_free>;
   using locate_element = protocol::Message_IO_response::locate_element;
+  using string_view = common::string_view;
 
 public:
   friend struct TLS_transport;
 
   using memory_region_t = typename Transport::memory_region_t;
-  template <typename T>
-    using basic_string_view = common::basic_string_view<T>;
   using byte = common::byte;
+  using string_view_byte = common::basic_string_view<byte>;
+  using string_view_key = string_view_byte;
+  using string_view_value = string_view_byte;
+  using string_view_request = string_view_byte;
 
   /**
    * Constructor
@@ -108,7 +111,7 @@ public:
   Connection_handler(const unsigned debug_level,
                      Connection_base::Transport *connection,
                      const unsigned patience,
-                     const std::string other);
+                     common::string_view other);
 
   ~Connection_handler();
 
@@ -148,11 +151,11 @@ public:
     while (tick() > 0) sleep(1);
   }
 
-  pool_t open_pool(const std::string name,
+  pool_t open_pool(const string_view name,
                    const unsigned int flags,
                    const addr_t base);
 
-  pool_t create_pool(const std::string  name,
+  pool_t create_pool(const string_view  name,
                      const size_t       size,
                      const unsigned int flags,
                      const uint64_t     expected_obj_count,
@@ -160,14 +163,14 @@ public:
 
   status_t close_pool(const pool_t pool);
 
-  status_t delete_pool(const std::string &name);
+  status_t delete_pool(const string_view name);
 
   status_t delete_pool(const pool_t pool);
 
-  status_t configure_pool(const component::IKVStore::pool_t pool, const std::string &json);
+  status_t configure_pool(const component::IKVStore::pool_t pool, const string_view json);
 
   status_t put(const pool_t       pool,
-               const std::string  key,
+               string_view_key    key,
                const void *       value,
                const size_t       value_len,
                const unsigned int flags);
@@ -218,9 +221,9 @@ public:
 
   status_t check_async_completion(component::IMCAS::async_handle_t &handle);
 
-  status_t get(const pool_t pool, const std::string &key, std::string &value);
+  status_t get(const pool_t pool, const string_view_key key, std::string & value);
 
-  status_t get(const pool_t pool, const std::string &key, void *&value, size_t &value_len);
+  status_t get(const pool_t pool, const string_view_key key, void *&value, size_t &value_len);
 
   status_t get_direct(const pool_t                         pool,
                       const void *                         key,
@@ -260,10 +263,10 @@ public:
                                    component::Registrar_memory_direct *rmd,
                                    component::IMCAS::memory_handle_t   handle);
 
-  status_t erase(const pool_t pool, const std::string &key);
+  status_t erase(const pool_t pool, const string_view_key key);
 
   status_t async_erase(const component::IMCAS::pool_t    pool,
-                       const std::string &               key,
+                       const string_view_key         key,
                        component::IMCAS::async_handle_t &out_handle);
 
   uint64_t key_hash(const void *key, const size_t key_len);
@@ -289,43 +292,43 @@ public:
   status_t get_attribute(const component::IKVStore::pool_t    pool,
                          const component::IKVStore::Attribute attr,
                          std::vector<uint64_t> &              out_attr,
-                         const std::string *                  key);
+                         const string_view_key            key);
 
   status_t get_statistics(component::IMCAS::Shard_stats &out_stats);
 
   status_t find(const component::IKVStore::pool_t pool,
-                const std::string &               key_expression,
+                string_view                       key_expression,
                 const offset_t                    offset,
                 offset_t &                        out_matched_offset,
                 std::string &                     out_matched_key);
 
   status_t invoke_ado(const component::IMCAS::pool_t               pool,
-                      basic_string_view<byte>                      key,
-                      basic_string_view<byte>                      request,
+                      string_view_key                              key,
+                      string_view_request                          request,
                       const unsigned int                           flags,
                       std::vector<component::IMCAS::ADO_response> &out_response,
                       const size_t                                 value_size);
 
   status_t invoke_ado_async(const component::IMCAS::pool_t               pool,
-                            basic_string_view<byte>                      key,
-                            basic_string_view<byte>                      request,
+                            string_view_key                      key,
+                            string_view_request                      request,
                             const component::IMCAS::ado_flags_t          flags,
                             std::vector<component::IMCAS::ADO_response> &out_response,
                             component::IMCAS::async_handle_t &           out_async_handle,
                             const size_t                                 value_size);
 
   status_t invoke_put_ado(const component::IMCAS::pool_t               pool,
-                          basic_string_view<byte>                      key,
-                          basic_string_view<byte>                      request,
-                          basic_string_view<byte>                      value,
+                          string_view_key                      key,
+                          string_view_request                      request,
+                          string_view_value                      value,
                           size_t                                       root_len,
                           const unsigned int                           flags,
                           std::vector<component::IMCAS::ADO_response> &out_response);
 
   status_t invoke_put_ado_async(const component::IMCAS::pool_t                  pool,
-                                const basic_string_view<byte>                   key,
-                                const basic_string_view<byte>                   request,
-                                const basic_string_view<byte>                   value,
+                                const string_view_key                   key,
+                                const string_view_request                   request,
+                                const string_view_value                   value,
                                 const size_t                                    root_len,
                                 const component::IMCAS::ado_flags_t             flags,
                                 std::vector<component::IMCAS::ADO_response>&    out_response,

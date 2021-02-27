@@ -15,6 +15,8 @@
 #define _MCAS_PSTR_HASH_H_
 
 #include <city.h>
+#include <common/pointer_cast.h>
+#include <common/string_view.h>
 #include <cstdint>
 #include <string>
 
@@ -25,18 +27,13 @@ template <typename Key>
     using result_type = std::uint64_t;
     static result_type hf(const argument_type &s)
     {
-      return CityHash64(s.data(), s.size());
+      return CityHash64(common::pointer_cast<char>(s.data()), s.size());
     }
-    /* Note: pstr_hash knows how to hash a std::string
-     * even when it is not specialized for a string.
-     * Why not require that the Key be std::string
-     * if it is to compute a hash on a string?
-     * Where do we require this special case?
-     */
-    static result_type hf(const std::string &s)
-    {
-      return CityHash64(s.data(), s.size());
-    }
+	template <typename C>
+      static result_type hf(const common::basic_string_view<C> s)
+      {
+        return CityHash64(common::pointer_cast<char>(s.data()), s.size());
+      }
   };
 
 #endif

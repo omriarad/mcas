@@ -148,7 +148,11 @@ class Message {
   };
   uint8_t _resvd;  // reserved (but used for a couple of flags)
 
+ protected:
+  using string_view_byte = common::basic_string_view<common::byte>;
+  using string_view_key = string_view_byte;
  public:
+
   Message(uint64_t auth_id, std::size_t msg_len, MSG_TYPE type_id, OP_TYPE op_param)
       : _auth_id(auth_id),
         _msg_len(boost::numeric_cast<decltype(_msg_len)>(msg_len)),
@@ -405,7 +409,12 @@ struct Message_IO_request : public Message_numbered_request {
   static constexpr auto        id          = MSG_TYPE::IO_REQUEST;
   static constexpr const char* description = "Message_IO_request";
   using data_t                             = uint8_t; /* some trailing data is typed uint8_t, some is typed
-                                                         charu. This used to be char */
+                                                         char. This used to be char */
+  using string_view = common::string_view;
+  using string_view_byte = common::basic_string_view<common::byte>;
+  using string_view_key = string_view_byte;
+  using string_view_value = string_view_byte;
+
  private:
   auto data() const { return common::pointer_cast<const data_t>(this + 1); }
   auto cdata() const { return common::pointer_cast<const char>(this + 1); }
@@ -468,8 +477,8 @@ struct Message_IO_request : public Message_numbered_request {
                      uint64_t           request_id,
                      uint64_t           pool_id_,
                      OP_TYPE            op_,
-                     common::string_view key,
-                     common::string_view value,
+                     string_view_key    key,
+                     string_view_value  value,
                      uint32_t           flags_)
       : Message_IO_request(buffer_size,
                            auth_id,
@@ -510,7 +519,7 @@ struct Message_IO_request : public Message_numbered_request {
                      uint64_t           request_id,
                      uint64_t           pool_id_,
                      OP_TYPE            op_,
-                     common::string_view key,
+                     string_view_key    key,
                      size_t             value_len,
                      uint32_t           flags_)
       : Message_IO_request(buffer_size, auth_id, request_id, pool_id_, op_, key.data(), key.size(), value_len, flags_)
@@ -523,7 +532,7 @@ struct Message_IO_request : public Message_numbered_request {
                      uint64_t           request_id_,
                      uint64_t           pool_id_,
                      OP_TYPE            op_,
-                     common::string_view data)
+                     string_view        data)
       : Message_IO_request(buffer_size, auth_id, request_id_, pool_id_, op_, data.data(), data.size(), 0, 0)
   {
   }
@@ -732,7 +741,7 @@ struct Message_INFO_request : public Message {
   size_t      base_message_size() const { return (sizeof *this); }
   size_t      message_size() const { return (sizeof *this) + key_len + 1; }
 
-  void set_key(const size_t buffer_size, common::string_view key)
+  void set_key(const size_t buffer_size, string_view_key key)
   {
     key_len = key.length();
     if ((key_len + base_message_size() + 1) > buffer_size)

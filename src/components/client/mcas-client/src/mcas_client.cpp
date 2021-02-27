@@ -33,21 +33,21 @@ unsigned debug_level = 3;
 }  // namespace mcas
 
 MCAS_client::MCAS_client(const unsigned                      debug_level,
-                         const boost::optional<std::string> &src_device,
-                         const boost::optional<std::string> &src_addr,
-                         const boost::optional<std::string> &provider,
-                         const std::string &                 dest_addr,
+                         const common::string_view           src_device,
+                         const common::string_view           src_addr,
+                         const common::string_view           provider,
+                         const common::string_view           dest_addr,
                          std::uint16_t                       port,
                          const unsigned                      patience_,
-                         const std::string                   other_)
+                         const common::string_view           other_)
 : common::log_source(debug_level),
   _factory(load_factory()),
-  _fabric(make_fabric(*_factory, src_addr, src_device, provider)),
+  _fabric(make_fabric_sip(*_factory, src_addr, src_device, provider)),
   _transport(_fabric->open_client(common::json::serializer<common::json::dummy_writer>::object{}.str(), dest_addr, port)),
   _connection(std::make_unique<mcas::client::Connection_handler>(debug_level, _transport.get(), patience_, other_)),
   _open_connection(*_connection)
 {
-  CPLOG(3, "Extra config: %s", other_.c_str());
+  CPLOG(3, "Extra config: %s", other_.data());
 }
 
 Open_connection::Open_connection(mcas::client::Connection_handler &_connection)
@@ -74,10 +74,10 @@ auto MCAS_client::load_factory() -> IFabric_factory *
   return factory;
 }
 
-auto MCAS_client::make_fabric(component::IFabric_factory &        factory_,
-                              const boost::optional<std::string> &src_addr_,
-                              const boost::optional<std::string> &domain_name_,
-                              const boost::optional<std::string> &fabric_prov_name_) -> IFabric *
+auto MCAS_client::make_fabric_sip(component::IFabric_factory &        factory_,
+                              const common::string_view src_addr_,
+                              const common::string_view domain_name_,
+                              const common::string_view fabric_prov_name_) -> IFabric *
 {
   namespace c_json = common::json;
   using json = c_json::serializer<c_json::dummy_writer>;
@@ -86,35 +86,35 @@ auto MCAS_client::make_fabric(component::IFabric_factory &        factory_,
       json::member("ep_attr", json::object(json::member("type", "FI_EP_MSG")))
     );
 
-    if ( fabric_prov_name_ )
+    if ( fabric_prov_name_.data() )
     {
       fabric_spec
         .append(
-          json::member("fabric_attr", json::object(json::member("prov_name", *fabric_prov_name_)))
+          json::member("fabric_attr", json::object(json::member("prov_name", fabric_prov_name_)))
         )
         ;
     }
 
-    if ( src_addr_ )
+    if ( src_addr_.data() )
     {
       fabric_spec
         .append(
           json::member("addr_format", "FI_ADDR_STR")
         )
         .append(
-          json::member("src_addr", "fi_sockaddr_in://" + *src_addr_ + ":0")
+          json::member("src_addr", "fi_sockaddr_in://" + std::string(src_addr_) + ":0")
         )
         ;
     }
 
-    if ( domain_name_ )
+    if ( domain_name_.data() )
     {
       fabric_spec
         .append(
           json::member(
             "domain_attr"
             , json::object(
-                json::member("name", *domain_name_)
+                json::member("name", domain_name_)
                 , json::member("threading", "FI_THREAD_SAFE")
             )
           )
@@ -125,11 +125,11 @@ auto MCAS_client::make_fabric(component::IFabric_factory &        factory_,
   return factory_.make_fabric(fabric_spec.str());
 }
 
-auto MCAS_client::make_fabric(component::IFabric_factory &factory_,
-                              const std::string &  // ip_addr
+auto MCAS_client::make_fabric_apd(component::IFabric_factory &factory_,
+                              const common::string_view  // ip_addr
                               ,
-                              const std::string &provider,
-                              const std::string &device) -> IFabric *
+                              const common::string_view provider,
+                              const common::string_view device) -> IFabric *
 {
   namespace c_json = common::json;
   using json = c_json::serializer<c_json::dummy_writer>;
@@ -181,7 +181,7 @@ int MCAS_client::get_capability(Capability cap) const
   }
 }
 
-IKVStore::pool_t MCAS_client::create_pool(const std::string &  name,
+IKVStore::pool_t MCAS_client::create_pool(const string_view  name,
                                           const size_t         size,
                                           const uint32_t       flags,
                                           const uint64_t       expected_obj_count,
@@ -190,7 +190,7 @@ IKVStore::pool_t MCAS_client::create_pool(const std::string &  name,
   return _connection->create_pool(name, size, flags, expected_obj_count, base.addr);
 }
 
-IKVStore::pool_t MCAS_client::open_pool(const std::string &  name,
+IKVStore::pool_t MCAS_client::open_pool(const string_view  name,
                                         const uint32_t       flags,
                                         const IKVStore::Addr base)
 {
@@ -203,9 +203,9 @@ status_t MCAS_client::close_pool(const IKVStore::pool_t pool)
   return _connection->close_pool(pool);
 }
 
-status_t MCAS_client::delete_pool(const std::string &name)
+status_t MCAS_client::delete_pool(const common::string_view name)
 {
-  return _connection->delete_pool(name);
+  return _connection->delete_pool(std::string(name));
 }
 
 status_t MCAS_client::delete_pool(IKVStore::pool_t pool)
@@ -213,13 +213,13 @@ status_t MCAS_client::delete_pool(IKVStore::pool_t pool)
   return _connection->delete_pool(pool);
 }
 
-status_t MCAS_client::configure_pool(const IKVStore::pool_t pool, const std::string &json)
+status_t MCAS_client::configure_pool(const IKVStore::pool_t pool, const string_view json)
 {
   return _connection->configure_pool(pool, json);
 }
 
 status_t MCAS_client::put(const IKVStore::pool_t pool,
-                          const std::string &    key,
+                          const string_view_key  key,
                           const void *           value,
                           const size_t           value_len,
                           uint32_t               flags)
@@ -229,7 +229,7 @@ status_t MCAS_client::put(const IKVStore::pool_t pool,
 }
 
 status_t MCAS_client::put_direct(const pool_t           pool,
-                                 const std::string &    key,
+                                 const string_view_key  key,
                                  const void *           value,
                                  const size_t           value_len,
                                  IMCAS::memory_handle_t handle,
@@ -239,7 +239,7 @@ status_t MCAS_client::put_direct(const pool_t           pool,
 }
 
 status_t MCAS_client::async_put(IKVStore::pool_t   pool,
-                                const std::string &key,
+                                const string_view_key key,
                                 const void *       value,
                                 size_t             value_len,
                                 async_handle_t &   out_handle,
@@ -249,7 +249,7 @@ status_t MCAS_client::async_put(IKVStore::pool_t   pool,
 }
 
 status_t MCAS_client::async_put_direct(const IKVStore::pool_t          pool,
-                                       const std::string &             key,
+                                       const string_view_key             key,
                                        const void *                    value,
                                        const size_t                    value_len,
                                        async_handle_t &                out_handle,
@@ -260,7 +260,7 @@ status_t MCAS_client::async_put_direct(const IKVStore::pool_t          pool,
 }
 
 status_t MCAS_client::async_get_direct(IKVStore::pool_t          pool,
-                                       const std::string &       key,
+                                       const string_view_key       key,
                                        void *                    value,
                                        size_t &                  value_len,
                                        async_handle_t &          out_handle,
@@ -275,7 +275,7 @@ status_t MCAS_client::check_async_completion(async_handle_t &handle)
 }
 
 status_t MCAS_client::get(const IKVStore::pool_t pool,
-                          const std::string &    key,
+                          const string_view_key key,
                           void *&                out_value, /* release with free() */
                           size_t &               out_value_len)
 {
@@ -283,7 +283,7 @@ status_t MCAS_client::get(const IKVStore::pool_t pool,
 }
 
 status_t MCAS_client::get_direct(const pool_t           pool,
-                                 const std::string &    key,
+                                 const string_view_key key,
                                  void *                 out_value,
                                  size_t &               out_value_len,
                                  IMCAS::memory_handle_t handle)
@@ -351,12 +351,12 @@ status_t MCAS_client::unregister_direct_memory(IKVStore::memory_handle_t handle)
   return _connection->unregister_direct_memory(handle);
 }
 
-status_t MCAS_client::erase(const IKVStore::pool_t pool, const std::string &key)
+status_t MCAS_client::erase(const IKVStore::pool_t pool, const string_view_key key)
 {
   return _connection->erase(pool, key);
 }
 
-status_t MCAS_client::async_erase(const IMCAS::pool_t pool, const std::string &key, async_handle_t &out_handle)
+status_t MCAS_client::async_erase(const IMCAS::pool_t pool, const string_view_key key, async_handle_t &out_handle)
 {
   return _connection->async_erase(pool, key, out_handle);
 }
@@ -366,7 +366,7 @@ size_t MCAS_client::count(const IKVStore::pool_t pool) { return _connection->cou
 status_t MCAS_client::get_attribute(const IKVStore::pool_t    pool,
                                     const IKVStore::Attribute attr,
                                     std::vector<uint64_t> &   out_attr,
-                                    const std::string *       key)
+                                    const string_view_key key)
 {
   return _connection->get_attribute(pool, attr, out_attr, key);
 }
@@ -389,7 +389,7 @@ void MCAS_client::debug(const IKVStore::pool_t  // pool
 }
 
 status_t MCAS_client::find(const IKVStore::pool_t pool,
-                           const std::string &    key_expression,
+                           string_view            key_expression,
                            const offset_t         offset,
                            offset_t &             out_matched_offset,
                            std::string &          out_matched_key)
@@ -398,8 +398,8 @@ status_t MCAS_client::find(const IKVStore::pool_t pool,
 }
 
 status_t MCAS_client::invoke_ado(const IKVStore::pool_t            pool,
-                                 basic_string_view<byte>           key,
-                                 basic_string_view<byte>           request,
+                                 string_view_key           key,
+                                 string_view_request           request,
                                  const uint32_t                    flags,
                                  std::vector<IMCAS::ADO_response> &out_response,
                                  const size_t                      value_size)
@@ -408,8 +408,8 @@ status_t MCAS_client::invoke_ado(const IKVStore::pool_t            pool,
 }
 
 status_t MCAS_client::async_invoke_ado(const IMCAS::pool_t        pool,
-                                       basic_string_view<byte>    key,
-                                       basic_string_view<byte>    request,
+                                       string_view_key    key,
+                                       string_view_request    request,
                                        const ado_flags_t          flags,
                                        std::vector<ADO_response> &out_response,
                                        async_handle_t &           out_async_handle,
@@ -420,9 +420,9 @@ status_t MCAS_client::async_invoke_ado(const IMCAS::pool_t        pool,
 }
 
 status_t MCAS_client::invoke_put_ado(const IKVStore::pool_t            pool,
-                                     basic_string_view<byte>           key,
-                                     basic_string_view<byte>           request,
-                                     basic_string_view<byte>           value,
+                                     string_view_key           key,
+                                     string_view_request           request,
+                                     string_view_value           value,
                                      size_t                            root_len,
                                      ado_flags_t                       flags,
                                      std::vector<IMCAS::ADO_response> &out_response)
@@ -431,9 +431,9 @@ status_t MCAS_client::invoke_put_ado(const IKVStore::pool_t            pool,
 }
 
 status_t MCAS_client::async_invoke_put_ado(const IMCAS::pool_t           pool,
-                                           const basic_string_view<byte> key,
-                                           const basic_string_view<byte> request,
-                                           const basic_string_view<byte> value,
+                                           const string_view_key key,
+                                           const string_view_request request,
+                                           const string_view_value value,
                                            const size_t                  root_len,
                                            const ado_flags_t             flags,
                                            std::vector<ADO_response>&    out_response,

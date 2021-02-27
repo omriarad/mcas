@@ -22,16 +22,17 @@
 struct lock_impl
 	: public component::IKVStore::Opaque_key
 {
-	using string_view = common::string_view;
+	using string_view = common::basic_string_view<common::byte>;
 private:
-	std::string _s;
+	using string = std::basic_string<common::byte>;
+	string _s;
 public:
 	lock_impl(const string_view s_)
 		: component::IKVStore::Opaque_key{}
-		, _s(s_.begin(), s_.end())
+		, _s(string(s_))
 	{
 	}
-	const std::string &key() const { return _s; }
+	string_view key() const { return _s; }
 	~lock_impl()
 	{
 	}

@@ -853,7 +853,7 @@ public:
 Connection_handler::Connection_handler(const unsigned              debug_level,
                                        Connection_base::Transport *connection,
                                        const unsigned              patience,
-                                       const std::string           other)
+                                       const common::string_view   other)
   : Connection_base(debug_level, connection, patience),
 #ifdef THREAD_SAFE_CLIENT
     _api_lock{},
@@ -872,10 +872,10 @@ Connection_handler::Connection_handler(const unsigned              debug_level,
   if(::getenv(ENVIRONMENT_VARIABLE_KEY) && ::getenv(ENVIRONMENT_VARIABLE_CERT))
     _options.tls = true;
 
-  if(!other.empty()) {
+  if(other.data()) {
     try {
       rapidjson::Document doc;
-      doc.Parse(other.c_str());
+      doc.Parse(other.data());
       auto security = doc.FindMember("security");
 
       /* set security options */
@@ -918,13 +918,13 @@ void Connection_handler::read_complete(void *param, buffer_t *iob)
   PLOG("%s param %p iob %p", __func__, param, common::p_fmt(iob));
 }
 
-Connection_handler::pool_t Connection_handler::open_pool(const std::string name,
+Connection_handler::pool_t Connection_handler::open_pool(const string_view name,
                                                          const unsigned int flags,
                                                          const addr_t base)
 {
   API_LOCK();
 
-  PMAJOR("Open pool: %s (flags=%u, base=0x%lx)", name.c_str(), flags, base);
+  PMAJOR("Open pool: %*.s (flags=%u, base=0x%lx)", int(name.size()), name.data(), flags, base);
 
   /* send pool request message */
 
@@ -988,7 +988,7 @@ Connection_handler::pool_t Connection_handler::open_pool(const std::string name,
 }
 
 Connection_handler::pool_t
-Connection_handler::create_pool(const std::string  name,
+Connection_handler::create_pool(const string_view  name,
                                 const size_t       size,
                                 const unsigned int flags,
                                 const uint64_t     expected_obj_count,
@@ -996,7 +996,7 @@ Connection_handler::create_pool(const std::string  name,
 {
   API_LOCK();
 
-  PMAJOR("Create pool: %s (flags=%u, base=0x%lx)", name.c_str(), flags, base);
+  PMAJOR("Create pool: %.*s (flags=%u, base=0x%lx)", int(name.size()), name.data(), flags, base);
 
   /* send pool request message */
   const auto iobs = make_iob_ptr_send();
@@ -1072,7 +1072,7 @@ status_t Connection_handler::close_pool(const pool_t pool)
   }
 }
 
-status_t Connection_handler::delete_pool(const std::string &name)
+status_t Connection_handler::delete_pool(const string_view name)
 
 {
   if (name.empty()) return E_INVAL;
@@ -1143,7 +1143,7 @@ status_t Connection_handler::delete_pool(const IMCAS::pool_t pool)
   }
 }
 
-status_t Connection_handler::configure_pool(const IMCAS::pool_t pool, const std::string &json)
+status_t Connection_handler::configure_pool(const IMCAS::pool_t pool, const string_view json)
 {
   API_LOCK();
 
@@ -1181,13 +1181,13 @@ status_t Connection_handler::configure_pool(const IMCAS::pool_t pool, const std:
  *
  */
 status_t Connection_handler::put(const pool_t       pool,
-                                 const std::string  key,
+                                 const string_view_key key,
                                  const void *       value,
                                  const size_t       value_len,
                                  const unsigned int flags)
 {
   if (value == nullptr || value_len == 0) return E_INVAL;
-  return put(pool, key.c_str(), key.length(), value, value_len, flags);
+  return put(pool, key.data(), key.length(), value, value_len, flags);
 }
 
 status_t Connection_handler::put(const pool_t       pool,
@@ -1658,13 +1658,13 @@ status_t Connection_handler::check_async_completion(IMCAS::async_handle_t &handl
   return status;
 }
 
-status_t Connection_handler::get(const pool_t pool, const std::string &key, std::string &value)
+status_t Connection_handler::get(const pool_t pool, const string_view_key key, std::string &value)
 {
   API_LOCK();
 
   if (debug_level() > 1) {
     auto key_len = key.length();
-    PINF("get: %.*s (key_len=%lu)", int(key_len), key.c_str(), key_len);
+    PINF("get: %.*s (key_len=%lu)", int(key_len), common::pointer_cast<char>(key.data()), key_len);
   }
 
   const auto iobs = make_iob_ptr_send();
@@ -1678,7 +1678,7 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
     const auto msg =
       new (iobs->base()) mcas::protocol::Message_IO_request(iobs->length(), auth_id(), request_id(), pool,
                                                             mcas::protocol::OP_GET,  // op
-                                                            key, "", 0);
+                                                            key, string_view_value(), 0);
 
     if (_options.short_circuit_backend) msg->add_scbe();
 
@@ -1711,13 +1711,13 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
     return status;
   }
 
-  status_t Connection_handler::get(const pool_t pool, const std::string &key, void *&value, size_t &value_len)
+  status_t Connection_handler::get(const pool_t pool, const string_view_key key, void *&value, size_t &value_len)
   {
     API_LOCK();
 
     if (debug_level() > 1) {
       auto key_len = key.length();
-      PINF("get: %.*s (key_len=%lu)", int(key_len), key.c_str(), key_len);
+      PINF("get: %.*s (key_len=%lu)", int(key_len), common::pointer_cast<char>(key.data()), key_len);
     }
 
     const auto iobs = make_iob_ptr_send();
@@ -1731,7 +1731,7 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
       const auto msg =
         new (iobs->base()) mcas::protocol::Message_IO_request(iobs->length(), auth_id(), request_id(), pool,
                                                               mcas::protocol::OP_GET,  // op
-                                                              key.c_str(), key.length(), 0);
+                                                              key.data(), key.length(), 0);
 
       /* indicate how much space has been allocated on this side. For
          get this is based on buffer size
@@ -1922,7 +1922,7 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
     return E_FAIL;
   }
 
-  status_t Connection_handler::erase(const pool_t pool, const std::string &key)
+  status_t Connection_handler::erase(const pool_t pool, const string_view_key key)
   {
     API_LOCK();
 
@@ -1935,7 +1935,7 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
 
     try {
       const auto msg = new (iobs->base()) mcas::protocol::Message_IO_request(
-                                                                             iobs->length(), auth_id(), request_id(), pool, mcas::protocol::OP_ERASE, key.c_str(), key.length(), 0);
+                                                                             iobs->length(), auth_id(), request_id(), pool, mcas::protocol::OP_ERASE, key.data(), key.length(), 0);
 
       post_recv(&*iobr);
       sync_inject_send(&*iobs, msg, __func__);
@@ -1958,7 +1958,7 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
   }
 
   status_t Connection_handler::async_erase(const IMCAS::pool_t    pool,
-                                           const std::string &    key,
+                                           const string_view_key key,
                                            IMCAS::async_handle_t &out_async_handle)
   {
     API_LOCK();
@@ -1975,7 +1975,7 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
                                                                              request_id(),
                                                                              pool,
                                                                              mcas::protocol::OP_ERASE,
-                                                                             key.c_str(),
+                                                                             key.data(),
                                                                              key.length(),
                                                                              0);
 
@@ -2033,7 +2033,7 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
   status_t Connection_handler::get_attribute(const IKVStore::pool_t    pool,
                                              const IKVStore::Attribute attr,
                                              std::vector<uint64_t> &   out_attr,
-                                             const std::string *       key)
+                                             const string_view_key key)
   {
     API_LOCK();
 
@@ -2047,7 +2047,7 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
     try {
       const auto msg = new (iobs->base()) mcas::protocol::Message_INFO_request(auth_id(), attr, pool);
 
-      if (key) msg->set_key(iobs->length(), *key);
+      if (key.data()) msg->set_key(iobs->length(), key);
 
       post_recv(&*iobr);
       sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
@@ -2112,7 +2112,7 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
   }
 
   status_t Connection_handler::find(const IMCAS::pool_t pool,
-                                    const std::string & key_expression,
+                                    string_view         key_expression,
                                     const offset_t      offset,
                                     offset_t &          out_matched_offset,
                                     std::string &       out_matched_key)
@@ -2133,7 +2133,8 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
                                                                 pool,
                                                                 offset);
 
-      msg->set_key(iobs->length(), key_expression);
+      /* The key expression concatenates prefix, which is characters, and key bytes */
+      msg->set_key(iobs->length(), string_view_key(common::pointer_cast<string_view_key::value_type>(key_expression.data()), key_expression.size()));
 
       post_recv(&*iobr);
       sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
@@ -2229,8 +2230,8 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
     }
 
   status_t Connection_handler::invoke_ado(const IKVStore::pool_t            pool,
-                                          const basic_string_view<byte>     key,
-                                          const basic_string_view<byte>     request,
+                                          const string_view_key     key,
+                                          const string_view_request     request,
                                           const unsigned int                flags,
                                           std::vector<IMCAS::ADO_response>& out_response,
                                           const size_t                      value_size)
@@ -2266,8 +2267,8 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
   }
 
   status_t Connection_handler::invoke_ado_async(const component::IMCAS::pool_t               pool,
-                                                const basic_string_view<byte>                key,
-                                                const basic_string_view<byte>                request,
+                                                const string_view_key                key,
+                                                const string_view_request                request,
                                                 const component::IMCAS::ado_flags_t          flags,
                                                 std::vector<component::IMCAS::ADO_response>& out_response,
                                                 component::IMCAS::async_handle_t &           out_async_handle,
@@ -2313,9 +2314,9 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
   }
 
   status_t Connection_handler::invoke_put_ado(const IKVStore::pool_t            pool,
-                                              const basic_string_view<byte>     key,
-                                              const basic_string_view<byte>     request,
-                                              const basic_string_view<byte>     value,
+                                              const string_view_key     key,
+                                              const string_view_request     request,
+                                              const string_view_value     value,
                                               const size_t                      root_len,
                                               const unsigned int                flags,
                                               std::vector<IMCAS::ADO_response>& out_response)
@@ -2355,9 +2356,9 @@ status_t Connection_handler::get(const pool_t pool, const std::string &key, std:
   }
 
   status_t Connection_handler::invoke_put_ado_async(const component::IMCAS::pool_t                  pool,
-                                                    const basic_string_view<byte>                   key,
-                                                    const basic_string_view<byte>                   request,
-                                                    const basic_string_view<byte>                   value,
+                                                    const string_view_key                   key,
+                                                    const string_view_request                   request,
+                                                    const string_view_value                   value,
                                                     const size_t                                    root_len,
                                                     const component::IMCAS::ado_flags_t             flags,
                                                     std::vector<component::IMCAS::ADO_response>&    out_response,

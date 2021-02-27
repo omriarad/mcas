@@ -15,6 +15,7 @@
 #ifndef COMANCHE_HSTORE_POOL_PATH_H
 #define COMANCHE_HSTORE_POOL_PATH_H
 
+#include <common/string_view.h>
 #include <string>
 
 struct pool_path
@@ -24,7 +25,7 @@ private:
 
 public:
   explicit pool_path(
-    const std::string &name_
+    const common::string_view name_
   )
     : _name(name_)
   {}

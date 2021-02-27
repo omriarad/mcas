@@ -601,7 +601,7 @@ template <
 			, const K &k_
 		) const -> segment_and_bucket_t
 		{
-			return locate_key_inner(TM_REF bi_.ref().ownership_bits(bi_), bi_.sb(), common::string_view(k_.data(), k_.size()));
+			return locate_key_inner(TM_REF bi_.ref().ownership_bits(bi_), bi_.sb(), common::basic_string_view<typename Key::value_type>(k_.data(), k_.size()));
 		}
 
 template <
@@ -612,7 +612,7 @@ template <
 		TM_ACTUAL
 		owner::value_type ownership_bits_
 		, segment_and_bucket_t sb_
-		, const common::string_view k_
+		, const common::basic_string_view<typename Key::value_type> k_
 	) const -> segment_and_bucket_t
 	{
 		TM_SCOPE()

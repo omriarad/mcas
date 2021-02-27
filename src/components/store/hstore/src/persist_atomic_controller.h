@@ -37,7 +37,11 @@ namespace impl
 			: private std::allocator_traits<typename Table::allocator_type>::template rebind_alloc<mod_control>
 		{
 		private:
+#if 0
 			using string_view = common::string_view;
+#endif
+			using string_view_key = common::basic_string_view<common::byte>;
+			using string_view_value = common::basic_string_view<common::byte>;
 			using table_type = Table;
 			using allocator_type =
 				typename std::allocator_traits<typename table_type::allocator_type>::template rebind_alloc<mod_control>;
@@ -88,7 +92,7 @@ namespace impl
 					typename table_type::allocator_type al_
 					, table_type *map_
 					, lock_state lock
-					, string_view key
+					, string_view_key key
 					, IT first
 					, IT last
 				);
@@ -99,9 +103,8 @@ namespace impl
 				typename table_type::allocator_type al
 				, table_type *map_
 				, lock_state lock
-				, string_view key
-				, const char *data
-				, std::size_t data_len
+				, string_view_key key
+				, const string_view_value value
 				, std::size_t zeros_extend
 				, std::size_t alignment
 			);

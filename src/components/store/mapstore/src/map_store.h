@@ -46,7 +46,7 @@ public:
    * @param block_device Block device interface
    *
    */
-  Map_store(const std::string &owner, const std::string &name);
+  Map_store(common::string_view owner, common::string_view name);
 
   /**
    * Destructor
@@ -79,48 +79,48 @@ public:
 
   virtual int get_capability(Capability cap) const override;
 
-  virtual pool_t create_pool(const std::string &name, const size_t size,
+  virtual pool_t create_pool(common::string_view name, const size_t size,
                              unsigned int flags = 0,
                              uint64_t expected_obj_count = 0,
                              component::IKVStore::Addr base_addr_unused = component::IKVStore::Addr{0}) override;
 
-  virtual pool_t open_pool(const std::string &name,
+  virtual pool_t open_pool(common::string_view name,
                            unsigned int flags = 0,
                            component::IKVStore::Addr base_addr_unused = component::IKVStore::Addr{0}) override;
 
   virtual status_t close_pool(const pool_t pid) override;
 
-  virtual status_t delete_pool(const std::string &name) override;
+  virtual status_t delete_pool(common::string_view name) override;
 
-  virtual status_t put(const pool_t pool, const std::string &key,
+  virtual status_t put(const pool_t pool, string_view_key key,
                        const void *value, const size_t value_len,
                        unsigned int flags = FLAGS_NONE) override;
 
-  virtual status_t get(const pool_t pool, const std::string &key,
+  virtual status_t get(const pool_t pool, string_view_key key,
                        void *&out_value, size_t &out_value_len) override;
 
-  virtual status_t get_direct(const pool_t pool, const std::string &key, void *out_value,
+  virtual status_t get_direct(const pool_t pool, string_view_key key, void *out_value,
                               size_t &out_value_len,
                               IKVStore::memory_handle_t handle) override;
 
-  virtual status_t put_direct(const pool_t pool, const std::string &key,
+  virtual status_t put_direct(const pool_t pool, string_view_key key,
                               const void *value, const size_t value_len,
                               IKVStore::memory_handle_t handle = HANDLE_NONE,
                               unsigned int flags = FLAGS_NONE) override;
 
-  virtual status_t resize_value(const pool_t pool, const std::string &key,
+  virtual status_t resize_value(const pool_t pool, string_view_key key,
                                 const size_t new_size,
                                 const size_t alignment) override;
 
   virtual status_t get_attribute(const pool_t pool, const Attribute attr,
                                  std::vector<uint64_t> &out_attr,
-                                 const std::string *key = nullptr) override;
+                                 const string_view_key key = string_view_key()) override;
 
   virtual status_t swap_keys(const pool_t pool,
-                             const std::string key0,
-                             const std::string key1) override;
+                             const string_view_key key0,
+                             const string_view_key key1) override;
 
-  virtual status_t lock(const pool_t pool, const std::string &key,
+  virtual status_t lock(const pool_t pool, string_view_key key,
                         lock_type_t type, void *&out_value,
                         size_t &out_value_len,
                         IKVStore::key_t &out_key,
@@ -130,29 +130,25 @@ public:
                           key_t key,
                           IKVStore::unlock_flags_t flags) override;
 
-  virtual status_t erase(const pool_t pool, const std::string &key) override;
+  virtual status_t erase(const pool_t pool, string_view_key key) override;
 
   virtual size_t count(const pool_t pool) override;
 
   virtual status_t free_memory(void *p) override;
 
   virtual status_t map(const pool_t pool,
-                       std::function<int(const void * key,
-                                         const size_t key_len,
-                                         const void *value,
-                                         const size_t value_len)> function) override;
+                       std::function<int(string_view_key key,
+                                         string_view_value value)> function) override;
 
   virtual status_t map(const pool_t pool,
-                       std::function<int(const void* key,
-                                         const size_t key_len,
-                                         const void* value,
-                                         const size_t value_len,
+                       std::function<int(string_view_key key,
+                                         string_view_value value,
                                          const common::tsc_time_t timestamp)> function,
                        const common::epoch_time_t t_begin,
                        const common::epoch_time_t t_end) override;
 
   virtual status_t map_keys(const pool_t pool,
-                            std::function<int(const std::string &key)> function) override;
+                            std::function<int(string_view_key key)> function) override;
 
   virtual void debug(const pool_t pool, unsigned cmd, uint64_t arg) override;
   

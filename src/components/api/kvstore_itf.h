@@ -15,7 +15,10 @@
 #define __API_KVSTORE_ITF__
 
 #include <api/components.h>
+#include <common/byte.h>
 #include <common/errors.h> /* ERROR_BASE */
+#include <common/pointer_cast.h>
+#include <common/string_view.h>
 #include <common/time.h>
 #include <sys/uio.h> /* iovec */
 
@@ -67,6 +70,12 @@ class IKVStore : public component::IBase {
   using key_t           = Opaque_key*;
   using pool_lock_t     = Opaque_lock_handle*;
   using pool_iterator_t = Opaque_pool_iterator*;
+  using byte            = common::byte;
+
+  using string_view_byte = common::basic_string_view<byte>;
+  using string_view_key = string_view_byte;
+  using string_view = common::string_view;
+  using string_view_value = string_view_byte;
 
   static constexpr memory_handle_t HANDLE_NONE = nullptr;
   static constexpr key_t           KEY_NONE    = nullptr;
@@ -232,7 +241,7 @@ class IKVStore : public component::IBase {
    *
    * @return Pool handle or POOL_ERROR
    */
-  virtual pool_t create_pool(const std::string& name,
+  virtual pool_t create_pool(string_view name,
                              const size_t       size,
                              flags_t            flags              = 0,
                              uint64_t           expected_obj_count = 0,
@@ -242,14 +251,14 @@ class IKVStore : public component::IBase {
     return POOL_ERROR;
   }
 
-  virtual pool_t create_pool(const std::string& path,
-                             const std::string& name,
+  virtual pool_t create_pool(string_view path,
+                             string_view name,
                              const size_t       size,
                              flags_t            flags              = 0,
                              uint64_t           expected_obj_count = 0,
                              const Addr         base_addr_unused = Addr{0}) __attribute__((deprecated))
   {
-    return create_pool(path + name, size, flags, expected_obj_count, base_addr_unused);
+    return create_pool(std::string(path) + std::string(name), size, flags, expected_obj_count, base_addr_unused);
   }
 
   /**
@@ -262,19 +271,19 @@ class IKVStore : public component::IBase {
    * @return Pool handle or POOL_ERROR if pool cannot be opened, or flags
    * unsupported
    */
-  virtual pool_t open_pool(const std::string& name,
+  virtual pool_t open_pool(string_view name,
                            flags_t flags = 0,
                            const Addr base_addr_unused = Addr{0})
   {
     return POOL_ERROR;
   }
 
-  virtual pool_t open_pool(const std::string& path,
-                           const std::string& name,
+  virtual pool_t open_pool(string_view path,
+                           string_view name,
                            flags_t flags = 0,
                            const Addr base_addr_unused = Addr{0}) __attribute__((deprecated))
   {
-    return open_pool(path + name, flags, base_addr_unused);
+    return open_pool(std::string(path) + std::string(name), flags, base_addr_unused);
   }
 
   /**
@@ -295,7 +304,7 @@ class IKVStore : public component::IBase {
    * @return S_OK on success, E_POOL_NOT_FOUND, E_ALREADY_OPEN if pool cannot be
    * deleted
    */
-  virtual status_t delete_pool(const std::string& name) = 0;
+  virtual status_t delete_pool(string_view name) = 0;
 
   /**
    * Get mapped memory regions for pool.  This is used for pre-registration with
@@ -344,12 +353,22 @@ class IKVStore : public component::IBase {
    * @return S_OK or E_POOL_NOT_FOUND, E_KEY_EXISTS
    */
   virtual status_t put(const pool_t       pool,
-                       const std::string& key,
+                       string_view_key key,
                        const void*        value,
                        const size_t       value_len,
                        flags_t            flags = FLAGS_NONE)
   {
     return E_NOT_SUPPORTED;
+  }
+
+  /* other-type-of-key-string put operation */
+  status_t put(const pool_t pool,
+    string_view     key,
+    const void*             value,
+    const size_t            value_len,
+    flags_t                 flags = FLAGS_NONE)
+  {
+    return put(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), value, value_len, flags); 
   }
 
   /**
@@ -366,13 +385,23 @@ class IKVStore : public component::IBase {
    * @return S_OK or E_POOL_NOT_FOUND, E_KEY_EXISTS
    */
   virtual status_t put_direct(const pool_t       pool,
-                              const std::string& key,
+                              string_view_key key,
                               const void*        value,
                               const size_t       value_len,
                               memory_handle_t    handle = HANDLE_NONE,
                               flags_t            flags  = FLAGS_NONE)
   {
     return E_NOT_SUPPORTED;
+  }
+
+   status_t put_direct(const pool_t       pool,
+                              string_view key,
+                              const void*        value,
+                              const size_t       value_len,
+                              memory_handle_t    handle = HANDLE_NONE,
+                              flags_t            flags  = FLAGS_NONE)
+  {
+    return put_direct(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), value, value_len, handle, flags);
   }
 
   /**
@@ -386,11 +415,19 @@ class IKVStore : public component::IBase {
    * E_KEY_NOT_FOUND, E_TOO_LARGE, E_ALREADY
    */
   virtual status_t resize_value(const pool_t       pool,
-                                const std::string& key,
+                                string_view_key key,
                                 const size_t       new_size,
                                 const size_t       alignment)
   {
     return E_NOT_SUPPORTED;
+  }
+
+  status_t resize_value(const pool_t       pool,
+                                string_view key,
+                                const size_t       new_size,
+                                const size_t       alignment)
+  {
+    return resize_value(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), new_size, alignment);
   }
 
   /**
@@ -404,9 +441,17 @@ class IKVStore : public component::IBase {
    * @return S_OK or E_POOL_NOT_FOUND, E_KEY_NOT_FOUND if key not found
    */
   virtual status_t get(const pool_t       pool,
-                       const std::string& key,
+                       string_view_key key,
                        void*&             out_value, /* release with free_memory() API */
                        size_t&            out_value_len) = 0;
+
+  status_t get(const pool_t       pool,
+                       string_view key,
+                       void*&             out_value, /* release with free_memory() API */
+                       size_t&            out_value_len)
+  {
+    return get(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), out_value, out_value_len);
+  };
 
   /**
    * Read an object value directly into client-provided memory.
@@ -425,12 +470,21 @@ class IKVStore : public component::IBase {
    * out_value_len [in] < out_value_len [out].
    */
   virtual status_t get_direct(pool_t             pool,
-                              const std::string& key,
+                              string_view_key key,
                               void*              out_value,
                               size_t&            out_value_len,
                               memory_handle_t    handle = HANDLE_NONE)
   {
     return E_NOT_SUPPORTED;
+  }
+
+  status_t get_direct(pool_t             pool,
+                              string_view key,
+                              void*              out_value,
+                              size_t&            out_value_len,
+                              memory_handle_t    handle = HANDLE_NONE)
+  {
+    return get_direct(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), out_value, out_value_len, handle);
   }
 
   /**
@@ -446,7 +500,20 @@ class IKVStore : public component::IBase {
   virtual status_t get_attribute(pool_t                 pool,
                                  Attribute              attr,
                                  std::vector<uint64_t>& out_value,
-                                 const std::string*     key = nullptr) = 0;
+                                 string_view_key     key = nullptr) = 0;
+
+  /* old string_ptr version */
+  status_t get_attribute(pool_t                 pool,
+                         Attribute              attr,
+                         std::vector<uint64_t>& out_value,
+                         const std::string*     key)
+  {
+    status_t (IKVStore::*mpf)(pool_t, Attribute, std::vector<uint64_t>&, string_view_key) = &IKVStore::get_attribute;
+    return (this->*mpf)(
+		pool, attr, out_value
+		, key ? string_view_key(common::pointer_cast<string_view_key::value_type>(key->data()), key->size()) : string_view_key()
+	);
+  }
 
   /**
    * Atomically (crash-consistent for pmem) swap keys (K,V)(K',V') -->
@@ -461,10 +528,22 @@ class IKVStore : public component::IBase {
    * (unable to take both locks)
    */
   virtual status_t swap_keys(const pool_t pool,
-                             const std::string key0,
-                             const std::string key1)
+                             string_view_key key0,
+                             string_view_key key1)
   {
     return E_NOT_SUPPORTED;
+  }
+
+  status_t swap_keys(const pool_t pool,
+                             string_view key0,
+                             string_view key1)
+  {
+    return
+      swap_keys(
+        pool
+        , string_view_key(common::pointer_cast<string_view_key::value_type>(key0.data()), key0.size())
+        , string_view_key(common::pointer_cast<string_view_key::value_type>(key1.data()), key1.size())
+      );
   }
 
   /**
@@ -480,7 +559,7 @@ class IKVStore : public component::IBase {
   virtual status_t set_attribute(const pool_t                 pool,
                                  const Attribute              attr,
                                  const std::vector<uint64_t>& value,
-                                 const std::string*           key = nullptr)
+                                 string_view_key          key = string_view_key{})
   {
     return E_NOT_SUPPORTED;
   }
@@ -560,7 +639,7 @@ class IKVStore : public component::IBase {
    * if unable to take lock or other error
    */
   virtual status_t lock(const pool_t       pool,
-                        const std::string& key,
+                        string_view_key key,
                         const lock_type_t  type,
                         void*&             out_value,
                         size_t&            inout_value_len,
@@ -568,6 +647,17 @@ class IKVStore : public component::IBase {
                         const char**       out_key_ptr = nullptr)
   {
     return E_NOT_SUPPORTED;
+  }
+
+  status_t lock(const pool_t       pool,
+                        string_view key,
+                        const lock_type_t  type,
+                        void*&             out_value,
+                        size_t&            inout_value_len,
+                        key_t&             out_key_handle,
+                        const char**       out_key_ptr = nullptr)
+  {
+    return lock(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), type, out_value, inout_value_len, out_key_handle, out_key_ptr);
   }
 
   /**
@@ -600,11 +690,19 @@ class IKVStore : public component::IBase {
    * @return S_OK or error code
    */
   virtual status_t atomic_update(const pool_t                   pool,
-                                 const std::string&             key,
+                                 string_view_key             key,
                                  const std::vector<Operation*>& op_vector,
                                  bool                           take_lock = true)
   {
     return E_NOT_SUPPORTED;
+  }
+
+  status_t atomic_update(const pool_t                   pool,
+                                 string_view             key,
+                                 const std::vector<Operation*>& op_vector,
+                                 bool                           take_lock = true)
+  {
+    return atomic_update(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), op_vector, take_lock);
   }
 
   /**
@@ -615,7 +713,12 @@ class IKVStore : public component::IBase {
    *
    * @return S_OK or error code (e.g. E_LOCKED)
    */
-  virtual status_t erase(pool_t pool, const std::string& key) = 0;
+  virtual status_t erase(pool_t pool, string_view_key key) = 0;
+
+  status_t erase(pool_t pool, string_view key)
+  {
+    return erase(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()));
+  }
 
   /**
    * Return number of objects in the pool
@@ -635,12 +738,28 @@ class IKVStore : public component::IBase {
    * @return S_OK, E_POOL_NOT_FOUND
    */
   virtual status_t map(const pool_t pool,
-                       std::function<int(const void* key,
-                                         const size_t key_len,
-                                         const void* value,
-                                         const size_t value_len)> function)
+                       std::function<int(string_view_key key,
+                                         string_view_value value
+                                         )> function)
   {
     return E_NOT_SUPPORTED;
+  }
+
+  /* old 4-parameter verion Connstruct the parameters from string_view version */
+  status_t map(const pool_t pool,
+               std::function<int(const void* key,
+                                 const size_t key_len,
+                                 const void* value,
+                                 const size_t value_len)> function)
+  {
+    return
+      map(
+        pool
+        , [&function] (string_view_key key, string_view_value value) -> int
+          {
+            return function(key.data(), key.size(), value.data(), value.size());
+          }
+      ); 
   }
 
   /**
@@ -656,16 +775,37 @@ class IKVStore : public component::IBase {
    * @return S_OK, E_POOL_NOT_FOUND
    */
   virtual status_t map(const pool_t pool,
-                       std::function<int(const void*              key,
-                                         const size_t             key_len,
-                                         const void*              value,
-                                         const size_t             value_len,
-                                         const common::tsc_time_t timestamp)> function,
+                       std::function<int(string_view_key key,
+                                         string_view_value value,
+                                         common::tsc_time_t timestamp)> function,
                        const common::epoch_time_t t_begin,
                        const common::epoch_time_t t_end)
   {
     return E_NOT_SUPPORTED;
   }
+
+  /* old 5-argument version */
+  status_t map(const pool_t pool,
+               std::function<int(const void*              key,
+                                 const size_t             key_len,
+                                 const void*              value,
+                                 const size_t             value_len,
+                                 const common::tsc_time_t timestamp)> function,
+               const common::epoch_time_t t_begin,
+               const common::epoch_time_t t_end)
+   {
+     return
+       map(
+         pool
+         , [&function] (string_view_key key, string_view_value value, common::tsc_time_t ts) -> int
+           {
+             return function(key.data(), key.size(), value.data(), value.size(), ts);
+           }
+         , t_begin
+         , t_end
+       );
+   }
+
 
   /**
    * Apply functor to all keys only. Useful for file_store (now deprecated)
@@ -675,9 +815,24 @@ class IKVStore : public component::IBase {
    *
    * @return S_OK, E_POOL_NOT_FOUND
    */
-  virtual status_t map_keys(const pool_t pool, std::function<int(const std::string& key)> function)
+  virtual status_t map_keys(const pool_t pool, std::function<int(string_view_key key)> function)
   {
     return E_NOT_SUPPORTED;
+  }
+
+  /* old version which wants a true string. Connstruct the string from the string_view version */
+  status_t map_keys(const pool_t pool, std::function<int(const std::string& key)> function)
+  {
+    status_t (IKVStore::*mpf)(pool_t, std::function<int(string_view_byte)>) = &IKVStore::map_keys;
+    return
+      (this->*mpf)(
+        pool
+        , [&function] (string_view_key key) -> int
+          {
+            auto k = std::string(common::pointer_cast<char>(key.data()), key.size());
+            return function(k);
+          }
+      ); 
   }
 
   /*
@@ -826,7 +981,7 @@ class IKVStore : public component::IBase {
    *
    * @return S_OK on success or error otherwise
    */
-  virtual status_t ioctl(const std::string& command) { return E_NOT_SUPPORTED; }
+  virtual status_t ioctl(string_view_byte command) { return E_NOT_SUPPORTED; }
 
   /**
    * Debug routine
@@ -840,24 +995,25 @@ class IKVStore : public component::IBase {
 
 class IKVStore_factory : public component::IBase {
  public:
+  using string_view = common::string_view;
   // clang-format off
   DECLARE_INTERFACE_UUID(0xface829f,0x0405,0x4c19,0x9898,0xa3,0xae,0x21,0x5a,0x3e,0xe8);
   // clang-format on
 
-  virtual IKVStore* create(const std::string& owner, const std::string& param)
+  virtual IKVStore* create(string_view owner, string_view param)
   {
     throw API_exception("IKVstore_factory::create(owner,param) not implemented");
   };
 
-  virtual IKVStore* create(const std::string& owner, const std::string& param, const std::string& param2)
+  virtual IKVStore* create(string_view owner, string_view param, string_view param2)
   {
     throw API_exception("IKVstore_factory::create(owner,param,param2) not implemented");
   }
 
   virtual IKVStore* create(unsigned           debug_level,
-                           const std::string& owner,
-                           const std::string& param,
-                           const std::string& param2)
+                           string_view owner,
+                           string_view param,
+                           string_view param2)
   {
     throw API_exception("IKVstore_factory::create(debug_level,owner,param,param2) not implemented");
   }

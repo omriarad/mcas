@@ -22,6 +22,7 @@
 
 #include <array>
 #include <cstddef> /* size_t */
+#include <type_traits> /* remove_const */
 
 /* Persistent data for hstore.
  */
@@ -51,10 +52,18 @@ namespace impl
 			/* "owner" of the mod_key and mod_mapped. 1 when in use, 0 when not in use */
 			persistent_atomic_t<std::uint64_t> mod_owner;
 			/* key to destination of modification data */
-			using mod_key_t = typename value_type::first_type::template rebind<char>;
+#if 0
+			using mod_key_t = typename value_type::first_type::template rebind<template value_type::first_type::value_type>;
+#else
+			using mod_key_t = typename std::remove_const<typename value_type::first_type>::type;
+#endif
 			mod_key_t mod_key;
 			/* source of modification data */
+#if 0
 			using mod_mapped_t = typename std::tuple_element<0, typename value_type::second_type>::type::template rebind<char>;
+#else
+			using mod_mapped_t = typename std::tuple_element<0, typename value_type::second_type>::type;
+#endif
 			mod_mapped_t mod_mapped;
 			/* control of modification data */
 			persistent_t<mod_ctl_ptr_t> mod_ctl;
@@ -66,7 +75,7 @@ namespace impl
 			struct swap
 			{
 				using mapped_type = typename value_type::second_type;
-				std::array<char, sizeof(mapped_type)> temp;
+				std::array<mod_mapped_t, sizeof(mapped_type)> temp;
 				mapped_type *pd0;
 				mapped_type *pd1;
 				swap()
