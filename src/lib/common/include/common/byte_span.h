@@ -14,6 +14,7 @@
 #ifndef _MCAS_COMMON_BYTE_SPAN_
 #define _MCAS_COMMON_BYTE_SPAN_
 
+#include <common/byte.h>
 #include <common/pointer_cast.h>
 #include <cstddef>
 #include <gsl/gsl_byte>
@@ -24,18 +25,9 @@
 /* For minimal difference with older code; implement span as iovec (not gsl::span) */
 #define MCAS_SPAN_USES_GSL 0
 #endif
-#ifndef MCAS_BYTE_USES_STD
-/* For compilcation with C++14, use gsl::byte, not C++17 std::byte */
-#define MCAS_BYTE_USES_STD 0
-#endif
 
 namespace common
 {
-#if MCAS_BYTE_USES_STD
-	using byte = std::byte;
-#else
-	using byte = gsl::byte; /* can be std::byte in C++17 */
-#endif
 	template <typename T> using span = gsl::span<T>; /* can be std::span in C++20 */
 	/* span of a const area. No equivalent in ::iovec, so always use span */
 	using const_byte_span = span<const byte>;
