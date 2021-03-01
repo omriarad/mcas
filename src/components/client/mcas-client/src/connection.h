@@ -186,7 +186,7 @@ public:
                string_view_key    key,
                       gsl::span<const common::const_byte_span> values,
                       component::Registrar_memory_direct * rmd,
-                      gsl::span<component::IMCAS::memory_handle_t> handles,
+                      gsl::span<const component::IMCAS::memory_handle_t> handles,
                       unsigned int                         flags);
 
   status_t async_put(const pool_t                      pool,
@@ -201,8 +201,8 @@ public:
                             gsl::span<const common::const_byte_span> values,
                             component::IMCAS::async_handle_t &   out_handle,
                             component::Registrar_memory_direct * rmd,
-                            gsl::span<component::IKVStore::memory_handle_t> handles, //  = gsl::span<component::IKVStore::memory_handle_t>(),
-                            unsigned int                         flags); //   = component::IMCAS::FLAGS_NONE);
+                            gsl::span<const component::IKVStore::memory_handle_t> handles,
+                            unsigned int                         flags);
 
   status_t async_get_direct(const component::IMCAS::pool_t       pool,
                string_view_key    key,
@@ -210,8 +210,8 @@ public:
                             size_t &                             value_len,
                             component::IMCAS::async_handle_t &   out_handle,
                             component::Registrar_memory_direct * rmd,
-                            component::IKVStore::memory_handle_t handle, //  = component::IMCAS::MEMORY_HANDLE_NONE,
-                            unsigned int                         flags); //  = component::IMCAS::FLAGS_NONE);
+                            component::IKVStore::memory_handle_t handle,
+                            unsigned int                         flags);
 
   status_t check_async_completion(component::IMCAS::async_handle_t &handle);
 
@@ -479,7 +479,7 @@ private:
                                             string_view_key key,
                                                     gsl::span<const common::const_byte_span> values,
                                                     component::Registrar_memory_direct *rmd,
-                                                    gsl::span<component::IKVStore::memory_handle_t> mem_handles_,
+                                                    gsl::span<const component::IKVStore::memory_handle_t> mem_handles_,
                                                     unsigned                            flags);
 
   std::tuple<uint64_t, uint64_t, std::size_t> get_locate(const pool_t   pool,
