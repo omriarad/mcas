@@ -183,41 +183,35 @@ public:
                const unsigned int flags);
 
   status_t put_direct(pool_t                               pool,
-                      const void *                         key,
-                      size_t                               key_len,
-                      const void *                         value,
-                      size_t                               value_len,
+               string_view_key    key,
+                      gsl::span<const common::const_byte_span> values,
                       component::Registrar_memory_direct * rmd,
-                      component::IKVStore::memory_handle_t handle,
+                      gsl::span<component::IMCAS::memory_handle_t> handles,
                       unsigned int                         flags);
 
   status_t async_put(const pool_t                      pool,
-                     const void *                      key,
-                     const size_t                      key_len,
+               string_view_key    key,
                      const void *                      value,
                      size_t                            value_len,
                      component::IMCAS::async_handle_t &out_handle,
                      unsigned int                      flags);
 
   status_t async_put_direct(const component::IMCAS::pool_t       pool,
-                            const void *                         key,
-                            size_t                               key_len,
-                            const void *                         value,
-                            size_t                               value_len,
+               string_view_key    key,
+                            gsl::span<const common::const_byte_span> values,
                             component::IMCAS::async_handle_t &   out_handle,
                             component::Registrar_memory_direct * rmd,
-                            component::IKVStore::memory_handle_t handle = component::IMCAS::MEMORY_HANDLE_NONE,
-                            unsigned int                         flags  = component::IMCAS::FLAGS_NONE);
+                            gsl::span<component::IKVStore::memory_handle_t> handles, //  = gsl::span<component::IKVStore::memory_handle_t>(),
+                            unsigned int                         flags); //   = component::IMCAS::FLAGS_NONE);
 
   status_t async_get_direct(const component::IMCAS::pool_t       pool,
-                            const void *                         key,
-                            size_t                               key_len,
+               string_view_key    key,
                             void *                               value,
                             size_t &                             value_len,
                             component::IMCAS::async_handle_t &   out_handle,
                             component::Registrar_memory_direct * rmd,
-                            component::IKVStore::memory_handle_t handle = component::IMCAS::MEMORY_HANDLE_NONE,
-                            unsigned int                         flags  = component::IMCAS::FLAGS_NONE);
+                            component::IKVStore::memory_handle_t handle, //  = component::IMCAS::MEMORY_HANDLE_NONE,
+                            unsigned int                         flags); //  = component::IMCAS::FLAGS_NONE);
 
   status_t check_async_completion(component::IMCAS::async_handle_t &handle);
 
@@ -226,8 +220,7 @@ public:
   status_t get(const pool_t pool, const string_view_key key, void *&value, size_t &value_len);
 
   status_t get_direct(const pool_t                         pool,
-                      const void *                         key,
-                      size_t                               key_len,
+               string_view_key    key,
                       void *                               value,
                       size_t &                             out_value_len,
                       component::Registrar_memory_direct * rmd,
@@ -478,28 +471,23 @@ private:
    * @return
    */
   std::tuple<uint64_t, uint64_t> put_locate(const pool_t   pool,
-                                            const void *   key,
-                                            const size_t   key_len,
+                                            string_view_key key,
                                             const size_t   value_len,
                                             const unsigned flags);
 
   component::IMCAS::async_handle_t put_locate_async(pool_t                              pool,
-                                                    const void *                        key,
-                                                    size_t                              key_len,
-                                                    const void *                        value,
-                                                    size_t                              value_len,
+                                            string_view_key key,
+                                                    gsl::span<const common::const_byte_span> values,
                                                     component::Registrar_memory_direct *rmd,
-                                                    void *                              desc,
+                                                    gsl::span<component::IKVStore::memory_handle_t> mem_handles_,
                                                     unsigned                            flags);
 
   std::tuple<uint64_t, uint64_t, std::size_t> get_locate(const pool_t   pool,
-                                                         const void *   key,
-                                                         const size_t   key_len,
+                                            string_view_key key,
                                                          const unsigned flags);
 
   component::IMCAS::async_handle_t get_locate_async(pool_t                              pool,
-                                                    const void *                        key,
-                                                    size_t                              key_len,
+                                            string_view_key key,
                                                     void *                              value,
                                                     size_t &                            value_len,
                                                     component::Registrar_memory_direct *rmd,

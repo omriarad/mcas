@@ -427,8 +427,7 @@ struct Message_IO_request : public Message_numbered_request {
                      uint64_t    request_id_,
                      uint64_t    pool_id_,
                      OP_TYPE     op_,
-                     const void* key_,
-                     size_t      key_len_,
+                     string_view_key    key_,
                      const void* value,
                      size_t      value_len_,
                      uint32_t    flags_)
@@ -439,7 +438,7 @@ struct Message_IO_request : public Message_numbered_request {
         _flags(flags_),
         _padding()
   {
-    set_key_and_value(buffer_size, key_, key_len_, value, value_len_);
+    set_key_and_value(buffer_size, key_, value, value_len_);
     increase_msg_len(cache_aligned_value_offset() + value_len_);
   }
 
@@ -485,8 +484,7 @@ struct Message_IO_request : public Message_numbered_request {
                            request_id,
                            pool_id_,
                            op_,
-                           key.data(),
-                           key.size(),
+                           key,
                            value.data(),
                            value.size(),
                            flags_)
@@ -499,8 +497,7 @@ struct Message_IO_request : public Message_numbered_request {
                      uint64_t    request_id,
                      uint64_t    pool_id_,
                      OP_TYPE     op_,
-                     const void* key,
-                     size_t      key_len_,
+                     string_view_key key_,
                      size_t      value_len,
                      uint32_t    flags_)
       : Message_numbered_request(auth_id, (sizeof *this), id, op_, request_id, pool_id_),
@@ -510,10 +507,10 @@ struct Message_IO_request : public Message_numbered_request {
         _flags(flags_),
         _padding()
   {
-    set_key_value_len(buffer_size, key, key_len_, value_len);
-    increase_msg_len(key_len_); /* we don't add value len, this will be in next buffer */
+    set_key_value_len(buffer_size, key_, value_len);
+    increase_msg_len(key_.size()); /* we don't add value len, this will be in next buffer */
   }
-
+#if 0
   Message_IO_request(size_t             buffer_size,
                      uint64_t           auth_id,
                      uint64_t           request_id,
@@ -525,7 +522,7 @@ struct Message_IO_request : public Message_numbered_request {
       : Message_IO_request(buffer_size, auth_id, request_id, pool_id_, op_, key.data(), key.size(), value_len, flags_)
   {
   }
-
+#endif
   /*< version used for configure_pool command */
   Message_IO_request(size_t             buffer_size,
                      uint64_t           auth_id,
@@ -533,7 +530,7 @@ struct Message_IO_request : public Message_numbered_request {
                      uint64_t           pool_id_,
                      OP_TYPE            op_,
                      string_view        data)
-      : Message_IO_request(buffer_size, auth_id, request_id_, pool_id_, op_, data.data(), data.size(), 0, 0)
+      : Message_IO_request(buffer_size, auth_id, request_id_, pool_id_, op_, string_view_key(common::pointer_cast<string_view_key::value_type>(data.data()), data.size()), 0, 0)
   {
   }
 
@@ -547,33 +544,32 @@ struct Message_IO_request : public Message_numbered_request {
   inline size_t get_locate_offset() const { return _key_len; }
   inline size_t get_locate_end() const { return _key_len + _val_len; }
 
-  void set_key_value_len(size_t buffer_size, const void* key, const size_t key_len_, const size_t value_len)
+  void set_key_value_len(size_t buffer_size_, string_view_key key_, const size_t value_len_)
   {
-    if (UNLIKELY((key_len_ + (sizeof *this)) > buffer_size))
+    if (UNLIKELY((key_.size() + (sizeof *this)) > buffer_size_))
       throw API_exception("%s::%s - insufficient buffer for "
                           "key-value_len pair (key_len=%lu) (val_len=%lu)",
-                          +description, __func__, key_len_, value_len);
+                          +description, __func__, key_.size(), value_len_);
 
-    std::memcpy(data(), key, key_len_); /* only copy key and set value length */
-    this->_val_len   = value_len;
-    this->_key_len   = key_len_;
+    std::memcpy(data(), key_.data(), key_.size()); /* only copy key and set value length */
+    this->_val_len   = value_len_;
+    this->_key_len   = key_.size();
   }
 
   void set_key_and_value(const size_t buffer_size,
-                         const void*  p_key,
-                         const size_t p_key_len,
+                         const string_view_key p_key,
                          const void*  p_value,
                          const size_t p_value_len)
   {
     assert(buffer_size > 0);
-    if (UNLIKELY((p_key_len + p_value_len + (sizeof *this)) > buffer_size))
+    if (UNLIKELY((p_key.size() + p_value_len + (sizeof *this)) > buffer_size))
       throw API_exception("%s::%s - insufficient buffer for "
                           "key-value pair (key_len=%lu) (val_len=%lu) (buffer_size=%lu)",
-                          +description, __func__, p_key_len, p_value_len, buffer_size);
+                          +description, __func__, p_key.size(), p_value_len, buffer_size);
 
-    std::memcpy(data(), p_key, p_key_len);
+    std::memcpy(data(), p_key.data(), p_key.size());
     this->_val_len = p_value_len;
-    this->_key_len = p_key_len;
+    this->_key_len = p_key.size();
     std::memcpy(&data()[cache_aligned_value_offset()], p_value, p_value_len);
   }
 
