@@ -57,7 +57,7 @@ public:
   using Addr            = KVStore::Addr;
   using byte            = common::byte;
   using memory_handle_t = KVStore::memory_handle_t;
-  
+
   using string_view = common::string_view;
   using string_view_byte = common::basic_string_view<byte>;
   using string_view_key = string_view_byte;
@@ -76,7 +76,7 @@ public:
         FLAGS_MAX_VALUE   = KVStore::FLAGS_MAX_VALUE,
   };
 
-  
+
   /* per-shard statistics */
   struct Shard_stats {
     uint64_t op_request_count;
@@ -124,7 +124,32 @@ public:
   /*< internal use only: on return provide IO response with value buffer */
   static constexpr ado_flags_t ADO_FLAG_INTERNAL_IO_RESPONSE_VALUE = (1 << 8);
 
+private:
+  template <typename K>
+    static string_view_key to_key(basic_string_view<K> key)
+    {
+      return string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size());
+    }
+
+  template <typename K>
+    static string_view_key to_key(const std::basic_string<K> &key)
+    {
+      return to_key(basic_string_view<K>(key));
+    }
+
+  static string_view_key to_key(const char *key)
+  {
+    return string_view_key(common::pointer_cast<string_view_key::value_type>(key), std::strlen(key));
+  }
+
+  template <typename K>
+    static basic_string_view<K> from_key(string_view key)
+    {
+      return basic_string_view<K>(common::pointer_cast<K>(key.data()), key.size());
+    }
+
 public:
+
   /**
    * Determine thread safety of the component
    *
@@ -183,6 +208,30 @@ public:
   }
 
   /**
+   * Zero-copy put_direct operation.  If there does not exist an object
+   * with matching key, then an error E_KEY_EXISTS should be returned.
+   *
+   * The list of handles corresponds to the list of values.
+   * If any handle is IMCAS::MEMORY_HANDLE_NONE, or there is no handle
+   * for a value, a one-time handle will be created, used, and
+   * destructed. The create/destruct will incur a performance cost.
+   *
+   * @param pool Pool handle
+   * @param key Object key
+   * @param values List of value sources (ptr, length pairs)
+   * @param out_handle Async handle
+   * @param handles List of memory registration handles (returned from register_direct_memory())
+   * @param flags Optional flags
+   *
+   * @return S_OK or other error code
+   */
+  virtual status_t put_direct(const IMCAS::pool_t   pool,
+                              const string_view_key key,
+                              gsl::span<const common::const_byte_span> values,
+                              gsl::span<const memory_handle_t> handles = gsl::span<const memory_handle_t>(),
+                              const unsigned int    flags  = IMCAS::FLAGS_NONE) = 0;
+
+  /**
    * Zero-copy put operation.  If there does not exist an object
    * with matching key, then an error E_KEY_EXISTS should be returned.
    *
@@ -195,24 +244,37 @@ public:
    *
    * @return S_OK or error code
    */
-  virtual status_t put_direct(const IMCAS::pool_t   pool,
-                              const string_view_key key,
-                              gsl::span<const common::const_byte_span> values,
-                              gsl::span<const memory_handle_t> handles = gsl::span<const memory_handle_t>(),
-                              const unsigned int    flags  = IMCAS::FLAGS_NONE) = 0;
+  template <typename K>
+    status_t put_direct(const pool_t       pool,
+                              K key,
+                              const void*        value,
+                              const size_t       value_len,
+                              IKVStore::memory_handle_t handle = HANDLE_NONE,
+                              flags_t            flags  = IKVStore::FLAGS_NONE)
+  {
+    return
+      put_direct(
+        pool
+        , to_key(key)
+        , std::array<const common::const_byte_span, 1>{common::make_const_byte_span(value,value_len)}
+        , std::array<const IMCAS::memory_handle_t, 1>{handle}
+        , flags
+      );
+  }
 
-  virtual status_t put_direct(const IMCAS::pool_t   pool,
+  /* implements kvstore single-value region version of put_direct */
+  status_t put_direct(const IMCAS::pool_t   pool,
                               const string_view_key key,
                               const void*           value,
                               const size_t          value_len,
-                              const memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE,
-                              const unsigned int    flags  = IMCAS::FLAGS_NONE)
+                              const memory_handle_t handle,
+                              const unsigned int    flags) override
 	{
 		return put_direct(
 			pool
 			, key
 			, std::array<const common::const_byte_span,1>{common::make_const_byte_span(value, value_len)}
-			, std::array<memory_handle_t,1>{handle}
+			, std::array<const memory_handle_t,1>{handle}
 			, flags
 		);
 	}
@@ -277,8 +339,42 @@ public:
    *
    * @return S_OK or other error code
    */
+
+  /**
+   * Asynchronous put_direct operation.  Use check_async_completion to check for
+   * completion.
+   *
+   * @param pool Pool handle
+   * @param key Object key
+   * @param values list of value sources
+   * @param out_handle Async handle
+   * @param handle List of memory registration handle
+   * @param flags Optional flags
+   *
+   * @return S_OK or other error code
+   */
   virtual status_t async_put_direct(const IMCAS::pool_t   pool,
-                                    const string_view_byte key,
+                                    const string_view_key key,
+                                    gsl::span<const common::const_byte_span> values,
+                                    async_handle_t&       out_handle,
+                                    gsl::span<const memory_handle_t> handles = gsl::span<const memory_handle_t>(),
+                                    const unsigned int    flags  = IMCAS::FLAGS_NONE) = 0;
+
+  template <typename K>
+    status_t async_put_direct(const IMCAS::pool_t   pool,
+                                      const K key,
+                                      gsl::span<const common::const_byte_span> values,
+                                      async_handle_t&       out_handle,
+                                      gsl::span<const memory_handle_t> handles = gsl::span<const memory_handle_t>(),
+                                      const unsigned int    flags  = IMCAS::FLAGS_NONE)
+  {
+    return
+      async_put_direct(pool, to_key(key), values, out_handle, handles, flags);
+  }
+
+  template <typename K>
+    status_t async_put_direct(const IMCAS::pool_t   pool,
+                                    const K key,
                                     const void*           value,
                                     const size_t          value_len,
                                     async_handle_t&       out_handle,
@@ -288,42 +384,11 @@ public:
     return
       async_put_direct(
         pool
-        , key
-        , std::array<common::const_byte_span,1>{common::make_const_byte_span(value, value_len)}
-        , out_handle, std::array<memory_handle_t,1>{handle}
+        , to_key(key)
+        , std::array<const common::const_byte_span,1>{common::make_const_byte_span(value, value_len)}
+        , out_handle, std::array<const memory_handle_t,1>{handle}
         , flags
       );
-  }
-
-  /**
-   * Asynchronous put_direct operation.  Use check_async_completion to check for
-   * completion.
-   *
-   * @param pool Pool handle
-   * @param key Object key
-   * @param value list of value sources
-   * @param handle Memory registration handle
-   * @param out_handle Async handle
-   * @param flags Optional flags
-   *
-   * @return S_OK or other error code
-   */
-  virtual status_t async_put_direct(const IMCAS::pool_t   pool,
-                                    const string_view_byte key,
-                                    gsl::span<const common::const_byte_span> values,
-                                    async_handle_t&       out_handle,
-                                    gsl::span<const memory_handle_t> handles = gsl::span<const memory_handle_t>(),
-                                    const unsigned int    flags  = IMCAS::FLAGS_NONE) = 0;
-
-  status_t async_put_direct(const IMCAS::pool_t   pool,
-                                    const common::string_view key,
-                                    const void*           value,
-                                    const size_t          value_len,
-                                    async_handle_t&       out_handle,
-                                    const memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE,
-                                    const unsigned int    flags  = IMCAS::FLAGS_NONE)
-  {
-    return async_put_direct(pool, string_view_byte(common::pointer_cast<common::byte>(key.data()), key.size()), value, value_len, out_handle, handle, flags);
   }
 
   using KVStore::get;
@@ -360,26 +425,7 @@ public:
   }
 
   using KVStore::get_direct;
-#if 0
-  /**
-   * Read an object value directly into client-provided memory.
-   *
-   * @param pool Pool handle
-   * @param key Object key
-   * @param out_value Client provided buffer for value
-   * @param out_value_len [in] size of value memory in bytes [out] size of value
-   * @param out_handle Async work handle
-   * @param handle Memory registration handle
-   *
-   * @return S_OK, S_MORE if only a portion of value is read, E_BAD_ALIGNMENT on
-   * invalid alignment, or other error code
-   */
-  virtual status_t get_direct(const IMCAS::pool_t          pool,
-                              const string_view_byte       key,
-                              void*                        out_value,
-                              size_t&                      out_value_len,
-                              const IMCAS::memory_handle_t handle = IMCAS::MEMORY_HANDLE_NONE) = 0;
-#endif
+
   status_t get_direct(const IMCAS::pool_t          pool,
                               const common::string_view    key,
                               void*                        out_value,

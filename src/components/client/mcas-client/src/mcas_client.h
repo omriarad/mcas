@@ -60,12 +60,6 @@ class MCAS_client
   using string_view_key = component::IKVStore::string_view_key;
   using string_view_value = component::IKVStore::string_view_value;
 
- private:
-  //  static constexpr bool option_DEBUG = true;
-#if 0
-  using IKVStore = component::IKVStore;
-#endif
-
  protected:
   /**
    * Constructor
@@ -90,7 +84,7 @@ class MCAS_client
   MCAS_client(const MCAS_client &) = delete;
   MCAS_client &operator=(const MCAS_client &) = delete;
 
-  using pool_t = component::IKVStore::pool_t;
+  using pool_t = component::KVStore::pool_t;
 
   /**
    * Component/interface management
@@ -122,6 +116,8 @@ class MCAS_client
    */
   Registrar_memory_direct *registrar() { return static_cast<component::IKVStore *>(this); }
  public:
+  using IKVStore::Addr;
+  using IKVStore::Attribute;
   /* IKVStore (as remote proxy) */
   virtual int thread_safety() const override;
 
@@ -131,19 +127,19 @@ class MCAS_client
                              const size_t         size,
                              const unsigned int   flags              = 0,
                              const uint64_t       expected_obj_count = 0,
-                             const IKVStore::Addr base = IKVStore::Addr{0}) override;
+                             const Addr base = Addr{0}) override;
 
   virtual pool_t open_pool(const string_view    name,
                            const unsigned int   flags = 0,
-                           const IKVStore::Addr base = IKVStore::Addr{0}) override;
+                           const Addr base = Addr{0}) override;
 
   virtual status_t close_pool(const pool_t pool) override;
 
   virtual status_t delete_pool(const common::string_view name) override;
 
-  virtual status_t delete_pool(const IKVStore::pool_t pool) override;
+  virtual status_t delete_pool(const pool_t pool) override;
 
-  virtual status_t configure_pool(const component::IKVStore::pool_t pool, const string_view json) override;
+  virtual status_t configure_pool(const pool_t pool, const string_view json) override;
 
   virtual status_t put(const pool_t       pool,
                        const string_view_key key,
@@ -158,7 +154,7 @@ class MCAS_client
                               const unsigned int           flags) override;
 
   status_t put_direct(const pool_t       pool,
-                              const std::string& key,
+                              const string_view_key key,
                               const void*        value,
                               const size_t       value_len,
                               IKVStore::memory_handle_t handle = HANDLE_NONE,
@@ -168,21 +164,21 @@ class MCAS_client
       put_direct(
         pool
         , key
-        , std::array<common::const_byte_span, 1>{common::make_const_byte_span(value,value_len)}
-        , std::array<IMCAS::memory_handle_t, 1>{handle}
+        , std::array<const common::const_byte_span, 1>{common::make_const_byte_span(value,value_len)}
+        , std::array<const IMCAS::memory_handle_t, 1>{handle}
         , flags
       );
   }
 
 
-  virtual status_t async_put(const IKVStore::pool_t pool,
+  virtual status_t async_put(const pool_t pool,
                              const string_view_key  key,
                              const void *           value,
                              const size_t           value_len,
                              async_handle_t &       out_handle,
                              const unsigned int     flags = IMCAS::FLAGS_NONE) override;
 
-  virtual status_t async_put_direct(const IKVStore::pool_t          pool,
+  virtual status_t async_put_direct(const pool_t          pool,
                                     const string_view_key           key,
                                     gsl::span<const common::const_byte_span> values,
                                     async_handle_t &                out_handle,
@@ -241,8 +237,8 @@ class MCAS_client
 
   virtual size_t count(const pool_t pool) override;
 
-  virtual status_t get_attribute(const IKVStore::pool_t    pool,
-                                 const IKVStore::Attribute attr,
+  virtual status_t get_attribute(const pool_t    pool,
+                                 const Attribute attr,
                                  std::vector<uint64_t> &   out_attr,
                                  const string_view_key key) override;
 
@@ -250,20 +246,20 @@ class MCAS_client
 
   virtual void debug(const pool_t pool, const unsigned cmd, const uint64_t arg) override;
 
-  virtual IMCAS::memory_handle_t register_direct_memory(void *vaddr, const size_t len) override;
+  virtual IMCAS::memory_handle_t register_direct_memory(common::const_byte_span m) override;
 
   virtual status_t unregister_direct_memory(const IMCAS::memory_handle_t handle) override;
 
   virtual status_t free_memory(void *p) override;
 
   /* IMCAS specific methods */
-  virtual status_t find(const IKVStore::pool_t pool,
+  virtual status_t find(const pool_t pool,
                         const string_view      key_expression,
                         const offset_t         offset,
                         offset_t &             out_matched_offset,
                         std::string &          out_matched_key) override;
 
-  virtual status_t invoke_ado(const IKVStore::pool_t            pool,
+  virtual status_t invoke_ado(const pool_t            pool,
                               const string_view_key             key,
                               const string_view_request         request,
                               const uint32_t                    flags,
@@ -278,7 +274,7 @@ class MCAS_client
                                     async_handle_t &                  out_async_handle,
                                     const size_t                      value_size = 0) override;
 
-  virtual status_t invoke_put_ado(const IKVStore::pool_t            pool,
+  virtual status_t invoke_put_ado(const pool_t            pool,
                                   const string_view_key             key,
                                   const string_view_request         request,
                                   const string_view_value           value,

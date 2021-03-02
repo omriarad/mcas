@@ -14,6 +14,7 @@
 #ifndef _REGISTRAR_MEMORY_DIRECT__
 #define _REGISTRAR_MEMORY_DIRECT__
 
+#include <common/byte_span.h>
 #include <common/types.h>
 
 
@@ -35,7 +36,7 @@ protected:
 public:
   DECLARE_OPAQUE_TYPE(memory_region); /* Buffer_manager::buffer_t need this */
   using memory_handle_t = Opaque_memory_region*;
-  
+
   /**
    * Register memory for zero copy DMA
    *
@@ -44,7 +45,11 @@ public:
    *
    * @return Memory handle or NULL on not supported.
    */
-  virtual memory_handle_t register_direct_memory(void* vaddr, const size_t len) = 0;
+  virtual memory_handle_t register_direct_memory(common::const_byte_span m) = 0;
+  virtual memory_handle_t register_direct_memory(void* vaddr, const size_t len)
+  {
+    return register_direct_memory(common::make_const_byte_span(vaddr, len));
+  }
 
   /**
    * Direct memory regions should be unregistered before the memory is released

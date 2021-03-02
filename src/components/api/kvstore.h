@@ -661,11 +661,12 @@ public:
    *
    * @return Memory handle or NULL on not supported.
    */
-  memory_handle_t register_direct_memory(void* vaddr,
-                                                 size_t len) override
+  memory_handle_t register_direct_memory(common::const_byte_span m) override
   {
-    return error_value(nullptr, vaddr, len);
+    return error_value(nullptr, m);
   }
+
+  using Registrar_memory_direct::register_direct_memory;
 
   /**
    * Direct memory regions should be unregistered before the memory is released
