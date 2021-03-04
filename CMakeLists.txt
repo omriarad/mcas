@@ -1,12 +1,14 @@
 cmake_minimum_required(VERSION 3.5)
 
-option(FORCE_OTT_BUILD "force out of tree build" ON)
+option(FORCE_OOT_BUILD "force out of tree build" ON)
 option(BOOTSTRAP_DEPS "bootstrap to build deps" ON)
 
 # build scope options
-option(BUILD_RUST "enabled Rust-based dependencies" ON)
+option(BUILD_RUST "enable Rust-based dependencies" ON)
 option(BUILD_KERNEL_SUPPORT "build kernel module dependencies" OFF)
+option(BUILD_PYTHON_SUPPORT "Build Python support" OFF)
 option(BUILD_EXAMPLES_PMDK "build PMDK-based ADO examples (requires PMDK installed)" OFF)
+option(TBB_BUILD_TESTS "Build TBB tests and enable testing infrastructure" OFF)
 
 # features
 option(FEATURE_TIMESTAMPS "feature: enable timestamps in hstore map" ON)
@@ -18,13 +20,13 @@ option(CODE_COVERAGE "enable gcc code coverage" OFF)
 option(SPAN_USES_GSL "span data uses gsl::span, not iovec" OFF)
 option(BYTE_USES_STD "byte data uses std::byte, not gsl::byte" OFF)
 option(INVASIVE_PERF "enable invasive performance trace" OFF)
-option(PROFILE "profile the code" OFF)
+option(PROFILE "enable code profiling" ON)
 
 set(DM_REGION_LOG_GRAIN_SIZE 25 CACHE STRING "log base 2 of the device_manager allocation granularity")
 
-if(CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR AND FORCE_OTT_BUILD)
+if(CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR AND FORCE_OOT_BUILD)
   message(FATAL_ERROR "Cannot use in-source build ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}. You should delete any CMakeCache.txt and CMakeFiles and then try out-of-tree build")
-endif(CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR AND FORCE_OTT_BUILD)
+endif(CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR AND FORCE_OOT_BUILD)
 
 # check for Rust installation
 find_program(RUST_COMPILER rustc ~/.cargo/bin/)
