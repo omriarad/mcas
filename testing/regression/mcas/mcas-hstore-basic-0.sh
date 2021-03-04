@@ -10,6 +10,7 @@ TESTID="$(basename --suffix .sh -- $0)-$DAXTYPE"
 VALUE_LENGTH=8
 # kvstore-keylength-valuelength-store-netprovider
 DESC="hstore-8-$VALUE_LENGTH-$DAXTYPE"
+if [ -n "$PROFILE" ]; then PROF_SPEC="--profile $PROFILE"; fi
 
 # parameters for MCAS server and client
 NODE_IP="$(node_ip)"
@@ -17,8 +18,8 @@ DEBUG=${DEBUG:-0}
 
 CONFIG_STR="$("./dist/testing/hstore-0.py" "$STORETYPE" "$DAXTYPE" "$NODE_IP" 11911)"
 # launch MCAS server
-[ 0 -lt $DEBUG ] && echo DAX_RESET=1 ./dist/bin/mcas --config \`"$CONFIG_STR"\` --forced-exit --debug $DEBUG
-DAX_RESET=1 ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
+[ 0 -lt $DEBUG ] && echo DAX_RESET=1 ./dist/bin/mcas --config \'"$CONFIG_STR"\' ${PROF_SPEC} --forced-exit --debug $DEBUG
+DAX_RESET=1 ./dist/bin/mcas --config "$CONFIG_STR" ${PROF_SPEC} --forced-exit --debug $DEBUG &> test$TESTID-server.log &
 SERVER_PID=$!
 
 sleep 3
