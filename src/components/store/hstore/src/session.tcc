@@ -139,7 +139,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				if ( pfs->get_cptr().P )
 				{
 					/* S_committed: roll forward */
-					pfs->pin(AK_REF aspd.get_cptr(), this->allocator());
+					pfs->pin(AK_REF aspd.get_cptr(), persist_string_use::unknown, this->allocator());
 				}
 				else
 				{
@@ -191,7 +191,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				if ( pfs->get_cptr().P )
 				{
 					/* S_committed: roll forward */
-					pfs->pin(AK_REF aspk.get_cptr(), this->allocator());
+					pfs->pin(AK_REF aspk.get_cptr(), persist_string_use::unknown, this->allocator());
 				}
 				else
 				{
@@ -263,13 +263,13 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				AK_REF
 				TM_REF
 				std::piecewise_construct
-				, std::forward_as_tuple(AK_REF key.begin(), key.end(), lock_state::free, this->allocator())
+				, std::forward_as_tuple(AK_REF key.begin(), key.end(), persist_string_use::key, lock_state::free, this->allocator())
 				, std::forward_as_tuple(
 /* we wish that std::tuple had piecewise_construct, but it does not. */
 #if 0
 					std::piecewise_construct,
 #endif
-					std::forward_as_tuple(AK_REF cvalue, cvalue + value_len, lock_state::free, this->allocator())
+					std::forward_as_tuple(AK_REF cvalue, cvalue + value_len, persist_string_use::data, lock_state::free, this->allocator())
 #if ENABLE_TIMESTAMPS
 					, impl::tsc_now()
 #endif
@@ -458,7 +458,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 						AK_REF
 						TM_REF
 						std::piecewise_construct
-						, std::forward_as_tuple(AK_REF fixed_data_location, key.begin(), key.end(), lock_state::free, this->allocator())
+						, std::forward_as_tuple(AK_REF fixed_data_location, key.begin(), key.end(), persist_string_use::key, lock_state::free, this->allocator())
 						, std::forward_as_tuple(
 /* we wish that std::tuple had piecewise_construct, but it does not. */
 #if 0
@@ -509,7 +509,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				auto &km = const_cast<typename std::remove_const<key_type>::type &>(k);
 				monitor_pin_key<hstore_alloc_type<Persister>::heap_alloc_access_type> mp(km, _heap.pool());
 				/* convert k to a immovable data */
-				km.pin(AK_REF mp.get_cptr(), this->allocator());
+				km.pin(AK_REF mp.get_cptr(), persist_string_use::key, this->allocator());
 			}
 			mapped_type &m = v.second;
 			auto &d = std::get<0>(m);
@@ -522,7 +522,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			{
 				monitor_pin_data<hstore_alloc_type<Persister>::heap_alloc_access_type> mp(d, _heap.pool());
 				/* convert d to a immovable data */
-				d.pin(AK_REF mp.get_cptr(), this->allocator());
+				d.pin(AK_REF mp.get_cptr(), persist_string_use::data, this->allocator());
 			}
 #if 0
 			PLOG(PREFIX "data exposed (extant): %p", LOCATION, d.data_fixed());

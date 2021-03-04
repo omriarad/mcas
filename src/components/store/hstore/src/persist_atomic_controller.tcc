@@ -274,8 +274,8 @@ template <typename Table>
 				_persisted->ase().em_record_owner_addr_and_bitmask(&_persisted->mod_owner, 1, *pe);
 			}
 #endif
-			_persisted->mod_key.assign(AK_REF key.begin(), key.end(), lock_state::free, al_);
-			_persisted->mod_mapped.assign(AK_REF data_, data_ + data_len_, zeros_extend_, alignment_, lock_, al_);
+			_persisted->mod_key.assign(AK_REF key.begin(), key.end(), persist_string_use::key, lock_state::free, al_);
+			_persisted->mod_mapped.assign(AK_REF data_, data_ + data_len_, zeros_extend_, persist_string_use::key, alignment_, lock_, al_);
 			_persisted->map = map_;
 			this->persist(&_persisted->map, sizeof _persisted->map);
 			_persisted->mod_owner = 1;
@@ -328,8 +328,8 @@ template <typename Table>
 			}
 
 			/* leaky */
-			_persisted->mod_key.assign(AK_REF key.begin(), key.end(), lock_state::free, al_);
-			_persisted->mod_mapped.assign(AK_REF src.begin(), src.end(), lock_, al_);
+			_persisted->mod_key.assign(AK_REF key.begin(), key.end(), persist_string_use::key, lock_state::free, al_);
+			_persisted->mod_mapped.assign(AK_REF src.begin(), src.end(), persist_string_use::data, lock_, al_);
 			{
 				/* leaky ERROR: local pointer can leak */
 				persistent_t<typename std::allocator_traits<allocator_type>::pointer> ptr = nullptr;

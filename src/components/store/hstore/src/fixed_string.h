@@ -47,7 +47,7 @@ namespace
 			return g ? (a/g * b) : I();
 		}
 
-	/* paramenters and return like std::fill_n, but can use pmem_memset_persist */
+	/* act like std::fill_n, but can use pmem_memset */
 	template <typename IO_>
 		char *persisted_zero_n(IO_ dst_, std::size_t n_)
 		{
@@ -60,12 +60,12 @@ namespace
 #endif
 		}
 
-	/* paramenters and return like std::copy, but can use pmem_memcpy_persist */
+	/* act like std::copy, but can use pmem_memcpy */
 	template <typename II_, typename IO_>
-		char *persisted_copy(const II_ first_, const II_ last_, IO_ dst_)
+		char *persisted_copy(const II_ first_, const II_ last_, IO_ dst_, unsigned flags)
 		{
 #if MCAS_HSTORE_USE_PMEM_PERSIST
-			::pmem_memcpy_persist(&*dst_, &*first_, (last_ - first_) * sizeof *first_);
+			::pmem_memcpy(&*dst_, &*first_, (last_ - first_) * sizeof *first_, flags);
 			return dst_ + (last_ - first_);
 #else
 			return std::copy(first_, last_, dst_);
@@ -120,6 +120,7 @@ template <typename T>
 			fixed_string(
 				IT first_, IT last_
 				, std::size_t pad_
+				, unsigned pmem_flags_
 				, std::size_t alignment_
 				, lock_state lock_
 			)
@@ -140,7 +141,7 @@ template <typename T>
 				/* first aligned element starts at first aligned byte */
 				const auto e0 = common::pointer_cast<T>(c0);
 				persisted_zero_n(
-					persisted_copy(first_, last_, e0)
+					persisted_copy(first_, last_, e0, pmem_flags_)
 					, pad_
 				);
 			}
@@ -158,9 +159,9 @@ template <typename T>
 		template <typename Allocator>
 			void persist_this(const Allocator &al_)
 			{
-				/* If using native pmem persist functions, persist should only be necessary
-				 * for the header. Data should have been persistted by pmem_memcpy_persist
-				 * or pmem_memset_persist
+				/* If using native pmem persist functions, persist should only be
+				 * necessary for the header. Data should have been persisted by
+				 * pmem_memcpy or pmem_memset.
 				 */
 #if MCAS_HSTORE_USE_PMEM_PERSIST
 				al_.persist(this, sizeof *this);

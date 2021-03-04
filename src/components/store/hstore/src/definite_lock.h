@@ -22,6 +22,7 @@
 #include "key_not_found.h"
 #include "is_locked.h"
 #include "monitor_pin.h"
+#include "persist_string_use.h"
 
 #include <common/perf/tm.h>
 
@@ -70,7 +71,7 @@ template <typename Table, typename Allocator>
 #endif
 					monitor_pin_data<hstore_alloc_type<Persister>::heap_alloc_access_type> mp(d, al_.pool());
 					/* convert d to immovable data */
-					d.pin(AK_REF mp.get_cptr(), al_);
+					d.pin(AK_REF mp.get_cptr(), persist_string_use::data, al_);
 				}
 
 				if ( ! d.try_lock_exclusive() )
