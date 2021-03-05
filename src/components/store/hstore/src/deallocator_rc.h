@@ -28,12 +28,14 @@ template <>
 	struct deallocator_rc<void, persister>
 	{
 		using value_type = void;
+		using pointer = value_type *;
 	};
 
 template <typename Persister>
 	struct deallocator_rc<void, Persister>
 	{
 		using value_type = void;
+		using pointer = value_type *;
 	};
 
 template <typename T, typename Persister = persister>
@@ -44,6 +46,7 @@ template <typename T, typename Persister = persister>
 		heap_access<heap_rc> _pool;
 	public:
 		using value_type = T;
+		using pointer = value_type *;
 		using size_type = std::size_t;
 #if 0
 		explicit deallocator_rc(void *area_, Persister p_ = Persister())

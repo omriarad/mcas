@@ -8,7 +8,7 @@ include(../../../../mk/clang-dev-tools.cmake)
 
 add_subdirectory(./unit_test)
 
-include_directories(../../../lib/common/include/)
+include_directories(../../../lib/common/include)
 include_directories(../../../lib/GSL/include)
 include_directories(../../)
 

@@ -38,6 +38,8 @@ template <typename T, std::size_t SmallLimit>
 	struct inline_t
 	{
 		using value_type = T;
+		using pointer = value_type *;
+		using const_pointer = const value_type *;
 		std::array<value_type, SmallLimit-1> value;
 	private:
 		/* _size == SmallLimit => data is stored out-of-line */
@@ -91,8 +93,8 @@ template <typename T, std::size_t SmallLimit>
 				_size = full_size;
 			}
 
-		const value_type *const_data() const { return static_cast<const value_type *>(&value[0]); }
-		value_type *data() { return static_cast<value_type *>(&value[0]); }
+		const_pointer const_data() const { return static_cast<const_pointer>(&value[0]); }
+		pointer data() { return static_cast<pointer>(&value[0]); }
 	};
 
 template <typename T, std::size_t SmallSize, typename Allocator>
@@ -196,6 +198,8 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 #endif
 		using cptr_type = ::cptr;
 		using value_type = T;
+		using pointer = value_type *;
+		using const_pointer = const value_type *;
 	private:
 		using element_type = fixed_string<value_type>;
 		using allocator_type_element =
@@ -740,32 +744,32 @@ persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::pers
 		 *   data_fixed (when the location must not change for the lifetime of the object,
 		 *     even if the object (key or value) moves)
 		 */
-		const value_type *data_fixed() const
+		const_pointer data_fixed() const
 		{
 			assert( ! is_inline() );
 			return _outline.ptr()->data();
 		}
 
-		value_type *data_fixed()
+		pointer data_fixed()
 		{
 			assert( !is_inline() );
 			return _outline.ptr()->data();
 		}
 
-		const value_type *data() const
+		const_pointer data() const
 		{
 			return
 				is_inline()
-				? static_cast<const value_type *>(&_inline.value[0])
+				? static_cast<const_pointer>(&_inline.value[0])
 				: data_fixed()
 				;
 		}
 
-		value_type *data()
+		pointer data()
 		{
 			return
 				is_inline()
-				? static_cast<value_type *>(&_inline.value[0])
+				? static_cast<pointer>(&_inline.value[0])
 				: data_fixed()
 				;
 		}

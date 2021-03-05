@@ -491,7 +491,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				if ( ! r.second )
 				{
 					/* Should not happen. If we could not find it, should be able to create it */
-					return { lock_result::e_state::creation_failed, component::IKVStore::KEY_NONE, string_view_key(), string_view_value(static_cast<string_view_value::value_type *>(value), value_len) };
+					return { lock_result::e_state::creation_failed, component::IKVStore::KEY_NONE, string_view_key(), string_view_value(static_cast<string_view_value::pointer>(value), value_len) };
 				}
 
 				auto &v = *r.first;

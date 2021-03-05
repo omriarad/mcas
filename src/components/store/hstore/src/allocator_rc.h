@@ -50,6 +50,7 @@ template <typename T, typename Persister = persister>
 		using deallocator_type = deallocator_rc<T, Persister>;
 		using typename deallocator_type::value_type;
 		using typename deallocator_type::size_type;
+		using typename deallocator_type::pointer;
 
 		explicit allocator_rc(void *area_, std::size_t size_, Persister p_ = Persister())
 			: deallocator_rc<T, Persister>(area_, size_, p_)
@@ -76,33 +77,33 @@ template <typename T, typename Persister = persister>
 			AK_ACTUAL
 			size_type s
 			, size_type alignment = alignof(T)
-		) -> value_type *
+		) -> pointer
 		{
 			auto ptr = this->pool()->alloc(s * sizeof(T), alignment);
 			if ( ptr == 0 )
 			{
 				throw bad_alloc_cc(AK_REF 0, s, sizeof(T));
 			}
-			return static_cast<value_type *>(ptr);
+			return static_cast<pointer>(ptr);
 		}
 
 		auto allocate_tracked(
 			AK_ACTUAL
 			size_type s
 			, size_type alignment = alignof(T)
-		) -> value_type *
+		) -> pointer
 		{
 			auto ptr = this->pool()->alloc_tracked(s * sizeof(T), alignment);
 			if ( ptr == 0 )
 			{
 				throw bad_alloc_cc(AK_REF 0, s, sizeof(T));
 			}
-			return static_cast<value_type *>(ptr);
+			return static_cast<pointer>(ptr);
 		}
 
 		void allocatep(
 			AK_ACTUAL
-			persistent<value_type *> &ptr
+			persistent<pointer> &ptr
 			, size_type sz
 			, size_type alignment = alignof(T)
 		)
@@ -112,7 +113,7 @@ template <typename T, typename Persister = persister>
 
 		void allocate_tracked(
 			AK_ACTUAL
-			value_type * &ptr
+			pointer &ptr
 			, size_type sz
 			, size_type alignment = alignof(T)
 		)
@@ -122,7 +123,7 @@ template <typename T, typename Persister = persister>
 
 		void allocate(
 			AK_ACTUAL
-			value_type * &ptr
+			pointer &ptr
 			, size_type sz
 			, size_type alignment = alignof(T)
 		)
