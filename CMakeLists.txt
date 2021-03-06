@@ -4,7 +4,7 @@ option(FORCE_OTT_BUILD "force out of tree build" ON)
 option(BOOTSTRAP_DEPS "bootstrap to build deps" ON)
 
 # build scope options
-option(BUILD_RUST "enabled Rust-based dependencies" ON)
+option(BUILD_RUST "enabled Rust-based dependencies" OFF)
 option(BUILD_KERNEL_SUPPORT "build kernel module dependencies" OFF)
 option(BUILD_EXAMPLES_PMDK "build PMDK-based ADO examples (requires PMDK installed)" OFF)
 
