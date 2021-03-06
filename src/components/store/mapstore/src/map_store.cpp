@@ -191,11 +191,11 @@ private:
   using string_view_key = Map_store::string_view_key;
   using string_view_value = Map_store::string_view_value;
 public:
-  Pool_handle(common::string_view name_, size_t nsize, unsigned flags_)
+  Pool_handle(const common::string_view name_, size_t nsize, unsigned flags_)
     : _nsize(nsize < MIN_POOL ? MIN_POOL : nsize),
       _tmp({allocate_region_memory(MB(2) /* alignment */, _nsize), _nsize}),
       _regions{_tmp},
-      _name{name_},
+      _name(name_),
       _lb(0U),
       _map({(_lb.add_managed_region(_tmp.iov_base, _nsize, NUMA_ZONE), aam_t(_lb))}),
       _map_lock{},
