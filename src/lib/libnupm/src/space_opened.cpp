@@ -58,7 +58,7 @@ std::vector<common::memory_mapped> nupm::range_use::address_coverage_check(std::
 	for ( const auto &e : iovm_ )
 	{
 		auto i = boost::icl::interval<byte *>::right_open(::data(e), ::data_end(e));
-		if ( intersects(_dm->_address_coverage, i) )
+		if ( intersects(*_dm->_address_coverage, i) )
 		{
 			std::ostringstream o;
 			o << "range " << ::base(e) << ".." << ::end(e) << " overlaps existing mapped storage";
@@ -67,8 +67,8 @@ std::vector<common::memory_mapped> nupm::range_use::address_coverage_check(std::
 		}
 		this_coverage.insert(i);
 	}
-	_dm->_address_coverage += this_coverage;
-	_dm->_address_fs_available -= this_coverage;
+	*_dm->_address_coverage += this_coverage;
+	*_dm->_address_fs_available -= this_coverage;
 
 	return std::move(iovm_);
 }
@@ -91,8 +91,8 @@ nupm::range_use::~range_use()
 		for ( const auto &e : _iovm )
 		{
 			auto i = boost::icl::interval<byte *>::right_open(::data(e), ::data_end(e));
-			_dm->_address_coverage.erase(i);
-			_dm->_address_fs_available.insert(i);
+			_dm->_address_coverage->erase(i);
+			_dm->_address_fs_available->insert(i);
 		}
 	}
 }
@@ -111,16 +111,16 @@ void nupm::range_use::shrink(std::size_t size_)
 		if ( size_ < ::size(e) )
 		{
 			auto i = boost::icl::interval<byte *>::right_open(::data_end(e) - size_, ::data_end(e));
-			_dm->_address_coverage.erase(i);
-			_dm->_address_fs_available.insert(i);
+			_dm->_address_coverage->erase(i);
+			_dm->_address_fs_available->insert(i);
 			_iovm.back().shrink_by(size_);
 			size_ = 0;
 		}
 		else
 		{
 			auto i = boost::icl::interval<byte *>::right_open(::data(e), ::data_end(e));
-			_dm->_address_coverage.erase(i);
-			_dm->_address_fs_available.insert(i);
+			_dm->_address_coverage->erase(i);
+			_dm->_address_fs_available->insert(i);
 			size_ -= ::size(e);
 			_iovm.pop_back();
 		}

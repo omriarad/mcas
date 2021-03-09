@@ -22,7 +22,10 @@
 #ifndef __NUPM_DAX_MANAGER_H__
 #define __NUPM_DAX_MANAGER_H__
 
+#include "dax_manager_abstract.h"
+
 #include "nd_utils.h" /* ND_control */
+#include "config_t.h"
 #include "region_descriptor.h"
 #include "space_opened.h"
 #include "space_registered.h"
@@ -32,6 +35,7 @@
 #include <common/memory_mapped.h>
 #include <common/moveable_ptr.h>
 #include <common/string_view.h>
+#include <gsl/span>
 #include <boost/icl/interval_set.hpp>
 #if ! defined _NUPM_FILESYSTEM_STD_ && defined __has_include
   #if __has_include (<filesystem>) && __cplusplus >= 201703L
@@ -74,7 +78,7 @@ struct registry_memory_mapped
  * configuration.
  *
  */
-struct dax_manager : protected common::log_source, private registry_memory_mapped {
+struct dax_manager : public dax_manager_abstract, protected common::log_source, private registry_memory_mapped {
  private:
   static constexpr const char *_cname = "dax_manager";
   using byte = common::byte;
@@ -85,18 +89,7 @@ struct dax_manager : protected common::log_source, private registry_memory_mappe
   static const bool have_odp;
   static const int effective_map_locked;
 
-  struct config_t {
-    std::string path;
-    addr_t addr;
-    /* Through no fault of its own, config_t may begin life with no proper values */
-    config_t() : path(), addr(0) {}
-  };
-
-  struct config_mapped
-  {
-    std::string path;
-    addr_t addr;
-  };
+  using config_t = nupm::config_t; /* Moved out of dax_manager to avoid tie to boost 1.65 boost::icl */
 
   /**
    * Constructor e.g.
@@ -107,7 +100,7 @@ struct dax_manager : protected common::log_source, private registry_memory_mappe
    * @param dax_config Vector of dax-path, address, arena_id tuples.
    * @param force_reset
    */
-  dax_manager(const common::log_source &ls, const std::vector<config_t>& dax_config,
+  dax_manager(const common::log_source &ls, const gsl::span<const config_t> dax_config,
                  bool force_reset = false);
 
   /**
@@ -129,7 +122,7 @@ struct dax_manager : protected common::log_source, private registry_memory_mappe
    *   Until fsdax supports extending a region, the vector will not be more
    *   than one element long.
    */
-  region_descriptor open_region(const string_view & id, arena_id_t arena_id);
+  region_descriptor open_region(string_view id, arena_id_t arena_id);
 
   /**
    * Create a new region of memory
@@ -141,7 +134,7 @@ struct dax_manager : protected common::log_source, private registry_memory_mappe
    * @return backing file name (empty string if none);
    *   Pointer to and size of mapped memory
    */
-  region_descriptor create_region(const string_view &id, arena_id_t arena_id, const size_t size);
+  region_descriptor create_region(string_view id, arena_id_t arena_id, const size_t size);
 
   /**
    * Resize a region of memory
@@ -159,7 +152,7 @@ struct dax_manager : protected common::log_source, private registry_memory_mappe
    * locate_region), it can be used to retrieve the new mapping of a resized region.
    *
    */
-  region_descriptor resize_region(const string_view & id, arena_id_t arena_id, size_t size);
+  region_descriptor resize_region(string_view id, arena_id_t arena_id, size_t size);
 
   /**
    * Erase a previously allocated region
@@ -167,7 +160,7 @@ struct dax_manager : protected common::log_source, private registry_memory_mappe
    * @param id Unique region identifier
    * @param arena_id Arena identifier
    */
-  void erase_region(const string_view & id, arena_id_t arena_id);
+  void erase_region(string_view id, arena_id_t arena_id);
 
   /**
    * Get the maximum "hole" size.
@@ -217,8 +210,8 @@ struct dax_manager : protected common::log_source, private registry_memory_mappe
 
   ND_control                                _nd;
   using AC = boost::icl::interval_set<byte *>;
-  AC                                        _address_coverage;
-  AC                                        _address_fs_available;
+  std::unique_ptr<AC>                       _address_coverage;
+  std::unique_ptr<AC>                       _address_fs_available;
   mapped_spaces                             _mapped_spaces;
   std::vector<std::unique_ptr<arena>>       _arenas;
   std::mutex                                _reentrant_lock;
