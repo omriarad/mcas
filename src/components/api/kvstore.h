@@ -25,6 +25,7 @@
 
 #include <cinttypes> /* PRIx64 */
 #include <cstdlib>
+#include <cstring> /* strlen */
 #include <functional>
 #include <map>
 #include <mutex>
@@ -73,9 +74,11 @@ protected:
   using pool_iterator_t = Opaque_pool_iterator*;
   using byte            = common::byte;
 
-  using string_view_byte = common::basic_string_view<byte>;
-  using string_view_key = string_view_byte;
+  template <typename C>
+    using basic_string_view = common::basic_string_view<C>;
   using string_view = common::string_view;
+  using string_view_byte = basic_string_view<byte>;
+  using string_view_key = string_view_byte;
   using string_view_value = string_view_byte;
 
   static constexpr memory_handle_t HANDLE_NONE = nullptr; /* old name */
@@ -87,7 +90,6 @@ protected:
     Addr() = delete;
     addr_t addr;
   };
-  
 
   enum {
     THREAD_MODEL_UNSAFE,
@@ -218,6 +220,32 @@ protected:
     {
     }
   };
+
+private:
+  template <typename K>
+    static string_view_key to_key(basic_string_view<K> key)
+    {
+      return string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size());
+    }
+
+  template <typename K>
+    static string_view_key to_key(const std::basic_string<K> &key)
+    {
+      return to_key(basic_string_view<K>(key));
+    }
+
+  static string_view_key to_key(const char *key)
+  {
+    return string_view_key(common::pointer_cast<string_view_key::value_type>(key), std::strlen(key));
+  }
+
+  template <typename K>
+    static basic_string_view<K> from_key(string_view key)
+    {
+      return basic_string_view<K>(common::pointer_cast<K>(key.data()), key.size());
+    }
+
+public:
 
   /**
    * Determine thread safety of the component
@@ -373,14 +401,15 @@ protected:
   }
 
   /* other-type-of-key-string put operation */
-  status_t put(const pool_t pool,
-    string_view     key,
-    const void*             value,
-    const size_t            value_len,
-    flags_t                 flags = FLAGS_NONE)
-  {
-    return put(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), value, value_len, flags); 
-  }
+  template <typename K>
+    status_t put(const pool_t pool,
+      K key,
+      const void*             value,
+      const size_t            value_len,
+      flags_t                 flags = FLAGS_NONE)
+    {
+      return put(pool, to_key(key), value, value_len, flags);
+    }
 
   /**
    * Zero-copy put operation.  If there does not exist an object
@@ -405,15 +434,16 @@ protected:
     return error_value(E_NOT_SUPPORTED, pool, key, value, value_len, handle, flags);
   }
 
-   status_t put_direct(const pool_t       pool,
-                              string_view key,
+  template <typename K>
+    status_t put_direct(const pool_t       pool,
+      K key,
                               const void*        value,
                               const size_t       value_len,
                               memory_handle_t    handle = HANDLE_NONE,
                               flags_t            flags  = FLAGS_NONE)
-  {
-    return put_direct(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), value, value_len, handle, flags);
-  }
+    {
+      return put_direct(pool, to_key(key), value, value_len, handle, flags);
+    }
 
   /**
    * Resize memory for a value
@@ -432,20 +462,15 @@ protected:
   {
     return error_value(E_NOT_SUPPORTED, pool, key, new_size, alignment);
   }
- 
-  status_t resize_value(const pool_t       pool,
-                                const string_view key,
+
+  template <typename K>
+    status_t resize_value(const pool_t       pool,
+      K key,
                                 const size_t       new_size,
                                 const size_t       alignment)
-  {
-    return
-      resize_value(
-        pool
-        , string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size())
-        , new_size
-        , alignment
-      );
-  }
+    {
+      return resize_value(pool, to_key(key), new_size, alignment);
+    }
 
   /**
    * Read an object value
@@ -462,13 +487,14 @@ protected:
                        void*&             out_value, /* release with free_memory() API */
                        size_t&            out_value_len) = 0;
 
-  status_t get(const pool_t       pool,
-                       string_view key,
-                       void*&             out_value, /* release with free_memory() API */
-                       size_t&            out_value_len)
-  {
-    return get(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), out_value, out_value_len);
-  };
+  template <typename K>
+    status_t get(const pool_t       pool,
+      K key,
+                         void*&             out_value, /* release with free_memory() API */
+                         size_t&            out_value_len)
+    {
+      return get(pool, to_key(key), out_value, out_value_len);
+    }
 
   /**
    * Read an object value directly into client-provided memory.
@@ -495,21 +521,15 @@ protected:
     return error_value(E_NOT_SUPPORTED, pool, key, out_value, out_value_len, handle);
   }
 
-  status_t get_direct(pool_t             pool,
-                              string_view key,
+  template <typename K>
+    status_t get_direct(pool_t             pool,
+      K key,
                               void*              out_value,
                               size_t&            out_value_len,
                               memory_handle_t    handle = HANDLE_NONE)
-  {
-    return
-      get_direct(
-        pool
-        , string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size())
-        , out_value
-        , out_value_len
-        , handle
-      );
-  }
+    {
+      return get_direct(pool, to_key(key), out_value, out_value_len, handle);
+    }
 
   /**
    * Get attribute for key or pool (see enum Attribute)
@@ -526,7 +546,16 @@ protected:
                                  std::vector<uint64_t>& out_value,
                                  string_view_key     key = string_view_key{}) = 0;
 
-  /* old string_ptr version */
+  template <typename K>
+    status_t get_attribute(pool_t               pool,
+                                 Attribute              attr,
+                                 std::vector<uint64_t>& out_value,
+                                 basic_string_view<K>   key = basic_string_view<K>{})
+    {
+      return get_attribute(pool, attr, out_value, to_key(key));
+    }
+
+  /* string pointer version */
   status_t get_attribute(pool_t                 pool,
                          Attribute              attr,
                          std::vector<uint64_t>& out_value,
@@ -534,8 +563,12 @@ protected:
   {
     status_t (KVStore::*mpf)(pool_t, Attribute, std::vector<uint64_t>&, string_view_key) = &KVStore::get_attribute;
     return (this->*mpf)(
-		pool, attr, out_value
-		, key ? string_view_key(common::pointer_cast<string_view_key::value_type>(key->data()), key->size()) : string_view_key()
+		pool
+		, attr
+		, out_value
+		, key
+			? string_view_key(common::pointer_cast<string_view_key::value_type>(key->data()), key->size())
+			: string_view_key()
 	);
   }
 
@@ -558,17 +591,13 @@ protected:
     return error_value(E_NOT_SUPPORTED, pool, key0, key1);
   }
 
-  status_t swap_keys(const pool_t pool,
-                             string_view key0,
-                             string_view key1)
-  {
-    return
-      swap_keys(
-        pool
-        , string_view_key(common::pointer_cast<string_view_key::value_type>(key0.data()), key0.size())
-        , string_view_key(common::pointer_cast<string_view_key::value_type>(key1.data()), key1.size())
-      );
-  }
+  template <typename K0, typename K1>
+    status_t swap_keys(const pool_t pool,
+      K0 key0,
+      K1 key1)
+    {
+      return swap_keys(pool, to_key(key0), to_key(key1));
+    }
 
   /**
    * Set attribute on a pool.
@@ -587,6 +616,15 @@ protected:
   {
     return error_value(E_NOT_SUPPORTED, pool, attr, value, key);
   }
+
+  template <typename K>
+    status_t set_attribute(const pool_t                 pool,
+                                 const Attribute              attr,
+                                 const std::vector<uint64_t>& value,
+                                 const basic_string_view<K>   key = basic_string_view<K>{})
+    {
+      return set_attribute(pool, attr, value, key);
+    }
 
   /**
    * Allocate memory for zero copy DMA
@@ -673,16 +711,17 @@ protected:
     return error_value(E_NOT_SUPPORTED, pool, key, type, out_value, inout_value_len, out_key_handle, out_key_ptr);
   }
 
-  status_t lock(const pool_t       pool,
-                        string_view key,
+  template <typename K>
+    status_t lock(const pool_t       pool,
+      K key,
                         const lock_type_t  type,
                         void*&             out_value,
                         size_t&            inout_value_len,
                         key_t&             out_key_handle,
                         const char**       out_key_ptr = nullptr)
-  {
-    return lock(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), type, out_value, inout_value_len, out_key_handle, out_key_ptr);
-  }
+    {
+      return lock(pool, to_key(key), type, out_value, inout_value_len, out_key_handle, out_key_ptr);
+    }
 
   /**
    * Unlock a key-value pair
@@ -720,14 +759,15 @@ protected:
   {
     return error_value(E_NOT_SUPPORTED, pool, key, op_vector, take_lock);
   }
- 
-  status_t atomic_update(const pool_t                   pool,
-                                 string_view             key,
+
+  template <typename K>
+    status_t atomic_update(const pool_t                   pool,
+      K key,
                                  const std::vector<Operation*>& op_vector,
                                  bool                           take_lock = true)
-  {
-    return atomic_update(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()), op_vector, take_lock);
-  }
+    {
+      return atomic_update(pool, to_key(key), op_vector, take_lock);
+    }
 
   /**
    * Erase an object
@@ -739,10 +779,13 @@ protected:
    */
   virtual status_t erase(pool_t pool, const string_view_key key) = 0;
 
-  status_t erase(pool_t pool, string_view key)
-  {
-    return erase(pool, string_view_key(common::pointer_cast<string_view_key::value_type>(key.data()), key.size()));
-  }
+  template <typename K>
+    status_t erase(pool_t pool,
+      K key
+    )
+    {
+      return erase(pool, to_key(key));
+    }
 
   /**
    * Return number of objects in the pool
@@ -769,8 +812,25 @@ protected:
   {
     return error_value(E_NOT_SUPPORTED, pool, function);
   }
- 
-  /* old 4-parameter verion Connstruct the parameters from string_view version */
+
+  template <typename K>
+    status_t map(const pool_t pool,
+                         std::function<int(basic_string_view<K> key,
+                                         string_view_value value
+                                         )> function
+    )
+    {
+      return
+        map(
+          pool
+          , [&function] (string_view_key key, string_view_value value) -> int
+            {
+              return function(from_key<K>(key), value);
+            }
+        );
+    }
+
+  /* 4-parameter verion: construct the parameters from string_view version */
   status_t map(const pool_t pool,
                std::function<int(const void* key,
                                  const size_t key_len,
@@ -784,7 +844,7 @@ protected:
           {
             return function(key.data(), key.size(), value.data(), value.size());
           }
-      ); 
+      );
   }
 
   /**
@@ -808,7 +868,27 @@ protected:
   {
     return error_value(E_NOT_SUPPORTED, pool, function, t_begin, t_end);
   }
- 
+
+  template <typename K>
+    status_t map(const pool_t pool,
+                       std::function<int(basic_string_view<K> key,
+                                         string_view_value value,
+                                         common::tsc_time_t timestamp)> function,
+                       const common::epoch_time_t t_begin,
+                       const common::epoch_time_t t_end)
+    {
+      return
+        map(
+          pool
+          , [&function] (string_view_key key, string_view_value value, common::tsc_time_t ts) -> int
+            {
+              return function(from_key<K>(key), value, ts);
+            }
+          , t_begin
+          , t_end
+        );
+    }
+
   /* 5-argument version */
   status_t map(const pool_t pool,
                std::function<int(const void*              key,
@@ -843,8 +923,23 @@ protected:
   {
     return error_value(E_NOT_SUPPORTED, pool, function);
   }
- 
-  /* old version which wants a true string. Connstruct the string from the string_view version */
+
+  template <typename K>
+    status_t map_keys(const pool_t pool, std::function<int(string_view_key key)> function)
+    {
+      status_t (KVStore::*mpf)(pool_t, std::function<int(basic_string_view<K>)>) = &KVStore::map_keys;
+      return
+        (this->*mpf)(
+          pool
+          , [&function] (string_view_key key) -> int
+            {
+              return function(from_key<K>(key));
+            }
+        );
+        return error_value(E_NOT_SUPPORTED, pool, function);
+      }
+
+  /* version which wants a true string. Construct the string from the string_view version */
   status_t map_keys(const pool_t pool, std::function<int(const std::string& key)> function)
   {
     status_t (KVStore::*mpf)(pool_t, std::function<int(string_view_byte)>) = &KVStore::map_keys;
@@ -856,7 +951,7 @@ protected:
             auto k = std::string(common::pointer_cast<char>(key.data()), key.size());
             return function(k);
           }
-      ); 
+      );
   }
 
   /*
@@ -878,7 +973,7 @@ protected:
     const void*          value;
     size_t               value_len;
     common::epoch_time_t timestamp; /* zero if not supported */
-    
+
     inline std::string get_key() const {
       std::string k(static_cast<const char*>(key), key_len);
       return k;
