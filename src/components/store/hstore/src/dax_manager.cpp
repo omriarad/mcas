@@ -16,7 +16,6 @@
 
 #include <common/json.h>
 #include <nupm/config_t.h>
-#include <nupm/make_dax_manager.h>
 #include <rapidjson/error/en.h>
 #include <rapidjson/prettywriter.h>
 #pragma GCC diagnostic push
