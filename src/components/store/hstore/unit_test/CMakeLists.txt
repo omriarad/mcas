@@ -4,6 +4,8 @@ project(hstore-tests CXX)
 
 enable_language(CXX C ASM)
 
+set(CMAKE_CXX_STANDARD 17)
+
 find_library(PROFILER_LIB NAMES profiler PATHS /usr/local/lib,/usr/local/lib64,/usr/lib,/usr/lib64)
 if ("${PROFILER_LIB}" STREQUAL "PROFILER_LIB-NOTFOUND")
 set(PROFILER "")

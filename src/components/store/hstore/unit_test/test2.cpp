@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #pragma GCC diagnostic pop
 
+#include <common/to_string.h>
 #include <common/utils.h>
 #include <api/components.h>
 /* note: we do not include component source, only the API definition */
@@ -205,10 +206,7 @@ TEST_F(KVStore_test, PopulateMany)
   std::mt19937_64 r0{};
   for ( auto i = 0UL; i != many_count_target; ++i )
   {
-    auto ukey = r0();
-    std::ostringstream s;
-    s << std::hex << ukey;
-    auto key = s.str();
+    auto key = common::to_string(std::hex, r0());
     key.resize(many_key_length, '.');
     auto value = std::to_string(i);
     value.resize(many_value_length, '.');

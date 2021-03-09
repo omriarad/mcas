@@ -17,9 +17,10 @@
 
 #include "cond_print.h"
 
+#include <common/to_string.h>
+
 #include <cassert>
 #include <cstddef> /* size_t */
-#include <sstream> /* ostringstream */
 
 /*
  * ===== content =====
@@ -44,17 +45,17 @@ template <typename Value>
 template <typename Value>
 	auto impl::content<Value>::descr() const -> std::string
 	{
-		std::ostringstream s;
-		s << "(owner " << _owner;
+		std::string kv{};
 		if ( _owner != owner_undefined )
 		{
-			s << " " << cond_print(key(),"(unprintable key)")
-			<< "->"
-			<< cond_print(mapped(), "(unprintable mapped)")
-			<< ")"
-			;
+			kv += common::to_string(
+				" "
+				, cond_print(key(),"(unprintable key)")
+				, "->"
+				, cond_print(mapped() , "(unprintable mapped)")
+			);
 		}
-		return s.str();
+		return common::to_string("(owner ", _owner) + kv + ")";
 	}
 #endif
 

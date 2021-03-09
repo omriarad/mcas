@@ -15,6 +15,7 @@
 #include <common/exceptions.h>
 #include <common/rwlock.h>
 #include <common/cycles.h>
+#include <common/to_string.h>
 #include <common/utils.h>
 #include <fcntl.h>
 #include <nupm/allocator_ra.h>
@@ -28,7 +29,6 @@
 #include <cmath>
 #include <map>
 #include <set>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -131,12 +131,12 @@ static void * allocate_region_memory(size_t alignment, size_t size)
 
   if ( p == MAP_FAILED ) {
     auto e = errno;
-    std::ostringstream msg;
-    msg << __FILE__ << " allocate_region_memory mmap failed on DRAM for region allocation"
-        << " alignment="
-        << std::hex << alignment
-        << " size=" << std::dec << size << " :" << strerror(e);
-    throw General_exception("%s", msg.str().c_str());
+    throw General_exception("%s",
+       common::to_string(__FILE__, " allocate_region_memory mmap failed on DRAM for region allocation"
+         , " alignment="
+         , std::hex, alignment
+         , " size=", std::dec, size, " :", strerror(e)).c_str()
+       );
   }
 
   if(madvise(p, size, MADV_DONTFORK) != 0)

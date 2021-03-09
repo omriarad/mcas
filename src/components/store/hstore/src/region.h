@@ -22,13 +22,16 @@
 
 #include <nupm/region_descriptor.h>
 #include <common/byte_span.h>
+#include <common/to_string.h>
 #include <common/pointer_cast.h>
 #include <common/string_view.h>
 #include <memory>
-#include <sstream>
 #include <stdexcept>
 
-struct dax_manager;
+namespace nupm
+{
+	struct dax_manager_abstract;
+}
 
 template <
   typename PersistData /* persistent data for the hash table: impl::persist_data<allocator_segment_t, table_type> */
@@ -109,7 +112,7 @@ template <
 #pragma GCC diagnostic ignored "-Wuninitialized"
     region(
       unsigned debug_level
-      , const std::unique_ptr<dax_manager> & dax_manager_
+      , const std::unique_ptr<nupm::dax_manager_abstract> & dax_manager_
       , string_view id_
       , string_view backing_file_
       , const byte_span *iov_addl_first_
@@ -151,9 +154,12 @@ template <
     {
       if ( sz_ < sizeof *this )
       {
-        std::ostringstream s;
-        s << "Have " << std::hex << std::showbase << sz_ << " bytes. Cannot create a persisted region from less than " << sizeof *this << " bytes";
-        throw std::range_error(s.str());
+        throw
+			std::range_error(
+				common::to_string(
+					"Have ", std::hex, std::showbase, sz_, " bytes. Cannot create a persisted region from less than ", sizeof *this, " bytes"
+				)
+			);
       }
       return sz_ - sizeof *this;
     }
@@ -168,7 +174,7 @@ template <
       return _heap.regions();
     }
     auto grow(
-      const std::unique_ptr<dax_manager> & dax_manager_
+      const std::unique_ptr<nupm::dax_manager_abstract> & dax_manager_
       , std::size_t increment_
     ) -> std::size_t
     {

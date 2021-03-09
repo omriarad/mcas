@@ -24,13 +24,13 @@
 #include <api/kvstore_itf.h>
 #include <common/byte_span.h>
 #include <common/str_utils.h> /* random_string */
+#include <common/to_string.h>
 #include <common/utils.h> /* MiB, GiB */
 #include <nupm/region_descriptor.h>
 
 #include <algorithm>
 #include <random>
 #include <set>
-#include <sstream>
 #include <string>
 
 using namespace component;
@@ -542,10 +542,7 @@ TEST_F(KVStore_test, PopulateMany)
   std::mt19937_64 r0{};
   for ( auto i = std::size_t(); i != many_count_target; ++i )
   {
-    auto ukey = r0();
-    std::ostringstream s;
-    s << std::hex << ukey;
-    auto key = s.str();
+    auto key = common::to_string(std::hex, r0());
     key.resize(many_key_length, '.');
     auto value = std::to_string(i);
     value.resize(many_value_length, '.');
@@ -1311,10 +1308,8 @@ TEST_F(KVStore_test, Timestamps)
 			) -> bool
 			{
 				++key_count;
-				std::ostringstream ts;
-				ts << timestamp;
 				PLOG("After %u Timestamped record: %.*s @ %s", wait
-					, int(key_len), static_cast<const char *>(key), ts.str().c_str()
+					, int(key_len), static_cast<const char *>(key), common::to_string(timestamp).c_str()
 				);
 				return true;
 			}
@@ -1355,10 +1350,8 @@ TEST_F(KVStore_test, Timestamps)
 			) -> bool
 			{
 				++key_count;
-				std::ostringstream ts;
-				ts << timestamp;
 				PLOG("Before swaps record: %.*s @ %s"
-					, int(key_len), static_cast<const char *>(key), ts.str().c_str()
+					, int(key_len), static_cast<const char *>(key), common::to_string(timestamp).c_str()
 				);
 				return true;
 			}
@@ -1380,10 +1373,8 @@ TEST_F(KVStore_test, Timestamps)
 			) -> bool
 			{
 				++key_count;
-				std::ostringstream ts;
-				ts << timestamp;
 				PLOG("During swaps record: %.*s @ %s"
-					, int(key_len), static_cast<const char *>(key), ts.str().c_str()
+					, int(key_len), static_cast<const char *>(key), common::to_string(timestamp).c_str()
 				);
 				return true;
 			}
@@ -1405,10 +1396,8 @@ TEST_F(KVStore_test, Timestamps)
 			) -> bool
 			{
 				++key_count;
-				std::ostringstream ts;
-				ts << timestamp;
 				PLOG("After swaps record: %.*s @ %s"
-					, int(key_len), static_cast<const char *>(key), ts.str().c_str()
+					, int(key_len), static_cast<const char *>(key), common::to_string(timestamp).c_str()
 				);
 				return true;
 			}

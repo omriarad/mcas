@@ -18,8 +18,6 @@
 #include "hash_bucket.h"
 #include "segment_and_bucket.h"
 
-#include <boost/iterator/transform_iterator.hpp>
-
 #include <cstddef> /* size_t */
 
 namespace impl

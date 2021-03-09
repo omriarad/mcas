@@ -20,7 +20,8 @@
  * or to an excuse if not.
  */
 
-#include <sstream> /* ostream, ostringstream */
+#include <common/to_string.h>
+#include <sstream> /* ostream */
 #include <string> /* string */
 #include <type_traits> /* false_type, true_type */
 #include <utility> /* declval */
@@ -63,9 +64,7 @@ namespace impl
 		{
 			static std::string print(const T &t, const std::string &)
 			{
-				std::ostringstream s;
-				s << t;
-				return s.str();
+				return common::to_string(t);
 			}
 		};
 

@@ -17,11 +17,11 @@
 #include "as_emplace.h"
 #include "as_extend.h"
 #include "clean_align.h"
-#include "dax_manager.h"
 #include "heap_cc_ephemeral.h"
 #include <ccpm/cca.h>
 #include <common/pointer_cast.h>
 #include <common/utils.h> /* round_up */
+#include <nupm/dax_manager_abstract.h>
 #include <algorithm>
 #include <cassert>
 #include <cstdlib> /* getenv */
@@ -41,7 +41,7 @@ namespace
 namespace
 {
 	using byte_span = common::byte_span;
-	byte_span open_region(const std::unique_ptr<dax_manager> &dax_manager_, std::uint64_t uuid_, unsigned numa_node_)
+	byte_span open_region(const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_, std::uint64_t uuid_, unsigned numa_node_)
 	{
 		auto file_and_iov = dax_manager_->open_region(std::to_string(uuid_), numa_node_);
 		if ( file_and_iov.address_map().size() != 1 )
@@ -54,7 +54,7 @@ namespace
 	const ccpm::region_vector_t add_regions_full(
 		ccpm::region_vector_t &&rv_
 		, const byte_span pool0_heap_
-		, const std::unique_ptr<dax_manager> &dax_manager_
+		, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_
 		, unsigned numa_node_
 		, const byte_span *iov_addl_first_
 		, const byte_span *iov_addl_last_
@@ -139,7 +139,7 @@ heap_cc::heap_cc(
 #pragma GCC diagnostic ignored "-Wuninitialized"
 heap_cc::heap_cc(
 	const unsigned debug_level_
-	, const std::unique_ptr<dax_manager> &dax_manager_
+	, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_
 	, const string_view id_
 	, const string_view backing_file_
 	, const byte_span *iov_addl_first_
@@ -225,7 +225,7 @@ namespace
 }
 
 auto heap_cc::grow(
-	const std::unique_ptr<dax_manager> & dax_manager_
+	const std::unique_ptr<nupm::dax_manager_abstract> & dax_manager_
 	, std::uint64_t uuid_
 	, std::size_t increment_
 ) -> std::size_t

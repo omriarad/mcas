@@ -14,7 +14,7 @@
 
 #include "hstore.h"
 
-#include "dax_manager.h"
+#include "make_dax_manager.h"
 
 #include <common/json.h>
 #include <common/string_view.h>
@@ -75,7 +75,7 @@ auto hstore_factory::create(
       effective_debug_level
       , owner_it == mc.end() ? string_view{} : string_view(owner_it->second)
       , name_it == mc.end() ? string_view{} : string_view(name_it->second)
-      , std::make_unique<dax_manager>(
+      , make_dax_manager(
           common::log_source(effective_debug_level)
           , dax_config_it == mc.end() ? json::array().str() : dax_config_it->second
           , bool(std::getenv("DAX_RESET"))

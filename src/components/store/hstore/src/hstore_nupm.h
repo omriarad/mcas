@@ -30,11 +30,15 @@
 #include <cinttypes> /* PRIx64 */
 #include <cstdlib> /* getenv */
 
-struct dax_manager;
+namespace nupm
+{
+	struct dax_manager_abstract;
+}
 
 template <typename PersistData, typename Heap>
   struct region;
 
+namespace impl{}
 #pragma GCC diagnostic push
 /* Note: making enable_shared_from_this private avoids the non-virtual-dtor error but
  * generates a different error with no error text (G++ 5.4.0)
@@ -56,16 +60,16 @@ template <typename Region, typename Table, typename Allocator, typename LockType
     using open_pool_handle = ::open_pool<non_owner<region_type>>;
     using base = pool_manager<open_pool_handle>;
   private:
-    std::unique_ptr<dax_manager> _dax_manager;
+    std::unique_ptr<nupm::dax_manager_abstract> _dax_manager;
     unsigned _numa_node;
 
     static unsigned name_to_numa_node(const string_view name);
   public:
-    hstore_nupm(unsigned debug_level_, const string_view, const string_view name_, std::unique_ptr<dax_manager> mgr_);
+    hstore_nupm(unsigned debug_level_, const string_view, const string_view name_, std::unique_ptr<nupm::dax_manager_abstract> mgr_);
 
     virtual ~hstore_nupm();
 
-    const std::unique_ptr<dax_manager> & get_dax_manager() const override { return _dax_manager; }
+    const std::unique_ptr<nupm::dax_manager_abstract> & get_dax_manager() const override { return _dax_manager; }
     void pool_create_check(std::size_t) override;
 
     auto pool_create_1(
@@ -99,6 +103,7 @@ template <typename Region, typename Table, typename Allocator, typename LockType
   };
 #pragma GCC diagnostic pop
 
+namespace impl{}
 #include "hstore_nupm.tcc"
 
 #endif

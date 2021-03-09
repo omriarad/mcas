@@ -199,10 +199,7 @@ TEST_F(KVStore_test, PopulateMany)
   std::mt19937_64 r0{};
   for ( auto i = 0UL; i != many_count_target; ++i )
   {
-    auto ukey = r0();
-    std::ostringstream s;
-    s << std::hex << ukey;
-    auto key = s.str();
+    auto key = common::to_string(std::hex, r0());
     key.resize(many_key_length, '.');
     auto value = std::to_string(i);
     value.resize(many_value_length, '.');

@@ -25,13 +25,13 @@
 #include "persistent.h"
 #include "test_flags.h"
 
+#include <common/to_string.h>
 #include <common/perf/tm.h>
 #include <boost/iterator/transform_iterator.hpp>
 
 #include <algorithm>
 #include <cassert>
 #include <exception>
-#include <sstream> /* ostringstream */
 #include <thread> /* this_thread */
 #include <utility> /* move */
 
@@ -444,11 +444,9 @@ template <
 #if TRACK_OWNER
 			b_src_lock.ref().owner_verify(owner_lock.index());
 #endif
-			std::ostringstream c_old;
+			std::string c_old{};
 #if HSTORE_TRACE_MANY
-			{
-				c_old << dump<HSTORE_TRACE_MANY>::make_owner_print(this->bucket_count(), owner_lock);
-			}
+			c_old = common::to_string(dump<HSTORE_TRACE_MANY>::make_owner_print(this->bucket_count(), owner_lock));
 #endif
 
 			/* The owner will
@@ -494,7 +492,7 @@ template <
 				, " bucket ", owner_lock.index()
 				, " move ", b_src_lock.index(), "->", b_dst_lock_.index()
 				, " "
-				, c_old.str()
+				, c_old
 				, "->"
 				, dump<HSTORE_TRACE_MANY>::make_owner_print(this->bucket_count(), owner_lock)
 			);
@@ -1685,8 +1683,7 @@ template <
 	{
 		if ( 0 < _consistency_check)
 		{
-			std::ostringstream o;
-			o << std::setbase(16) << std::this_thread::get_id();
+			auto tid = common::to_string(std::setbase(16), std::this_thread::get_id());
 			auto sb = make_segment_and_bucket(0U);
 			const auto sb_end =
 				make_segment_and_bucket_at_end();
@@ -1708,15 +1705,15 @@ template <
 				{
 					if ( ownership_mask )
 					{
-						PLOG("%s[%s]: %zu owner mask is %" PRIx64, __func__, o.str().c_str(), sb.index(), ownership_mask);
+						PLOG("%s[%s]: %zu owner mask is %" PRIx64, __func__, tid.c_str(), sb.index(), ownership_mask);
 					}
 					if ( ownership_mask & 1ULL )
 					{
-						PLOG("%s[%s]: %zu is owned", __func__, o.str().c_str(), sb.index());
+						PLOG("%s[%s]: %zu is owned", __func__, tid.c_str(), sb.index());
 					}
 					if ( is_in_use(sb) )
 					{
-						PLOG("%s[%s]: %zu is occupied", __func__, o.str().c_str(), sb.index());
+						PLOG("%s[%s]: %zu is occupied", __func__, tid.c_str(), sb.index());
 					}
 				}
 				bool in_use = is_in_use(sb);
@@ -1725,7 +1722,7 @@ template <
 				{
 					PLOG("%s[%s]: bucket %zu (seg %zu (%p) offset %zu) ownership does not match occupancy: %s %s"
 						, __func__
-						, o.str().c_str()
+						, tid.c_str()
 						, sb.index()
 						, sb.si()
 						, sb.sp()

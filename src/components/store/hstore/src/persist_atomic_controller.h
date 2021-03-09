@@ -15,10 +15,12 @@
 #ifndef MCAS_HSTORE_ATOMIC_CTL_H_
 #define MCAS_HSTORE_ATOMIC_CTL_H_
 
+namespace impl { }
 #include "alloc_key.h" /* AK_FORMAL */
 #include "construction_mode.h"
 #include "lock_state.h"
 #include "mod_control.h"
+namespace impl { }
 #include <api/kvstore_itf.h> /* component */
 #include <common/perf/tm_fwd.h>
 

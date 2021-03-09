@@ -47,7 +47,12 @@
 
 template <typename T>
   struct pool_manager;
-struct dax_manager;
+
+namespace nupm
+{
+	struct dax_manager_abstract;
+}
+
 template <typename Handle, typename Allocator, typename Table, typename Lock>
   struct session;
 
@@ -106,7 +111,7 @@ public:
    * Constructor
    *
    */
-  hstore(unsigned debug_level, const string_view owner, const string_view name, std::unique_ptr<dax_manager> &&mgr);
+  hstore(unsigned debug_level, const string_view owner, const string_view name, std::unique_ptr<nupm::dax_manager_abstract> &&mgr);
 
   /**
    * Destructor
