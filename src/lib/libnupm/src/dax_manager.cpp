@@ -383,13 +383,13 @@ namespace nupm
 
 dax_manager::dax_manager(
   const common::log_source &ls_,
-  const std::vector<config_t>& dax_configs,
+  const gsl::span<const config_t> dax_configs,
   bool force_reset
 )
   : common::log_source(ls_)
   , _nd()
-  , _address_coverage()
-  , _address_fs_available()
+  , _address_coverage(std::make_unique<AC>())
+  , _address_fs_available(std::make_unique<AC>())
   /* space mapped by devdax */
   , _mapped_spaces()
   , _arenas()
@@ -401,7 +401,7 @@ dax_manager::dax_manager(
   byte *free_address_begin = reinterpret_cast<byte *>(uintptr_t(1) << 40);
   auto free_address_end    = free_address_begin + (std::size_t(1) << 40);
   auto i = boost::icl::interval<byte *>::right_open(free_address_begin, free_address_end);
-  _address_fs_available.insert(i);
+  _address_fs_available->insert(i);
 
   /* set up each configuration */
   for(const auto& config: dax_configs) {
@@ -440,7 +440,7 @@ dax_manager::~dax_manager()
 
 void * dax_manager::locate_free_address_range(std::size_t size_)
 {
-	for ( auto i : _address_fs_available )
+	for ( auto i : *_address_fs_available )
 	{
 		if ( ptrdiff_t(size_) <= i.upper() - i.lower() )
 		{
@@ -468,7 +468,7 @@ void dax_manager::debug_dump(arena_id_t arena_id)
 }
 
 auto dax_manager::open_region(
-  const string_view & name
+  const string_view name
   , unsigned arena_id
 ) -> region_descriptor
 {
@@ -477,7 +477,7 @@ auto dax_manager::open_region(
 }
 
 auto dax_manager::create_region(
-  const string_view &name_
+  const string_view name_
   , arena_id_t arena_id_
   , const size_t size_
 ) -> region_descriptor
@@ -498,7 +498,7 @@ auto dax_manager::create_region(
 }
 
 auto dax_manager::resize_region(
-  const string_view & id_
+  const string_view id_
   , const arena_id_t arena_id_
   , const size_t size_
 ) -> region_descriptor
@@ -520,7 +520,7 @@ auto dax_manager::resize_region(
 }
 
 
-void dax_manager::erase_region(const string_view & name, arena_id_t arena_id)
+void dax_manager::erase_region(const string_view name, arena_id_t arena_id)
 {
   guard_t           g(_reentrant_lock);
   lookup_arena(arena_id)->region_erase(name, this);

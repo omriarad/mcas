@@ -9,6 +9,7 @@
 #include <gtest/gtest.h>
 #pragma GCC diagnostic pop
 
+#include <array>
 #include <chrono>
 #include <list>
 
@@ -508,15 +509,16 @@ TEST_F(Libnupm_test, DevdaxManager)
     ASSERT_TRUE(s > 0);
   }
 
-  nupm::dax_manager::config_t config;
+  nupm::config_t config;
   config.path = "/dev/dax0.0";
   config.addr = 0x900000000;
 
+  std::array<nupm::config_t,1> cfg{config};
   {
-    nupm::dax_manager ddm(common::log_source(0U), {config},true);
+    nupm::dax_manager ddm(common::log_source(0U), cfg, true);
   }
 
-  nupm::dax_manager ddm(common::log_source(0U), {config});  // rebuild
+  nupm::dax_manager ddm(common::log_source(0U), cfg);  // rebuild
 
   std::string uuid  = std::to_string(Options.uuid);
 
