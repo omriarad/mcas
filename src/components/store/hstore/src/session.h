@@ -15,6 +15,7 @@
 #define MCAS_HSTORE_SESSION_H
 
 #include "hstore_config.h"
+#include "persist_atomic_controller.h"
 #include "session_base.h"
 #include <common/logging.h> /* log_source */
 
@@ -40,7 +41,10 @@ template <typename Table, typename Allocator>
 template <typename Iterator>
 	struct pool_iterator;
 
-struct dax_manager;
+namespace nupm
+{
+	struct dax_manager_abstract;
+}
 
 /* hstore::open_pool_type, hstore::alloc_type, hstore::table_type, iIKVStore::lock_type_t */
 template <typename Handle, typename Allocator, typename Table, typename LockType>
@@ -164,7 +168,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 #endif
 
 		auto pool_grow(
-			const std::unique_ptr<dax_manager> &dax_mgr_
+			const std::unique_ptr<nupm::dax_manager_abstract> &dax_mgr_
 			, const std::size_t increment_
 		) const -> std::size_t;
 

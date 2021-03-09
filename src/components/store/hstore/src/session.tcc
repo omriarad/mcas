@@ -30,6 +30,9 @@
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 #include <tbb/scalable_allocator.h> /* scalable_malloc */
 #pragma GCC diagnostic pop
+
+#include <boost/numeric/conversion/cast.hpp>
+
 #include <algorithm> /* min, max, transform */
 #include <cstddef> /* size_t */
 #include <cstdlib> /* getenv */
@@ -387,7 +390,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	auto session<Handle, Allocator, Table, LockType>::pool_grow(
-		const std::unique_ptr<dax_manager> &dax_mgr_
+		const std::unique_ptr<nupm::dax_manager_abstract> &dax_mgr_
 		, const std::size_t increment_
 	) const -> std::size_t
 	{

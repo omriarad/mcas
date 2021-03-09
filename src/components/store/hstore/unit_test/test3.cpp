@@ -19,6 +19,7 @@
 #pragma GCC diagnostic pop
 
 #include <common/profiler.h>
+#include <common/to_string.h>
 #include <common/utils.h>
 #include <api/components.h>
 /* note: we do not include component source, only the API definition */
@@ -190,10 +191,7 @@ void KVStore_test::populate_many(kvv_t &kvv, const char tag, std::size_t key_len
   std::mt19937_64 r0{};
   for ( auto i = 0UL; i != many_count_target; ++i )
   {
-    auto ukey = r0();
-    std::ostringstream s;
-    s << tag << std::hex << ukey;
-    auto key = s.str();
+    auto key = common::to_string(tag, std::hex, r0());
     key.resize(key_length, '.');
     auto value = std::to_string(i);
     value.resize(value_length, '.');

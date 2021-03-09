@@ -26,7 +26,6 @@
 #include "trace_flags.h"
 #include "valgrind_memcheck.h"
 
-#include <boost/icl/interval_set.hpp>
 #include <ccpm/interfaces.h>
 #include <common/byte_span.h>
 #include <common/exceptions.h> /* General_exception */
@@ -40,7 +39,10 @@
 #include <memory>
 #include <vector>
 
-struct dax_manager;
+namespace nupm
+{
+	struct dax_manager_abstract;
+}
 
 namespace impl
 {
@@ -78,7 +80,7 @@ public:
 
 	explicit heap_cc(
 		unsigned debug_level
-		, const std::unique_ptr<dax_manager> &dax_manager
+		, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_
 		, string_view id
 		, string_view backing_file
 		, const byte_span *iov_addl_first_
@@ -98,7 +100,7 @@ public:
 	static void *iov_limit(const byte_span &r);
 
 	auto grow(
-		const std::unique_ptr<dax_manager> & dax_manager_
+		const std::unique_ptr<nupm::dax_manager_abstract> & dax_manager_
 		, std::uint64_t uuid_
 		, std::size_t increment_
 	) -> std::size_t;

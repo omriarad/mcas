@@ -32,7 +32,10 @@
 
 struct pool_path;
 
-struct dax_manager;
+namespace nupm
+{
+	struct dax_manager_abstract;
+}
 
 template <typename Pool>
   struct pool_manager
@@ -74,7 +77,7 @@ template <typename Pool>
     ) -> std::unique_ptr<Pool> = 0;
 
     virtual void pool_delete(const pool_path &path) = 0;
-    virtual const std::unique_ptr<dax_manager> & get_dax_manager() const = 0;
+    virtual const std::unique_ptr<nupm::dax_manager_abstract> & get_dax_manager() const = 0;
   };
 
 #endif

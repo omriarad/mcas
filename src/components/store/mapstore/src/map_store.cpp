@@ -15,6 +15,7 @@
 #include <common/exceptions.h>
 #include <common/rwlock.h>
 #include <common/cycles.h>
+#include <common/to_string.h>
 #include <common/utils.h>
 #include <fcntl.h>
 #include <nupm/allocator_ra.h>
@@ -28,7 +29,6 @@
 #include <cmath>
 #include <map>
 #include <set>
-#include <sstream>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>

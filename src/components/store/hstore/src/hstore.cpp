@@ -91,9 +91,7 @@ auto hstore::move_pool(const pool_t p) -> std::shared_ptr<open_pool_type>
   auto ps = _pools.find(v);
   if ( ps == _pools.end() )
   {
-    std::ostringstream o;
-    o << "invalid pool identifier " << v;
-    throw std::invalid_argument(o.str());
+    throw std::invalid_argument(common::to_string("invalid pool identifier ", v));
   }
 
   tls_cache.erase(v);
@@ -102,7 +100,7 @@ auto hstore::move_pool(const pool_t p) -> std::shared_ptr<open_pool_type>
   return s2;
 }
 
-hstore::hstore(unsigned debug_level_, const string_view owner_, const string_view name_, std::unique_ptr<dax_manager> &&mgr_)
+hstore::hstore(unsigned debug_level_, const string_view owner_, const string_view name_, std::unique_ptr<nupm::dax_manager_abstract> &&mgr_)
   : common::log_source(debug_level_)
   , _pool_manager(std::make_shared<pm_type>(debug_level(), owner_, name_, std::move(mgr_)))
   , _pools_mutex{}

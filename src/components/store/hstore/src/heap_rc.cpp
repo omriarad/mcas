@@ -67,7 +67,7 @@ heap_rc::heap_rc(
 #pragma GCC diagnostic ignored "-Wuninitialized"
 heap_rc::heap_rc(
 	unsigned debug_level_
-	, const std::unique_ptr<dax_manager> &dax_manager_
+	, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_
 	, const string_view id_
     , const string_view backing_file_
 	, const byte_span *iov_addl_first_
@@ -113,7 +113,7 @@ heap_rc::~heap_rc()
 	quiesce();
 }
 
-auto heap_rc::open_region(const std::unique_ptr<dax_manager> &dax_manager_, std::uint64_t uuid_, unsigned numa_node_) -> byte_span
+auto heap_rc::open_region(const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_, std::uint64_t uuid_, unsigned numa_node_) -> byte_span
 {
 	auto & iovs = dax_manager_->open_region(std::to_string(uuid_), numa_node_).address_map();
 	if ( iovs.size() != 1 )
@@ -147,7 +147,7 @@ namespace
 }
 
 auto heap_rc::grow(
-	const std::unique_ptr<dax_manager> & dax_manager_
+	const std::unique_ptr<nupm::dax_manager_abstract> & dax_manager_
 	, std::uint64_t uuid_
 	, std::size_t increment_
 ) -> std::size_t

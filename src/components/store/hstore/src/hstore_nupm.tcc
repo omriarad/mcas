@@ -14,11 +14,11 @@
 #include "hstore_config.h"
 #include "alloc_key.h" /* AK_ACTUAL */
 #include "persister_nupm.h"
-#include "dax_manager.h"
 #include "pool_path.h"
 #include "region.h"
 #include "session.h"
 
+#include <nupm/dax_manager_abstract.h>
 #include <city.h> /* CityHash */
 
 #include <cinttypes> /* PRIx64 */
@@ -50,7 +50,7 @@ template <typename Region, typename Table, typename Allocator, typename LockType
   }
 
 template <typename Region, typename Table, typename Allocator, typename LockType>
-  hstore_nupm<Region, Table, Allocator, LockType>::hstore_nupm(unsigned debug_level_, const common::string_view, const common::string_view name_, std::unique_ptr<dax_manager> mgr_)
+  hstore_nupm<Region, Table, Allocator, LockType>::hstore_nupm(unsigned debug_level_, const common::string_view, const common::string_view name_, std::unique_ptr<nupm::dax_manager_abstract> mgr_)
     : pool_manager<::open_pool<non_owner<region_type>>>(debug_level_)
     , _dax_manager(std::move(mgr_))
     , _numa_node(name_to_numa_node(name_))

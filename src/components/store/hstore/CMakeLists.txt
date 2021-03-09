@@ -7,6 +7,8 @@ include(${CMAKE_SOURCE_DIR}/mk/avoid_boost_type_to_string_bug.cmake)
 add_compile_options("$<$<CONFIG:Debug>:-O0>")
 add_compile_options("$<$<CONFIG:Release>:-DNDEBUG>")
 
+set(CMAKE_CXX_STANDARD 17)
+
 add_subdirectory(./unit_test)
 
 add_definitions(-DCONFIG_DEBUG) # P{LOG,DEG,INF,WRN,ERR} control
@@ -95,6 +97,7 @@ set(SOURCES
 	src/hop_hash_log.cpp
 	src/hstore.cpp
 	src/hstore_factory.cpp
+	src/make_dax_manager.cpp
 	src/owner.cpp
 	src/perishable.cpp
 	src/perishable_expiry.cpp
@@ -132,6 +135,15 @@ link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # cityhash tbb
 link_directories(${CMAKE_INSTALL_PREFIX}/lib) # cityhash tbb tbbmalloc
 
 set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
+
+# filew which include Boost 1.65 boost/icl/*.h may not use C++17
+set_source_files_properties(src/dax_manager.cpp PROPERTIES COMPILE_FLAGS "-std=c++14")
+set_source_files_properties(src/make_dax_manager.cpp PROPERTIES COMPILE_FLAGS "-std=c++14")
+
+# filew which include Boost 1.65 boost/icl/*.h may not use C++17
+set_source_files_properties(src/heap_rc_ephemeral.cpp PROPERTIES COMPILE_FLAGS "-std=c++14")
+set_source_files_properties(src/heap_rc.cpp PROPERTIES COMPILE_FLAGS "-std=c++14")
+set_source_files_properties(src/tracked_header.cpp PROPERTIES COMPILE_FLAGS "-std=c++14")
 
 # common version
 add_library(${PROJECT_NAME} SHARED ${SOURCES})

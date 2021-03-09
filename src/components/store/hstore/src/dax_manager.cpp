@@ -15,6 +15,8 @@
 #include "dax_manager.h"
 
 #include <common/json.h>
+#include <nupm/config_t.h>
+#include <nupm/make_dax_manager.h>
 #include <rapidjson/error/en.h>
 #include <rapidjson/prettywriter.h>
 #pragma GCC diagnostic push
@@ -24,6 +26,7 @@
 #include <rapidjson/stringbuffer.h>
 
 #include <iostream>
+#include <map>
 #include <memory>
 #include <stdexcept>
 #include <string>
@@ -212,22 +215,22 @@ namespace
 #define SET_SCALAR(S,M) assignment<decltype(S::M)>::assign_scalar<S, &S::M>
 #define IGNORE_SCALAR(S,T) assignment<T>::ignore_scalar<S>
 
-	parse_map<nupm::dax_manager::config_t> config_t_attr
+	parse_map<nupm::config_t> config_t_attr
 	{
-		{ dax_config::region_id, IGNORE_SCALAR(nupm::dax_manager::config_t, unsigned) },
-		{ dax_config::path, SET_SCALAR(nupm::dax_manager::config_t, path) },
-		{ dax_config::addr, SET_SCALAR(nupm::dax_manager::config_t, addr) },
+		{ dax_config::region_id, IGNORE_SCALAR(nupm::config_t, unsigned) },
+		{ dax_config::path, SET_SCALAR(nupm::config_t, path) },
+		{ dax_config::addr, SET_SCALAR(nupm::config_t, addr) },
 	};
 
-	std::vector<nupm::dax_manager::config_t> parse_devdax_string(unsigned debug_level_, const std::string &dax_map_)
+	std::vector<nupm::config_t> parse_devdax_string(unsigned debug_level_, const common::string_view dax_map_)
 	{
-		std::vector<nupm::dax_manager::config_t> dax_config;
+		std::vector<nupm::config_t> dax_config;
 		rapidjson::Document doc;
 		{
-			doc.Parse(dax_map_.c_str());
+			doc.Parse(dax_map_.data());
 			if ( doc.HasParseError() )
 			{
-				throw std::domain_error(error_report("Bad JSON dax_map", dax_map_, doc));
+				throw std::domain_error(error_report("Bad JSON dax_map", std::string(dax_map_), doc));
 			}
 		}
 
@@ -249,7 +252,7 @@ namespace
 				validator.GetInvalidDocumentPointer().StringifyUriFragment(sb);
 				why += std::string("Invalid document: ") + sb.GetString() + "\n";
 			}
-			throw std::domain_error(error_report("JSON dax_map failed validation", dax_map_ + " " + why, doc));
+			throw std::domain_error(error_report("JSON dax_map failed validation", std::string(dax_map_) + " " + why, doc));
 		}
 
 		for ( const auto & it : doc.GetArray() )
@@ -277,10 +280,21 @@ namespace
 	}
 }
 
+namespace
+{
+	/* Note: helper for gsl::span, which cannot construct a span from a vector. std::span can */
+	template <typename R>
+		auto range_to_span(const R && r)
+		{
+			return gsl::span<const typename R::value_type>(&*std::begin(r), std::end(r)-std::begin(r));
+		}
+}
+
 dax_manager::dax_manager(
 	const common::log_source &ls_
-	, const std::string &dax_map
+	, const common::string_view dax_map
 	, bool force_reset
 )
-	: nupm::dax_manager(ls_, parse_devdax_string(ls_.debug_level(), dax_map), force_reset)
-{}
+	: nupm::dax_manager(ls_, range_to_span(parse_devdax_string(ls_.debug_level(), dax_map)), force_reset)
+{
+}

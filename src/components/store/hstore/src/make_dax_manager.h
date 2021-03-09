@@ -12,22 +12,19 @@
 */
 
 
-#ifndef MCAS_HSTORE_DAX_MANAGER_H
-#define MCAS_HSTORE_DAX_MANAGER_H
+#ifndef MCAS_HSTORE_MAKE_DAX_MANAGER_H
+#define MCAS_HSTORE_MAKE_DAX_MANAGER_H
 
-#include <nupm/dax_manager.h>
+#include <nupm/dax_manager_abstract.h>
 
-#include <string>
+#include <common/string_view.h>
+#include <common/logfwd.h>
+#include <memory>
 
-struct dax_manager
-	: public nupm::dax_manager
-{
-public:
-	dax_manager(
-		const common::log_source &ls_
-		, common::string_view dax_map
-		, bool force_reset = false
-	);
-};
+std::unique_ptr<nupm::dax_manager_abstract> make_dax_manager(
+	const common::log_source &ls_
+	, common::string_view dax_map
+	, bool force_reset = false
+);
 
 #endif

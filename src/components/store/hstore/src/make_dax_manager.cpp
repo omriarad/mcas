@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2021] [IBM Corporation]
+   Copyright [2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -12,22 +12,15 @@
 */
 
 
-#ifndef MCAS_HSTORE_DAX_MANAGER_H
-#define MCAS_HSTORE_DAX_MANAGER_H
+#include "make_dax_manager.h"
 
-#include <nupm/dax_manager.h>
+#include "dax_manager.h"
 
-#include <string>
-
-struct dax_manager
-	: public nupm::dax_manager
+std::unique_ptr<nupm::dax_manager_abstract> make_dax_manager(
+	const common::log_source &ls_
+	, common::string_view dax_map
+	, bool force_reset
+)
 {
-public:
-	dax_manager(
-		const common::log_source &ls_
-		, common::string_view dax_map
-		, bool force_reset = false
-	);
-};
-
-#endif
+	return std::make_unique<dax_manager>(ls_, dax_map, force_reset);
+}

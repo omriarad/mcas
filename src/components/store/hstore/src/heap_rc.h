@@ -23,7 +23,6 @@
 #include "trace_flags.h"
 #include "tracked_header.h"
 
-#include <boost/icl/interval_set.hpp>
 #include <common/byte_span.h>
 #include <common/exceptions.h> /* General_exception */
 #include <common/string_view.h>
@@ -37,7 +36,10 @@
 #include <memory> /* unique_ptr */
 #include <vector>
 
-struct dax_manager;
+namespace nupm
+{
+	struct dax_manager_abstract;
+}
 
 namespace impl
 {
@@ -70,7 +72,7 @@ public:
 	);
 	explicit heap_rc(
 		unsigned debug_level
-		, const std::unique_ptr<dax_manager> &dax_manager
+		, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager
 		, string_view id_
 		, string_view backing_file
 		, const byte_span *iov_addl_first_
@@ -79,7 +81,7 @@ public:
 	/* allocation_state_combined offered, but not used */
 	explicit heap_rc(
 		const unsigned debug_level
-		, const std::unique_ptr<dax_manager> &dax_manager
+		, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager
 		, const string_view id
 		, const string_view backing_file
 		, impl::allocation_state_combined const *
@@ -97,10 +99,10 @@ public:
 
     static constexpr std::uint64_t magic_value() { return 0xc74892d72eed493a; }
 
-	static byte_span open_region(const std::unique_ptr<dax_manager> &dax_manager, std::uint64_t uuid, unsigned numa_node);
+	static byte_span open_region(const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager, std::uint64_t uuid, unsigned numa_node);
 
 	auto grow(
-		const std::unique_ptr<dax_manager> & dax_manager
+		const std::unique_ptr<nupm::dax_manager_abstract> & dax_manager
 		, std::uint64_t uuid
 		, std::size_t increment
 	) -> std::size_t;

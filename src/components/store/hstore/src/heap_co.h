@@ -23,10 +23,10 @@
 #include <libpmemobj.h> /* PMEMoid */
 #pragma GCC diagnostic pop
 
+#include <common/to_string.h>
 #include <array>
 #include <cassert>
 #include <cstddef> /* size_t, ptrdiff_t */
-#include <sstream> /* ostringstream */
 #include <string>
 
 struct sbrk_offset_heap
@@ -56,9 +56,12 @@ private:
 	{
 		if ( ! match(oid_) )
 		{
-			std::ostringstream e;
-			e << "Cannot restore heap oid " << std::hex << _oid.pool_uuid_lo << "." << _oid.off << " from pool with mismatched oid " << oid_.pool_uuid_lo << "." << oid_.off;
-			throw std::runtime_error(e.str());
+			throw
+				std::runtime_error(
+					common::to_string(
+						"Cannot restore heap oid ", std::hex, _oid.pool_uuid_lo, ".", _oid.off, " from pool with mismatched oid ", oid_.pool_uuid_lo, ".", oid_.off
+					)
+				);
 		}
 		assert(_sw < _bounds.size());
 	}
