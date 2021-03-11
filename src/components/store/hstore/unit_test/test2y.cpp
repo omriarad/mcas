@@ -23,10 +23,12 @@
 #include <api/components.h>
 /* note: we do not include component source, only the API definition */
 #include <api/kvstore_itf.h>
+#include <common/env.h> /* env_value */
 #include <common/to_string.h>
 
 #include <cstring>
 #include <cstddef>
+#include <cstdlib> /* getenv */
 #include <limits>
 #include <random>
 #include <stdexcept>
@@ -58,7 +60,7 @@ class KVStore_test : public ::testing::Test {
   static constexpr auto use_syndrome = std::numeric_limits<std::uint64_t>::max();
 
   // Objects declared here can be used by all tests in the test case
-  /* persistent memory if enabled at all, is simulated and not real */
+  /* persistent memory, if enabled at all, is simulated and not real */
   static bool pmem_simulated;
   /* persistent memory is effective (either real, indicated by no PMEM_IS_PMEM_FORCE or simulated by PMEM_IS_PMEM_FORCE 0 not 1 */
   static bool pmem_effective;
@@ -80,7 +82,7 @@ class KVStore_test : public ::testing::Test {
   }
   static std::string debug_level()
   {
-    return std::getenv("DEBUG") ? std::getenv("DEBUG") : "0";
+    return common::env_value<const char *>("DEBUG", "0");
   }
 };
 
@@ -88,8 +90,8 @@ constexpr std::size_t KVStore_test::estimated_object_count;
 constexpr std::size_t KVStore_test::many_count_target;
 constexpr char KVStore_test::long_value[24];
 
-bool KVStore_test::pmem_simulated = getenv("PMEM_IS_PMEM_FORCE");
-bool KVStore_test::pmem_effective = ! getenv("PMEM_IS_PMEM_FORCE") || getenv("PMEM_IS_PMEM_FORCE") == std::string("0");
+bool KVStore_test::pmem_simulated = std::getenv("PMEM_IS_PMEM_FORCE");
+bool KVStore_test::pmem_effective = common::env_value<bool>("PMEM_IS_PMEM_FORCE", false);
 component::IKVStore * KVStore_test::_kvstore;
 
 constexpr unsigned KVStore_test::many_key_length;

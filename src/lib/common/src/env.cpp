@@ -81,4 +81,11 @@ namespace common
 			const char *env_str = std::getenv(env_key);
 			return env_str ? env_str : dflt;
 		}
+
+	template <>
+		std::string env_value<std::string>(const char *const env_key, std::string dflt)
+		{
+			const char *env_str = std::getenv(env_key);
+			return env_str ? std::string(env_str) : dflt;
+		}
 }

@@ -16,6 +16,7 @@
 #define _FABRIC_H_
 
 #include <api/fabric_itf.h> /* component::IFabric */
+#include <common/env.h>
 #include <common/moveable_value.h>
 #include <common/string_view.h>
 #include "event_producer.h"
@@ -26,7 +27,7 @@
 #include <map>
 #include <memory> /* shared_ptr */
 #include <mutex>
-#include <cstdlib> // getenv
+#include <cstdlib> /* getenv */
 #include <iosfwd> // ostream
 #include <stdlib.h> // setenv, unsetenv
 

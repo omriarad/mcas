@@ -22,11 +22,13 @@
 #include <api/components.h>
 /* note: we do not include component source, only the API definition */
 #include <api/kvstore_itf.h>
+#include <common/env.h> /* env_value */
 #include <common/to_string.h>
 #include <common/utils.h> /* MiB, GiB */
 #include <nupm/region_descriptor.h>
 
 #include <algorithm>
+#include <cstdlib> /* getenv */
 #include <map>
 #include <random>
 #include <set>
@@ -154,7 +156,7 @@ class KVStore_test : public ::testing::Test {
   }
   static std::string debug_level()
   {
-    return std::getenv("DEBUG") ? std::getenv("DEBUG") : "0";
+    return common::env_value("DEBUG", "0");
   }
   static std::set<std::string> many_insert_set;
   static std::set<std::string> many_erase_okay;
@@ -166,8 +168,8 @@ constexpr std::size_t KVStore_test::estimated_object_count_large;
 constexpr std::size_t KVStore_test::many_count_target_small;
 constexpr std::size_t KVStore_test::many_count_target_large;
 
-bool KVStore_test::pmem_simulated = getenv("PMEM_IS_PMEM_FORCE");
-bool KVStore_test::pmem_effective = ! getenv("PMEM_IS_PMEM_FORCE") || getenv("PMEM_IS_PMEM_FORCE") == std::string("0");
+bool KVStore_test::pmem_simulated = std::getenv("PMEM_IS_PMEM_FORCE");
+bool KVStore_test::pmem_effective = common::env_value<bool>("PMEM_IS_PMEM_FORCE", false);
 component::IKVStore * KVStore_test::_kvstore;
 component::IKVStore::pool_t KVStore_test::pool;
 

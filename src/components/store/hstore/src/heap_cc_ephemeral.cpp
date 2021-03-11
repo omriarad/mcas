@@ -19,7 +19,6 @@
 #include <ccpm/cca.h>
 #include <common/errors.h> /* S_OK */
 #include <cassert>
-#include <cstdlib> /* getenv */
 #include <memory> /* make_unique */
 #include <numeric> /* accumulate */
 #include <utility>

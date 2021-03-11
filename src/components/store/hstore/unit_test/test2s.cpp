@@ -19,11 +19,13 @@
 #include <gtest/gtest.h>
 #pragma GCC diagnostic pop
 
+#include <common/env.h> /* env_value */
 #include <common/utils.h>
 #include <api/components.h>
 /* note: we do not include component source, only the API definition */
 #include <api/kvstore_itf.h>
 
+#include <cstdlib> /* getenv */
 #include <random>
 #include <sstream>
 #include <stdexcept>
@@ -78,7 +80,7 @@ class KVStore_test : public ::testing::Test {
   }
   static std::string debug_level()
   {
-    return std::getenv("DEBUG") ? std::getenv("DEBUG") : "0";
+    return common::env_value("DEBUG", "0");
   }
 };
 
@@ -88,8 +90,8 @@ constexpr std::size_t KVStore_test::many_count_target_small;
 constexpr std::size_t KVStore_test::many_count_target_large;
 constexpr char KVStore_test::long_value[24];
 
-bool KVStore_test::pmem_simulated = getenv("PMEM_IS_PMEM_FORCE");
-bool KVStore_test::pmem_effective = ! getenv("PMEM_IS_PMEM_FORCE") || getenv("PMEM_IS_PMEM_FORCE") == std::string("0");
+bool KVStore_test::pmem_simulated = std::getenv("PMEM_IS_PMEM_FORCE");
+bool KVStore_test::pmem_effective = common::env_value<bool>("PMEM_IS_PMEM_FORCE", false);
 component::IKVStore * KVStore_test::_kvstore;
 
 const std::size_t KVStore_test::estimated_object_count =

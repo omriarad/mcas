@@ -23,7 +23,7 @@
 #include "fabric_generic_grouped.h"
 #include "fabric_cq.h" /* fi_cq_entry_t */
 #include "fabric_runtime_error.h"
-#include <cstdlib> /* getenv */
+#include <common/env.h> /* env_value */
 #include <iostream> /* cerr */
 
 /**
@@ -42,7 +42,7 @@ Fabric_cq_grouped::Fabric_cq_grouped(Fabric_cq_generic_grouped &cq_)
 
 Fabric_cq_grouped::stats::~stats()
 {
-  if ( std::getenv("FABRIC_STATS") )
+  if ( common::env_value("FABRIC_STATS", false) )
   {
     std::cerr << "Fabric_cq_grouped(" << this << ") ct " << ct_total << " defer " << defer_total << " redirect " << redirect_total << "\n";
   }

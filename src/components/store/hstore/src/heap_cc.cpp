@@ -19,12 +19,12 @@
 #include "clean_align.h"
 #include "heap_cc_ephemeral.h"
 #include <ccpm/cca.h>
+#include <common/env.h>
 #include <common/pointer_cast.h>
 #include <common/utils.h> /* round_up */
 #include <nupm/dax_manager_abstract.h>
 #include <algorithm>
 #include <cassert>
-#include <cstdlib> /* getenv */
 #include <memory> /* make_unique */
 #include <numeric> /* accumulate */
 #include <stdexcept> /* range_error */
@@ -33,8 +33,7 @@
 namespace
 {
 #if USE_CC_HEAP == 4
-	auto leak_check_str = std::getenv("LEAK_CHECK");
-	bool leak_check = bool(leak_check_str);
+	bool leak_check = common::env_value("LEAK_CHECK", false);
 #endif
 }
 

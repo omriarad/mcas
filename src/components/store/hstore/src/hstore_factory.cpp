@@ -16,12 +16,12 @@
 
 #include "make_dax_manager.h"
 
+#include <common/env.h>
 #include <common/json.h>
 #include <common/string_view.h>
 #include <common/utils.h>
 
 #include <algorithm> /* max */
-#include <cstdlib> /* getenv */
 #include <string>
 
 using IKVStore = component::IKVStore;
@@ -78,7 +78,7 @@ auto hstore_factory::create(
       , make_dax_manager(
           common::log_source(effective_debug_level)
           , dax_config_it == mc.end() ? json::array().str() : dax_config_it->second
-          , bool(std::getenv("DAX_RESET"))
+          , common::env_value<bool>("DAX_RESET", false)
         )
     );
   obj->add_ref();

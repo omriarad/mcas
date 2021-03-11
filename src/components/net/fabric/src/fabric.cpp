@@ -37,11 +37,12 @@
 
 #include <netdb.h> /* addrinfo */
 #include <netinet/in.h> /* sockaddr_in */
+#include <common/env.h> /* env_value */
 #include <common/pointer_cast.h>
 #include <sys/select.h> /* pselect */
 
 #include <chrono> /* seconds */
-#include <cstdlib> /* getenv */
+#include <cstdlib> // getenv
 #include <iostream> /* cerr */
 #include <system_error> /* system_error */
 #include <thread> /* sleep_for */
@@ -183,7 +184,7 @@ Fabric::Fabric(const common::string_view json_configuration_)
 	 * fail/segfault. Disable the cache monitor.
 	 */
   : _env_mr_cache_monitor("FI_MR_CACHE_MONITOR", "disabled")
-  , _env_use_odp("FI_VERBS_USE_ODP", ( getenv("USE_ODP") && std::stoi(getenv("USE_ODP")) ) ? "true" : "false")
+  , _env_use_odp("FI_VERBS_USE_ODP", common::env_value<bool>("USE_ODP", true) ? "true" : "false")
   , _info(make_fi_info(json_configuration_))
   , _fabric(make_fid_fabric(*_info->fabric_attr, this))
   , _eq_attr{}

@@ -25,6 +25,7 @@
 #include "persistent.h"
 #include "test_flags.h"
 
+#include <common/env.h> /* env_value */
 #include <common/to_string.h>
 #include <common/perf/tm.h>
 #include <boost/iterator/transform_iterator.hpp>
@@ -40,11 +41,6 @@
  * ===== hop_hash_base =====
  */
 
-namespace
-{
-	const char *hstore_consistency_check() { return std::getenv("HSTORE_CONSISTENCY_CHECK"); }
-}
-
 template <
 	typename Key, typename T, typename Hash, typename Pred
 	, typename Allocator, typename SharedMutex
@@ -59,7 +55,7 @@ template <
 		, persist_map_controller_t(AK_REF av_, pc_, mode_)
 		, _hasher{}
 		, _auto_resize{true}
-		, _consistency_check(hstore_consistency_check() ? atoi(hstore_consistency_check()) : 0)
+		, _consistency_check(common::env_value("HSTORE_CONSISTENCY_CHECK", false))
 	{
 		const auto bp_src = this->persist_map_controller_t::bp_src();
 		const auto bc_dst =

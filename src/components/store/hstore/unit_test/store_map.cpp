@@ -12,6 +12,7 @@
 */
 #include "store_map.h"
 
+#include <common/env.h>
 #include <common/json.h>
 #include <string>
 
@@ -23,18 +24,10 @@ const store_map::impl_map_t store_map::impl_map = {
 
 namespace
 {
-  static auto store_env = ::getenv("STORE");
-  /* example of a STORE_LOCATION string:
-   *   [{"path": "/mnt/pmem1", "addr": 618475290624}]
-   */
-  static auto store_loc = ::getenv("STORE_LOCATION");
+  static auto store_env = common::env_value("STORE", "unspecified");
 }
 
-const store_map::impl_map_t::const_iterator store_map::impl_env_it =
-  store_env
-  ? impl_map.find(store_env)
-  : impl_map.end()
-  ;
+const store_map::impl_map_t::const_iterator store_map::impl_env_it = impl_map.find(store_env);
 
 const store_map::impl_spec *const store_map::impl =
   & (
@@ -63,11 +56,12 @@ const auto fsdax_location =
     )
   );
 
+  /* example of a STORE_LOCATION string:
+   *   [{"path": "/mnt/pmem1", "addr": 618475290624}]
+   */
 const std::string store_map::location =
-  /* If a custom store location was specified, use it */
-  store_loc           ? store_loc
-  /* if USE_ODP was set, probably using fsdax. Use the default fsdax location */
-  : getenv("USE_ODP") ? fsdax_location.str()
-  /* Use the default devdax location */
-  :                     devdax_location.str()
-  ;
+  common::env_value(
+    "STORE_LOCATION"
+    /* if USE_ODP was set, default is fsdax location, else default is devdax location */
+    , common::env_value("USE_ODP", true) ? fsdax_location.str() : devdax_location.str()
+  );

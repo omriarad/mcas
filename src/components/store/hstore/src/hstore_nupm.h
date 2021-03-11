@@ -28,7 +28,6 @@
 #include <cstring> /* strerror */
 
 #include <cinttypes> /* PRIx64 */
-#include <cstdlib> /* getenv */
 
 namespace nupm
 {

@@ -41,7 +41,6 @@
 
 #include <algorithm> /* min */
 #include <chrono> /* milliseconds */
-#include <cstdlib> /* getenv */
 #include <iostream> /* cerr */
 #include <limits> /* <int>::max */
 

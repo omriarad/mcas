@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #pragma GCC diagnostic pop
 
+#include <common/env.h> /* env_value */
 #include <common/profiler.h>
 #include <common/to_string.h>
 #include <common/utils.h>
@@ -149,7 +150,7 @@ class KVStore_test
   }
   static std::string debug_level()
   {
-    return std::getenv("DEBUG") ? std::getenv("DEBUG") : "0";
+    return common::env_value("DEBUG", "0");
   }
   static poolv_t pool;
   static std::size_t string_length_and_overhead(std::size_t length)
@@ -169,14 +170,14 @@ class KVStore_test
 
 constexpr std::size_t KVStore_test::estimated_object_count_small;
 const std::size_t KVStore_test::many_count_target_large =
-  std::getenv("COUNT_TARGET") ? std::stoul(std::getenv("COUNT_TARGET")) : 500000;
+  common::env_value("COUNT_TARGET", std::size_t(500000));
 
 /* there are three test, each of which uses many_count_target objects */
 const std::size_t KVStore_test::estimated_object_count_large =
   many_count_target_large * 3;
 
 const std::size_t KVStore_test::many_count_target_small =
-  std::getenv("COUNT_TARGET") ? std::stoul(std::getenv("COUNT_TARGET")) : 400;
+  common::env_value("COUNT_TARGET", std::size_t(400));
 
 bool KVStore_test::pmem_simulated = getenv("PMEM_IS_PMEM_FORCE");
 component::IKVStore *KVStore_test::_kvstore;
@@ -192,7 +193,7 @@ KVStore_test::kvv_t KVStore_test::kvv_long_long;
 bool KVStore_test::short_short_put = false;
 bool KVStore_test::short_long_put = false;
 bool KVStore_test::long_long_put = false;
-unsigned debug = unsigned(std::getenv("DEBUG") ? std::stoul(std::getenv("DEBUG")) : 400U);
+unsigned debug = common::env_value("DEBUG", 400U);
 
 std::size_t KVStore_test::multi_count_actual = 0;
 std::size_t KVStore_test::estimated_object_count =

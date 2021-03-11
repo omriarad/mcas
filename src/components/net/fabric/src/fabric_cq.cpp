@@ -22,6 +22,7 @@
 #include <api/fabric_itf.h> /* component::IFabric_op_completer::cb_acceptance */
 #include "fabric_check.h" /* CHECK_FI_ERR */
 #include "fabric_runtime_error.h"
+#include <common/env.h>
 #include <boost/io/ios_state.hpp>
 #include <iostream> /* cerr */
 #include <tuple> /* get */
@@ -40,7 +41,7 @@ Fabric_cq::Fabric_cq(fid_unique_ptr<::fid_cq> &&cq_, const char *type_)
 Fabric_cq::~Fabric_cq()
 {
   /* Note: completions left on transmission CQs should usually be 0. */
-  if ( std::getenv("FABRIC_STATS") )
+  if ( common::env_value("FABRIC_STATS", false) )
   {
     try
     {
@@ -53,7 +54,7 @@ Fabric_cq::~Fabric_cq()
 
 Fabric_cq::stats::~stats()
 {
-  if ( std::getenv("FABRIC_STATS") )
+  if ( common::env_value("FABRIC_STATS", false) )
   {
     try
     {
@@ -67,9 +68,7 @@ Fabric_cq::stats::~stats()
 namespace
 {
   std::size_t constexpr ct_max = 16;
-  const char *force_read_str = std::getenv("FABRIC_DO_NOT_FORCE_CQ_READ");
-  const bool force_read = !(force_read_str &&
-                            0 < std::strtol(force_read_str, nullptr, 0));
+  const bool force_read = common::env_value("FABRIC_FORCE_CQ_READ", true);
 }
 
 ::fi_cq_err_entry Fabric_cq::get_cq_comp_err()

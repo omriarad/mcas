@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 #pragma GCC diagnostic pop
 
+#include <common/env.h>
 #include <common/profiler.h>
 #include <common/to_string.h>
 #include <common/utils.h>
@@ -120,7 +121,7 @@ class KVStore_test
   }
   static std::string debug_level()
   {
-    return std::getenv("DEBUG") ? std::getenv("DEBUG") : "0";
+    return common::env_value("DEBUG", "0");
   }
 };
 

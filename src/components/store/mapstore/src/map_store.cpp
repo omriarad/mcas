@@ -13,8 +13,9 @@
 #include <api/kvstore_itf.h>
 #include <city.h>
 #include <common/exceptions.h>
-#include <common/rwlock.h>
 #include <common/cycles.h>
+#include <common/env.h>
+#include <common/rwlock.h>
 #include <common/to_string.h>
 #include <common/utils.h>
 #include <fcntl.h>
@@ -95,23 +96,7 @@ int init_map_lock_mask()
 {
   /* env variable USE_ODP to indicate On Demand Paging may be used
      and therefore mapped memory need not be pinned */
-  char* p = getenv("USE_ODP");
-  bool odp = false;
-  if ( p != nullptr )
-    {
-      errno = 0;
-      odp = bool(std::strtoul(p,nullptr,10));
-
-      auto e = errno;
-      if ( e == 0 )
-        {
-          PLOG(PREFIX "%s: USE_ODP=%d (%s on-demand paging)", __FILE__, int(odp), odp ? "using" : "not using");
-        }
-      else
-        {
-          PLOG(PREFIX "%s: USE_ODP specification %s failed to parse: %s", __FILE__, p, ::strerror(e));
-        }
-    }
+  bool odp = common::env_value("USE_ODP", true);
   return odp ? 0 : MAP_LOCKED;
 }
 

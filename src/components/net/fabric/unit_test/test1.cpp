@@ -46,6 +46,7 @@
 #include <algorithm> /* max, min */
 #include <chrono> /* seconds */
 #include <cinttypes> /* PRIu64 */
+#include <cstdlib> /* getenv */
 #include <cstring> /* strpbrk */
 #include <exception>
 #include <stdexcept> /* domain_error */

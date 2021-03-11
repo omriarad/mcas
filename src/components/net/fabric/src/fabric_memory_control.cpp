@@ -26,6 +26,7 @@
 #include "fabric_util.h" /* make_fi_infodup */
 
 #include <common/byte_span.h>
+#include <common/env.h>
 #include <common/logging.h> /* PLOG */
 #include <common/pointer_cast.h>
 #include <sys/uio.h> /* iovec */
@@ -68,7 +69,7 @@ namespace
     auto rc = ::getrusage(RUSAGE_SELF, &usage);
     return rc == 0 ? usage.ru_minflt + usage.ru_majflt : 0;
   }
-  bool mr_trace = std::getenv("FABRIC_MR_TRACE");
+  bool mr_trace = common::env_value<bool>("FABRIC_MR_TRACE", false);
 }
 
 ru_flt_counter::ru_flt_counter(bool report_)
@@ -102,8 +103,8 @@ Fabric_memory_control::Fabric_memory_control(
   , _domain(_fabric.make_fid_domain(*_domain_info, this))
   , _m{}
   , _mr_addr_to_mra{}
-  , _paging_test(bool(std::getenv("FABRIC_PAGING_TEST")))
-  , _fault_counter(_paging_test || bool(std::getenv("FABRIC_PAGING_REPORT")))
+  , _paging_test(common::env_value<bool>("FABRIC_PAGING_TEST", false))
+  , _fault_counter(_paging_test || common::env_value<bool>("FABRIC_PAGING_REPORT", false))
 {
 }
 

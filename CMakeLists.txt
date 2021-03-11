@@ -18,7 +18,7 @@ option(CODE_COVERAGE "enable gcc code coverage" OFF)
 option(SPAN_USES_GSL "span data uses gsl::span, not iovec" OFF)
 option(BYTE_USES_STD "byte data uses std::byte, not gsl::byte" OFF)
 option(INVASIVE_PERF "enable invasive performance trace" OFF)
-option(PROFILE "profile the code" OFF)
+option(PROFILE "profile the code" ON)
 
 set(DM_REGION_LOG_GRAIN_SIZE 25 CACHE STRING "log base 2 of the device_manager allocation granularity")
 

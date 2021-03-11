@@ -35,7 +35,6 @@
 
 #include <algorithm> /* min, max, transform */
 #include <cstddef> /* size_t */
-#include <cstdlib> /* getenv */
 #include <cstring> /* memcpy */
 #include <limits> /* numeric_limits */
 #include <memory> /* make_shared */

@@ -22,7 +22,6 @@
 #include <city.h> /* CityHash */
 
 #include <cinttypes> /* PRIx64 */
-#include <cstdlib> /* getenv */
 #include <cstring> /* strerror */
 
 template <typename Region, typename Table, typename Allocator, typename LockType>
