@@ -37,11 +37,21 @@ component::IMCAS_factory * factory = nullptr;
 class IOPS_base {
 public:
 
-  IOPS_base() {
+  IOPS_base()
+    : _start_time()
+    , _end_time()
+    , _elapsed()
+    , _iterations()
+    , _store(factory->mcas_create(Options.debug_level, 30, "cpp_bench", Options.addr, Options.device))
+    , _data()
+    , _pool()
+    , _get_results()
+    , _repeats_remaining(Options.repeats)
+    , _memhandle()
+    , _value()
+  {
     PINF("Value size:%lu", Options.value_size);
     PINF("Endpoint: %s", Options.addr.c_str());
-
-    _store.reset(factory->mcas_create(Options.debug_level, 30, "cpp_bench", Options.addr, Options.device));
   }
   
   unsigned long cleanup(unsigned rank)
