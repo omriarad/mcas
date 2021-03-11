@@ -23,12 +23,9 @@
 
 #include <api/kvstore_itf.h>
 
+#include <common/string_view.h>
+
 #define PREFIX "Map_store: "
-/** 
- * Debug level for this component
- * 
- */
-static constexpr unsigned DEBUG_LEVEL = 0;
 
 namespace nupm
 {
@@ -37,8 +34,11 @@ namespace nupm
 
 class Map_store : public component::IKVStore /* generic Key-Value store interface */
 {
+  unsigned _debug_level;
+
 public:
-  static constexpr unsigned debug_level() { return DEBUG_LEVEL; }
+  
+  unsigned debug_level() { return _debug_level; }
 
   /**
    * Constructor
@@ -46,7 +46,7 @@ public:
    * @param block_device Block device interface
    *
    */
-  Map_store(common::string_view owner, common::string_view name);
+  Map_store(const unsigned debug_level, common::string_view owner, common::string_view name);
 
   /**
    * Destructor
@@ -197,17 +197,16 @@ public:
 
   void unload() override { delete this; }
 
-  virtual component::IKVStore *create(unsigned,
-    const IKVStore_factory::map_create &mc) override {
+  virtual component::IKVStore *create(unsigned debug_level,
+                                      const IKVStore_factory::map_create &mc) override
+  {
     auto owner_it = mc.find(+component::IKVStore_factory::k_owner);
     auto name_it = mc.find(+component::IKVStore_factory::k_name);
     component::IKVStore *obj =
-      static_cast<component::IKVStore *>(
-        new Map_store(
-          owner_it == mc.end() ? "owner" : owner_it->second
-          , name_it == mc.end() ? "name" : name_it->second
-        )
-    );
+      static_cast<component::IKVStore *>
+      (new Map_store(debug_level,
+                     owner_it == mc.end() ? "owner" : owner_it->second,
+                     name_it == mc.end() ? "name" : name_it->second));
     assert(obj);
     obj->add_ref();
     return obj;

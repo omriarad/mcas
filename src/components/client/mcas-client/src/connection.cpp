@@ -44,6 +44,7 @@ static constexpr const unsigned TLS_DEBUG_LEVEL = 3;
 static constexpr const char* ENVIRONMENT_VARIABLE_CERT = "CERT";
 static constexpr const char* ENVIRONMENT_VARIABLE_KEY = "KEY";
 static constexpr const char* ENVIRONMENT_VARIABLE_SC = "SHORT_CIRCUIT_BACKEND";
+static constexpr const char* ENVIRONMENT_VARIABLE_FORCE_DIRECT = "FORCE_DIRECT";
 
 /* static constructor called once */
 static void print_logs(int level, const char* msg) { printf("GnuTLS [%d]: %s", level, msg); }
@@ -916,6 +917,8 @@ Connection_handler::Connection_handler(const unsigned              debug_level,
 
   if(::getenv(ENVIRONMENT_VARIABLE_KEY) && ::getenv(ENVIRONMENT_VARIABLE_CERT))
     _options.tls = true;
+  if(::getenv(ENVIRONMENT_VARIABLE_FORCE_DIRECT))
+    _force_direct = true;
 
   if(other.data()) {
     try {
@@ -1569,6 +1572,8 @@ status_t Connection_handler::async_put_direct(const IMCAS::pool_t               
     auto iobs = make_iob_ptr_send();
 
     if (
+        ! _force_direct
+        &&
         values_.size() == 1 /* A simplification. We could change the small put code to handle multiple source */
 		&&
         mcas::protocol::Message_IO_request::would_fit(key_.size() + ::size(values_.front()), iobs->original_length())
@@ -1907,8 +1912,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     }
 
     try {
-      out_async_handle_ = get_direct_offset_async(
-                                                  pool_, offset_, buffer_, length_, rmd_,
+      out_async_handle_ = get_direct_offset_async(pool_, offset_, buffer_, length_, rmd_,
                                                   mem_handle_ == IMCAS::MEMORY_HANDLE_NONE ? nullptr : static_cast<buffer_base *>(mem_handle_)->get_desc());
       return S_OK;
     }
@@ -1945,8 +1949,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     }
 
     try {
-      out_async_handle_ = put_direct_offset_async(
-                                                  pool_, offset_, buffer_, length_, rmd_,
+      out_async_handle_ = put_direct_offset_async(pool_, offset_, buffer_, length_, rmd_,
                                                   mem_handle_ == IMCAS::MEMORY_HANDLE_NONE ? nullptr : static_cast<buffer_base *>(mem_handle_)->get_desc());
       return S_OK;
     }
@@ -1973,8 +1976,10 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     status_t status;
 
     try {
-      const auto msg = new (iobs->base()) mcas::protocol::Message_IO_request(
-                                                                             iobs->length(), auth_id(), request_id(), pool, mcas::protocol::OP_ERASE, key, 0, 0);
+      const auto msg =
+        new (iobs->base()) mcas::protocol::Message_IO_request(
+          iobs->length(), auth_id(), request_id(), pool, mcas::protocol::OP_ERASE, key, 0, 0
+        );
 
       post_recv(&*iobr);
       sync_inject_send(&*iobs, msg, __func__);

@@ -246,7 +246,6 @@ private:
     }
 
 public:
-
   /**
    * Determine thread safety of the component
    * Check capability of component
@@ -550,7 +549,7 @@ public:
     status_t get_attribute(pool_t               pool,
                                  Attribute              attr,
                                  std::vector<uint64_t>& out_value,
-                                 basic_string_view<K>   key = basic_string_view<K>{})
+                                 basic_string_view<K>   key)
     {
       return get_attribute(pool, attr, out_value, to_key(key));
     }
@@ -567,7 +566,7 @@ public:
 		, attr
 		, out_value
 		, key
-			? string_view_key(common::pointer_cast<string_view_key::value_type>(key->data()), key->size())
+			? string_view_key(to_key(*key))
 			: string_view_key()
 	);
   }
@@ -781,9 +780,7 @@ public:
   virtual status_t erase(pool_t pool, const string_view_key key) = 0;
 
   template <typename K>
-    status_t erase(pool_t pool,
-      K key
-    )
+    status_t erase(pool_t pool, K key)
     {
       return erase(pool, to_key(key));
     }

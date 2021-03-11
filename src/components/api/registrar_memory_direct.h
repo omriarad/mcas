@@ -40,13 +40,21 @@ public:
   /**
    * Register memory for zero copy DMA
    *
+   * @param mem Span of an appropriately aligned memory buffer
+   *
+   * @return Memory handle or NULL on not supported.
+   */
+  virtual memory_handle_t register_direct_memory(common::const_byte_span m) = 0;
+
+  /**
+   * Register memory for zero copy DMA
+   *
    * @param vaddr Appropriately aligned memory buffer
    * @param len Length of memory buffer in bytes
    *
    * @return Memory handle or NULL on not supported.
    */
-  virtual memory_handle_t register_direct_memory(common::const_byte_span m) = 0;
-  virtual memory_handle_t register_direct_memory(void* vaddr, const size_t len)
+  memory_handle_t register_direct_memory(void* vaddr, const size_t len)
   {
     return register_direct_memory(common::make_const_byte_span(vaddr, len));
   }

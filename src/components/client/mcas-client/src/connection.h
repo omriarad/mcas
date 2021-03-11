@@ -528,6 +528,7 @@ private:
 #endif
 
   bool     _exit;
+  bool     _force_direct = false;
   uint64_t _request_id;
 
 public: /* for async "move_along" processing */

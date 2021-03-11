@@ -552,10 +552,11 @@ public:
    */
   virtual status_t async_erase(const IMCAS::pool_t pool, const string_view_key key, async_handle_t& out_handle) = 0;
 
-  virtual status_t async_erase(const IMCAS::pool_t pool, const std::string& key, async_handle_t& out_handle)
-  {
-    return async_erase(pool, string_view_byte(common::pointer_cast<common::byte>(key.data()), key.size()), out_handle);
-  }
+  template <typename K>
+    status_t async_erase(const IMCAS::pool_t pool, const K key, async_handle_t& out_handle)
+    {
+      return async_erase(pool, to_key(key), out_handle);
+    }
 
   /**
    * Retrieve shard statistics
