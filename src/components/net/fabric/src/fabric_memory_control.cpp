@@ -17,7 +17,11 @@
  *
  */
 
+#if 0
 #include "fabric_memory_control.h"
+#else
+#include "fabric_endpoint.h"
+#endif
 
 #include "fabric.h"
 #include "fabric_check.h" /* CHECK_FI_ERR */
@@ -42,6 +46,7 @@
 #include <sstream> /* ostringstream */
 #include <string>
 
+#if 0 /* moved to fabric_endpoint.cpp */
 using guard = std::unique_lock<std::mutex>;
 
 namespace
@@ -84,7 +89,7 @@ ru_flt_counter::~ru_flt_counter()
     PLOG("fault count %li", ru_flt() - _ru_flt_start);
   }
 }
-
+#if 0
 /**
  * Fabric/RDMA-based network component
  *
@@ -123,7 +128,7 @@ struct mr_and_address
   std::shared_ptr<::fid_mr> mr;
   byte_span v;
 };
-
+#endif
 namespace
 {
   void print_registry(const std::multimap<const void *, std::unique_ptr<mr_and_address>> &matm)
@@ -149,7 +154,7 @@ namespace
   }
 }
 
-auto Fabric_memory_control::register_memory(const_byte_span contig_, std::uint64_t key_, std::uint64_t flags_) -> component::IFabric_connection::memory_region_t
+auto Fabric_endpoint::register_memory(const_byte_span contig_, std::uint64_t key_, std::uint64_t flags_) -> memory_region_t
 {
   auto mra =
     std::make_unique<mr_and_address>(
@@ -179,7 +184,7 @@ auto Fabric_memory_control::register_memory(const_byte_span contig_, std::uint64
   return common::pointer_cast<component::IFabric_memory_region>(&*it->second);
 }
 
-void Fabric_memory_control::deregister_memory(const memory_region_t mr_)
+void Fabric_endpoint::deregister_memory(const memory_region_t mr_)
 {
   /* recover the memory region as a unique ptr */
   auto mra = common::pointer_cast<mr_and_address>(mr_);
@@ -219,7 +224,7 @@ void Fabric_memory_control::deregister_memory(const memory_region_t mr_)
   }
 }
 
-std::uint64_t Fabric_memory_control::get_memory_remote_key(const memory_region_t mr_) const noexcept
+std::uint64_t Fabric_endpoint::get_memory_remote_key(const memory_region_t mr_) const noexcept
 {
   /* recover the memory region */
   auto mr = &*common::pointer_cast<mr_and_address>(mr_)->mr;
@@ -227,7 +232,7 @@ std::uint64_t Fabric_memory_control::get_memory_remote_key(const memory_region_t
   return ::fi_mr_key(mr);
 }
 
-void *Fabric_memory_control::get_memory_descriptor(const memory_region_t mr_) const noexcept
+void *Fabric_endpoint::get_memory_descriptor(const memory_region_t mr_) const noexcept
 {
   /* recover the memory region */
   auto mr = &*common::pointer_cast<mr_and_address>(mr_)->mr;
@@ -236,7 +241,7 @@ void *Fabric_memory_control::get_memory_descriptor(const memory_region_t mr_) co
 }
 
 /* find a registered memory region which covers the iovec range */
-::fid_mr *Fabric_memory_control::covering_mr(const byte_span v)
+::fid_mr *Fabric_endpoint::covering_mr(const byte_span v)
 {
   /* _mr_addr_to_mr is sorted by starting address.
    * Find the last acceptable starting address, and iterate
@@ -269,7 +274,7 @@ void *Fabric_memory_control::get_memory_descriptor(const memory_region_t mr_) co
 }
 
 /* If local keys are needed, one local key per buffer. */
-std::vector<void *> Fabric_memory_control::populated_desc(gsl::span<const ::iovec> buffers)
+std::vector<void *> Fabric_endpoint::populated_desc(gsl::span<const ::iovec> buffers)
 {
   std::vector<void *> desc;
 
@@ -290,7 +295,7 @@ std::vector<void *> Fabric_memory_control::populated_desc(gsl::span<const ::iove
  * "Required key not available." The parameter name and the error disagree:
  * "requested" is not the same as "required."
  */
-fid_mr * Fabric_memory_control::make_fid_mr_reg_ptr(
+fid_mr * Fabric_endpoint::make_fid_mr_reg_ptr(
   const_byte_span buf
   , uint64_t access
   , uint64_t key
@@ -330,3 +335,4 @@ fid_mr * Fabric_memory_control::make_fid_mr_reg_ptr(
   FABRIC_TRACE_FID(f);
   return f;
 }
+#endif

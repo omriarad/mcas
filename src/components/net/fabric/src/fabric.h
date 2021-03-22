@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -69,7 +69,7 @@ std::ostream &operator<<(std::ostream &o, const env_replace &e);
  */
 class Fabric
   : public component::IFabric
-  , private event_producer
+  , public event_producer
 {
   env_replace _env_mr_cache_monitor;
   env_replace _env_use_odp;
@@ -106,7 +106,7 @@ class Fabric
    * @throw fabric_runtime_error : std::runtime_error : ::fi_pep_bind fail
    * @throw fabric_runtime_error : std::runtime_error : ::fi_listen fail
    */
-  component::IFabric_server_factory * open_server_factory(const common::string_view json_configuration, std::uint16_t control_port) override;
+  component::IFabric_server_factory * open_server_factory(common::string_view json_configuration, std::uint16_t control_port) override;
   /**
    * @throw std::domain_error : json file parse-detected error
    * @throw bad_dest_addr_alloc : std::bad_alloc
@@ -133,14 +133,15 @@ class Fabric
    * @throw std::system_error - writing event pipe (readerr_eq)
    * @throw std::system_error - receiving data on socket
    */
-  component::IFabric_client * open_client(const common::string_view json_configuration, const common::string_view remote, std::uint16_t control_port) override;
+  component::IFabric_endpoint_unconnected * make_endpoint(common::string_view json_configuration, common::string_view remove_endpoint, std::uint16_t port) override;
+
   /**
    * @throw std::domain_error : json file parse-detected error
    * @throw fabric_runtime_error : std::runtime_error : ::fi_passive_ep fail
    * @throw fabric_runtime_error : std::runtime_error : ::fi_pep_bind fail
    * @throw fabric_runtime_error : std::runtime_error : ::fi_listen fail
    */
-  component::IFabric_server_grouped_factory * open_server_grouped_factory(const common::string_view json_configuration, std::uint16_t control_port) override;
+  component::IFabric_server_grouped_factory * open_server_grouped_factory(common::string_view json_configuration, std::uint16_t control_port) override;
   /**
    * @throw std::domain_error : json file parse-detected error
    * @throw bad_dest_addr_alloc : std::bad_alloc
@@ -167,7 +168,7 @@ class Fabric
    * @throw std::system_error - writing event pipe (readerr_eq)
    * @throw std::system_error - receiving data on socket
    */
-  component::IFabric_client_grouped * open_client_grouped(const common::string_view json_configuration, const common::string_view remote_endpoint, std::uint16_t port) override;
+
   /* END component::IFabric */
 
   /* BEGIN event_producer */
@@ -212,7 +213,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error : ::fi_eq_open fail
    * @throw fabric_runtime_error : std::runtime_error : ::fi_control fail
    */
-  explicit Fabric(const common::string_view json_configuration);
+  explicit Fabric(common::string_view json_configuration);
   int trywait(::fid **fids, std::size_t count) const;
   /**
    * @throw fabric_runtime_error : std::runtime_error : ::fi_domain fail

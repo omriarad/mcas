@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2019] [IBM Corporation]
+   Copyright [2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -10,18 +10,20 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
-#ifndef _TEST_PATIENCE_H_
-#define _TEST_PATIENCE_H_
 
-namespace component
+
+#ifndef _EVENT_EXPECTER_H_
+#define _EVENT_EXPECTER_H_
+
+#include <cstddef> /* uint32_t */
+
+/* interface for expecting a connect event */
+struct event_expecter
 {
-  class IFabric_endpoint_unconnected;
-  class IFabric_client;
-  class IFabric_client_grouped;
-}
-
-component::IFabric_client * open_connection_patiently(component::IFabric_endpoint_unconnected *aep);
-
-component::IFabric_client_grouped * open_connection_grouped_patiently(component::IFabric_endpoint_unconnected *aep);
+protected:
+	~event_expecter() {}
+public:
+	virtual void expect_event(std::uint32_t event_exp) = 0;
+};
 
 #endif

@@ -24,6 +24,8 @@
 #include "connection.h"
 #include "mcas_client_config.h"
 
+#include "buffer_manager.h" /* Buffer_manager */
+
 #include <api/components.h>
 #include <api/fabric_itf.h>
 #include <api/kvindex_itf.h>
@@ -295,6 +297,8 @@ class MCAS_client
 
   component::Itf_ref<component::IFabric_factory>    _factory;
   std::unique_ptr<component::IFabric>               _fabric;
+  std::unique_ptr<component::IFabric_endpoint_unconnected> _ep;
+  mcas::Buffer_manager<component::IFabric_memory_control> _bm; /* IO buffer manager: must precede opening of connection, which occurs in component::IFabric_client */
   std::unique_ptr<component::IFabric_client>        _transport;
   std::unique_ptr<mcas::client::Connection_handler> _connection;
   Open_connection                                   _open_connection;
