@@ -49,7 +49,7 @@ component::IMCAS * MCAS_client_factory::mcas_create_nsd(const unsigned debug_lev
       static_cast<component::IMCAS *>(new MCAS_client(debug_level,
                                                       src_device,
                                                       src_addr,
-                                                      m[3].matched ? common::string_view(m[3].str()) : common::string_view(),
+                                                      m[3].matched ? string_view(m[3].str()) : string_view(),
                                                       dst_addr,
                                                       port,
                                                       patience,  // seconds to wait for single fabric completion

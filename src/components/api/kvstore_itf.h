@@ -40,8 +40,8 @@ class IKVStore : public IBase
 
 
 class IKVStore_factory : public component::IBase {
- public:
   using string_view = common::string_view;
+ public:
   // clang-format off
   DECLARE_INTERFACE_UUID(0xface829f,0x0405,0x4c19,0x9898,0xa3,0xae,0x21,0x5a,0x3e,0xe8);
   // clang-format on

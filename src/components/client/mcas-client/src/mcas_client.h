@@ -306,10 +306,12 @@ class MCAS_client
  private:
   static void set_debug(unsigned debug_level, const void *ths, const std::string &ip_addr, std::uint16_t port);
   static auto load_factory() -> component::IFabric_factory *;
+  /* make fabric: address/provider/device form */
   static auto make_fabric_apd(component::IFabric_factory &,
                           const common::string_view ip_addr,
                           const common::string_view provider,
                           const common::string_view device) -> component::IFabric *;
+  /* make fabric: source/ip_addr/provider */
   static auto make_fabric_sip(component::IFabric_factory &,
                           const common::string_view src_addr,
                           const common::string_view interface,
@@ -348,6 +350,7 @@ class MCAS_client_factory : public component::IMCAS_factory {
 
   void unload() override { delete this; }
 
+  /* NIC/souuce/dest version of create */
   component::IMCAS *mcas_create_nsd(unsigned          debug_level,
                                 unsigned          patience,
                                 const string_view owner,

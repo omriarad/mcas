@@ -42,7 +42,7 @@
 #include <sys/select.h> /* pselect */
 
 #include <chrono> /* seconds */
-#include <cstdlib> // getenv
+#include <cstdlib> /* getenv */
 #include <iostream> /* cerr */
 #include <system_error> /* system_error */
 #include <thread> /* sleep_for */

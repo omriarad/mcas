@@ -16,7 +16,6 @@
 #define _FABRIC_H_
 
 #include <api/fabric_itf.h> /* component::IFabric */
-#include <common/env.h>
 #include <common/moveable_value.h>
 #include <common/string_view.h>
 #include "event_producer.h"
@@ -142,32 +141,6 @@ class Fabric
    * @throw fabric_runtime_error : std::runtime_error : ::fi_listen fail
    */
   component::IFabric_server_grouped_factory * open_server_grouped_factory(common::string_view json_configuration, std::uint16_t control_port) override;
-  /**
-   * @throw std::domain_error : json file parse-detected error
-   * @throw bad_dest_addr_alloc : std::bad_alloc
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_domain fail
-   * @throw fabric_bad_alloc : std::bad_alloc - fabric allocation out of memory
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_connect fail
-   *
-   * @throw fabric_bad_alloc : std::bad_alloc - out of memory
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_ep_bind fail
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_enable fail
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_ep_bind fail (event registration)
-   *
-   * @throw std::logic_error : socket initialized with a negative value (from ::socket) in Fd_control
-   * @throw std::logic_error : unexpected event
-   * @throw std::system_error (receiving fabric server name)
-   * @throw std::system_error : pselect fail (expecting event)
-   * @throw std::system_error : resolving address
-   *
-   * @throw std::system_error : read error on event pipe
-   * @throw std::system_error : pselect fail
-   * @throw std::system_error : read error on event pipe
-   * @throw fabric_bad_alloc : std::bad_alloc - libfabric out of memory (creating a new server)
-   * @throw std::system_error - writing event pipe (normal callback)
-   * @throw std::system_error - writing event pipe (readerr_eq)
-   * @throw std::system_error - receiving data on socket
-   */
 
   /* END component::IFabric */
 

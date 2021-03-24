@@ -342,6 +342,7 @@ class IFabric_initiator
                          std::uint64_t  remote_addr,
                          std::uint64_t  key,
                          void *         context) { return post_read( { first, last }, descriptors, remote_addr, key, context); }
+
   virtual void post_read(gsl::span<const ::iovec> buffers,
                          std::uint64_t               remote_addr,
                          std::uint64_t               key,
@@ -760,7 +761,7 @@ class IFabric {
   virtual IFabric_endpoint_unconnected *make_endpoint(const common::string_view json_configuration, common::string_view remote_endpoint, std::uint16_t port) = 0;
 
   /*
-   * provideri name in the fabric.
+   * provider name in the fabric.
    */
   virtual const char *prov_name() const noexcept = 0;
 };

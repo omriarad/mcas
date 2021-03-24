@@ -35,6 +35,7 @@
 #include "fd_unblock_set_monitor.h"
 #include "system_fail.h"
 
+#include <common/env.h> /* env_value */
 #include <common/logging.h> /* PLOG */
 
 #include <rdma/fi_errno.h> /* fi_strerror */
