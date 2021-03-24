@@ -43,8 +43,10 @@ MCAS_client::MCAS_client(const unsigned                      debug_level,
 : common::log_source(debug_level),
   _factory(load_factory()),
   _fabric(make_fabric_sip(*_factory, src_addr, src_device, provider)),
-  _transport(_fabric->open_client(common::json::serializer<common::json::dummy_writer>::object{}.str(), dest_addr, port)),
-  _connection(std::make_unique<mcas::client::Connection_handler>(debug_level, _transport.get(), patience_, other_)),
+  _ep(_fabric->make_endpoint(common::json::serializer<common::json::dummy_writer>::object{}.str(), dest_addr, port)),
+  _bm(debug_level, _ep.get()),
+  _transport(_ep->make_open_client()),
+  _connection(std::make_unique<mcas::client::Connection_handler>(debug_level, _transport.get(), _bm, patience_, other_)),
   _open_connection(*_connection)
 {
   CPLOG(3, "Extra config: %s", other_.data());

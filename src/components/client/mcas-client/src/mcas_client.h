@@ -24,6 +24,8 @@
 #include "connection.h"
 #include "mcas_client_config.h"
 
+#include "buffer_manager.h" /* Buffer_manager */
+
 #include <api/components.h>
 #include <api/fabric_itf.h>
 #include <api/kvindex_itf.h>
@@ -295,6 +297,8 @@ class MCAS_client
 
   component::Itf_ref<component::IFabric_factory>    _factory;
   std::unique_ptr<component::IFabric>               _fabric;
+  std::unique_ptr<component::IFabric_endpoint_unconnected_client> _ep;
+  mcas::Buffer_manager<component::IFabric_memory_control> _bm; /* IO buffer manager: must precede opening of connection, which occurs in component::IFabric_client */
   std::unique_ptr<component::IFabric_client>        _transport;
   std::unique_ptr<mcas::client::Connection_handler> _connection;
   Open_connection                                   _open_connection;
@@ -302,10 +306,12 @@ class MCAS_client
  private:
   static void set_debug(unsigned debug_level, const void *ths, const std::string &ip_addr, std::uint16_t port);
   static auto load_factory() -> component::IFabric_factory *;
+  /* make fabric: address/provider/device form */
   static auto make_fabric_apd(component::IFabric_factory &,
                           const common::string_view ip_addr,
                           const common::string_view provider,
                           const common::string_view device) -> component::IFabric *;
+  /* make fabric: source/ip_addr/provider */
   static auto make_fabric_sip(component::IFabric_factory &,
                           const common::string_view src_addr,
                           const common::string_view interface,
@@ -344,6 +350,7 @@ class MCAS_client_factory : public component::IMCAS_factory {
 
   void unload() override { delete this; }
 
+  /* NIC/souuce/dest version of create */
   component::IMCAS *mcas_create_nsd(unsigned          debug_level,
                                 unsigned          patience,
                                 const string_view owner,

@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2021] [IBM Corporation]
+   Copyright [2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -12,27 +12,17 @@
 */
 
 
-/*
- * Authors:
- *
- */
+#ifndef _EVENT_EXPECTER_H_
+#define _EVENT_EXPECTER_H_
 
-#include "fabric_server_grouped.h"
+#include <cstddef> /* uint32_t */
 
-/**
- * Fabric/RDMA-based network component
- *
- */
-
-/* Note: the info is owned by the caller, and must be copied if it is to be saved. */
-Fabric_server_grouped::Fabric_server_grouped(
-	component::IFabric_endpoint_unconnected_server *aep_
-)
-	: Fabric_connection_server(aep_)
-	, _g(this, aep()->rxcq(), aep()->txcq())
+/* interface for expecting a connect event */
+struct event_expecter
 {
-}
+public:
+	virtual ~event_expecter() {}
+	virtual void expect_event(std::uint32_t event_exp) = 0;
+};
 
-Fabric_server_grouped::~Fabric_server_grouped()
-{
-}
+#endif

@@ -898,9 +898,10 @@ public:
 
 Connection_handler::Connection_handler(const unsigned              debug_level,
                                        Connection_base::Transport *connection,
+                                       Connection_base::buffer_manager &bm_,
                                        const unsigned              patience,
                                        const common::string_view   other)
-  : Connection_base(debug_level, connection, patience),
+  : Connection_base(debug_level, connection, bm_, patience),
 #ifdef THREAD_SAFE_CLIENT
     _api_lock{},
 #endif

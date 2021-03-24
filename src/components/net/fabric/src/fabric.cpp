@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -42,7 +42,7 @@
 #include <sys/select.h> /* pselect */
 
 #include <chrono> /* seconds */
-#include <cstdlib> // getenv
+#include <cstdlib> /* getenv */
 #include <iostream> /* cerr */
 #include <system_error> /* system_error */
 #include <thread> /* sleep_for */
@@ -442,34 +442,19 @@ namespace
   }
 }
 
-component::IFabric_client * Fabric::open_client(const common::string_view json_configuration_, const common::string_view remote_, std::uint16_t control_port_)
+component::IFabric_endpoint_unconnected_client * Fabric::make_endpoint(const common::string_view json_configuration_, common::string_view remote_endpoint_, std::uint16_t port_)
 try
 {
   _info = parse_info(json_configuration_, _info);
-  return new Fabric_client(*this, *this, *_info, remote_, control_port_);
+  return new fabric_endpoint(*this, *this, *_info, remote_endpoint_, port_);
 }
 catch ( const fabric_runtime_error &e )
 {
-  throw e.add(while_in(__func__));
+  throw e.add(" remote " + std::string(remote_endpoint_) + ":" + std::to_string(port_) + while_in(__func__));
 }
 catch ( const std::system_error &e )
 {
-  throw std::system_error(e.code(), e.what() + while_in(__func__));
-}
-
-component::IFabric_client_grouped * Fabric::open_client_grouped(const common::string_view json_configuration_, const common::string_view remote_, std::uint16_t control_port_)
-try
-{
-  _info = parse_info(json_configuration_, _info);
-  return static_cast<component::IFabric_client_grouped *>(new Fabric_client_grouped(*this, *this, *_info, remote_, control_port_));
-}
-catch ( const fabric_runtime_error &e )
-{
-  throw e.add(while_in(__func__));
-}
-catch ( const std::system_error &e )
-{
-  throw std::system_error(e.code(), e.what() + while_in(__func__));
+  throw std::system_error(e.code(), e.what() + std::string(" remote ") + std::string(remote_endpoint_) + ":" + std::to_string(port_) + while_in(__func__));
 }
 
 void Fabric::bind(::fid_ep &ep_)
