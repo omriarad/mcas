@@ -5,6 +5,7 @@ execute_process( COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTUR
 project (kvstore-perf)
 
 add_subdirectory(unit_test)
+add_compile_options(-Weffc++)
 
 if (CMAKE_BUILD_TYPE STREQUAL "Release")
   set(GTEST_LIB gtest)

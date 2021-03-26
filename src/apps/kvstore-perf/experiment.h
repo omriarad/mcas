@@ -12,6 +12,7 @@
 
 #include <boost/optional.hpp>
 #include <common/logging.h> /* log_source */
+#include <common/string_view.h>
 
 #include <api/kvstore_itf.h>
 
@@ -31,6 +32,7 @@ class ProgramOptions;
 class Experiment : public common::Tasklet, protected common::log_source
 {
   using direct_memory_registered_kv = direct_memory_registered<component::IKVStore>;
+	using string_view = common::string_view;
 private:
   std::string _pool_path;
   std::string _pool_name;
@@ -49,8 +51,9 @@ public:
   boost::optional<std::chrono::high_resolution_clock::time_point> _end_time_directed;
 private:
   std::string _component;
+  std::string _timestring;
   std::string _results_path;
-  std::string _report_filename;
+  boost::optional<std::string> _report_filename;
   bool _do_json_reporting;
   std::string _test_name;
 
@@ -177,7 +180,7 @@ public:
 
   rapidjson::Document _get_report_document() ;
 
-  void _initialize_experiment_report(rapidjson::Document& document) ;
+  void _initialize_experiment_report(rapidjson::Document& document, std::string tiemstring);
 
   void _report_document_save(rapidjson::Document& document, unsigned core, rapidjson::Value& new_info) ;
 
@@ -194,7 +197,7 @@ public:
    *      experiment object - contains experiment parameters
    *      data object - actual results
    */
-  static std::string create_report(const std::string component_);
+  static std::string start_report(string_view component, string_view tag);
 
   std::size_t GetDataInputSize(std::size_t index);
 

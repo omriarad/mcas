@@ -35,7 +35,7 @@ class ProgramOptions {
   std::string                                            pool_name;
   unsigned long long                                     size;
   std::uint32_t                                          flags;
-  std::string                                            report_file_name;
+  boost::optional<std::string>                           report_tag;
   unsigned                                               bin_count;
   double                                                 bin_threshold_min;
   double                                                 bin_threshold_max;
@@ -53,6 +53,12 @@ class ProgramOptions {
   boost::optional<std::string>                           pci_addr;
   boost::optional<std::string>                           log_file;
   bool                                                   random;
+  /* The following values are not set by boost options, but by are computed
+   * by kvstore_perf to be forwarded to experiments
+   */
+  std::string                                            time_string;
+  /* Should probably be a nullable unique_ptr to an ostream, not a path */
+  boost::optional<std::string>                           report_file_path;
 
   ProgramOptions(const boost::program_options::variables_map &);
 
