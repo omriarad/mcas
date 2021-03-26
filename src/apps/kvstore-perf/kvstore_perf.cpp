@@ -52,6 +52,21 @@ static const std::vector<test_element> test_vector{
     {"erase", run_exp<ExperimentErase>},
     {"update", run_exp<ExperimentUpdate>},
 };
+
+  std::string get_time_string()
+  {
+    time_t rawtime;
+    ::tm *timeinfo;
+    time(&rawtime);
+    timeinfo = localtime(&rawtime);
+    char buffer[80];
+
+    // want YYYY_MM_DD_HH_MM format
+    strftime(buffer, sizeof(buffer), "%Y_%m_%d_%H_%M", timeinfo);
+    std::string timestring(buffer);
+
+    return timestring;
+  }
 }  // namespace
 
 int main(int argc, char *argv[])
@@ -77,7 +92,11 @@ int main(int argc, char *argv[])
     Experiment::g_data =
         new Data(options.elements, options.key_length, options.value_length, options.random);
 
-    options.report_file_name = options.do_json_reporting ? Experiment::create_report(options.component) : "";
+    Options.time_string = get_time_string();
+    Options.report_file_path =
+      Options.do_json_reporting
+      ? Experiment::start_report(Options.component, Options.report_tag ? *Options.report_tag : Options.time_string)
+      : "";
 
     cpu_mask_t cpus;
 
@@ -97,8 +116,10 @@ int main(int argc, char *argv[])
       }
     }
     else {
-      const auto it = std::find_if(test_vector.begin(), test_vector.end(),
-                                   [&options](const test_element &a) { return a.first == options.test; });
+      const auto it =
+        std::find_if(test_vector.begin(), test_vector.end(),
+                     [&Options](const test_element &a) { return a.first == Options.test; }
+        );
       if (it == test_vector.end()) {
         PERR("No such test: %s.", options.test.c_str());
         return 1;

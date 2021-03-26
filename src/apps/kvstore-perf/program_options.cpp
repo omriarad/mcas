@@ -72,7 +72,7 @@ ProgramOptions::ProgramOptions(const boost::program_options::variables_map &vm_)
     , pool_name(vm_.count("pool_name") > 0 ? vm_["pool_name"].as<std::string>() : "")
     , size(vm_["size"].as<unsigned long long int>())
     , flags(vm_["flags"].as<std::uint32_t>())
-    , report_file_name()
+    , report_tag(vm_.count("skip_json_reporting")!=0 || vm_.count("report_tag")==0 ? boost::optional<std::string>() : vm_["report_tag"].as<std::string>())
     , bin_count(vm_["bins"].as<unsigned>())
     , bin_threshold_min(vm_["latency_range_min"].as<double>())
     , bin_threshold_max(vm_["latency_range_max"].as<double>())
@@ -90,7 +90,10 @@ ProgramOptions::ProgramOptions(const boost::program_options::variables_map &vm_)
     , src_addr(vm_.count("src_addr") ? vm_["src_addr"].as<std::string>() : boost::optional<std::string>())
     , pci_addr(vm_.count("pci_addr") ? vm_["pci_addr"].as<std::string>() : boost::optional<std::string>())
     , log_file(vm_.count("log") ? vm_["log"].as<std::string>() : boost::optional<std::string>())
-    , random(vm_.count("random")) {
+    , random(vm_.count("random"))
+    , time_string()
+    , report_file_path()
+  {
   if ((component_is("pmstore") || component_is("hstore")) && !path) {
     auto e = "component '" + component + "' requires --path argument for persistent memory store";
     throw std::runtime_error(e);
@@ -134,7 +137,9 @@ void ProgramOptions::add_program_options(boost::program_options::options_descrip
                       [](const std::string &a, const std::string &b) { return a + "|" + b; }) +
       ">. Default: all.";
 
-  desc_.add_options()("help", "Show help")("test", po::value<std::string>()->default_value("all"), test_names.c_str())
+  desc_.add_options()
+      ("help", "Show help")
+      ("test", po::value<std::string>()->default_value("all"), test_names.c_str())
       ("component", po::value<std::string>()->default_value(DEFAULT_COMPONENT),
         "Implementation selection <mcas|mapstore|hstore|filestore>. Default: mcas.")
       ("cores", po::value<std::string>()->default_value("0"),
@@ -163,7 +168,8 @@ void ProgramOptions::add_program_options(boost::program_options::options_descrip
       ("value_length", po::value<unsigned>()->default_value(32), "Value length of data. Default: 32.")
       ("bins", po::value<unsigned>()->default_value(100), "Number of bins for statistics. Default: 100. ")
       ("latency_range_min", po::value<double>()->default_value(0.000000001),
-        "Lowest latency bin threshold. Default: 1e-9.")("latency_range_max", po::value<double>()->default_value(0.001),
+        "Lowest latency bin threshold. Default: 1e-9.")
+      ("latency_range_max", po::value<double>()->default_value(0.001),
                                                       "Highest latency bin threshold. Default: 1e-3.")
       ("debug_level", po::value<unsigned>()->default_value(0), "Debug level. Default: 0.")
       ("get_attr_pct", po::value<unsigned>()->default_value(0), "Get attribute percentage in throughput test. Default: 0.")
@@ -186,10 +192,14 @@ void ProgramOptions::add_program_options(boost::program_options::options_descrip
       ("nopin", "Do not pin down worker threads to cores.")
       ("start_time", po::value<std::string>(),
         "Delay start time of experiment until specified time (HH:MM, 24 hour format expected.")
-      ("verbose", "Verbose output.")("summary", "Prints summary statement: most frequent latency bin info per core.")
-      ("skip_json_reporting", "disables creation of json report file")("continuous", "Enables never-ending execution.")
+      ("verbose", "Verbose output.")
+      ("summary", "Prints summary statement: most frequent latency bin info per core.")
+      ("skip_json_reporting", "disables creation of json report file")
+      ("continuous", "Enables never-ending execution.")
       ("duration", po::value<unsigned>(), "Throughput test duration, in seconds")
       ("report_interval", po::value<unsigned>()->default_value(5),
         "Throughput test report interval, in seconds. Default: 5")
-      ("random", "Generate random size of value up from 8 bytes to --value_length");
+      ("random", "Generate random size of value up from 8 bytes to --value_length")
+      ("report_tag", po::value<std::string>(), "identifier for JSON report file (default is a timestamp)")
+    ;
 }
