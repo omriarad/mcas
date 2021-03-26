@@ -14,15 +14,10 @@
 
 #include <api/components.h>
 #include <api/kvstore_itf.h>
+#include <common/profiler.h>
 #include <common/utils.h>
 #include <boost/program_options.hpp>
 #include "task.h"
-
-#undef PROFILE
-
-#ifdef PROFILE
-#include <gperftools/profiler.h>
-#endif
 
 #include <algorithm>
 #include <chrono>
@@ -76,10 +71,6 @@ static const std::vector<test_element> test_vector{
 
 int main(int argc, char *argv[])
 {
-#ifdef PROFILE
-  ProfilerDisable();
-#endif
-
   namespace po = boost::program_options;
 
   try {
@@ -96,57 +87,51 @@ int main(int argc, char *argv[])
       return 0;
     }
 
-    ProgramOptions Options(vm);
+    ProgramOptions options(vm);
 
     Experiment::g_data =
-        new Data(Options.elements, Options.key_length, Options.value_length, Options.random);
+        new Data(options.elements, options.key_length, options.value_length, options.random);
 
-    Options.time_string = get_time_string();
-    Options.report_file_path =
-      Options.do_json_reporting
-      ? Experiment::start_report(Options.component, Options.report_tag ? *Options.report_tag : Options.time_string)
+    options.time_string = get_time_string();
+    options.report_file_path =
+      options.do_json_reporting
+      ? Experiment::start_report(options.component, options.report_tag ? *options.report_tag : options.time_string)
       : "";
 
     cpu_mask_t cpus;
 
     try {
-      cpus = get_cpu_mask_from_string(Options.cores);
+      cpus = get_cpu_mask_from_string(options.cores);
     }
     catch (...) {
       PERR("%s", "couldn't create CPU mask. Exiting.");
       return 1;
     }
 
-#ifdef PROFILE
-    ProfilerStart("cpu.profile");
-#endif
+    common::profiler p(options.profile_file_main, true);
 
-    if (Options.test == "all") {
+    if (options.test == "all") {
       for (const auto &e : test_vector) {
-        e.second(cpus, Options);
+        e.second(cpus, options);
       }
     }
     else {
-      const auto it =
-        std::find_if(test_vector.begin(), test_vector.end(),
-                     [&Options](const test_element &a) { return a.first == Options.test; }
-        );
+      const auto it = std::find_if(test_vector.begin(), test_vector.end(),
+                                   [&options](const test_element &a) { return a.first == options.test; });
       if (it == test_vector.end()) {
-        PERR("No such test: %s.", Options.test.c_str());
+        PERR("No such test: %s.", options.test.c_str());
         return 1;
       }
-      it->second(cpus, Options);
+      it->second(cpus, options);
     }
-#ifdef PROFILE
-    ProfilerStop();
-#endif
+
   }
   catch (const po::error &ex) {
     std::cerr << ex.what() << '\n';
     return -1;
   }
   catch (const std::exception &e) {
-    std::cerr << e.what() << '\n';
+    std::cerr << argv[0] << ": " << e.what() << '\n';
     return -1;
   }
 

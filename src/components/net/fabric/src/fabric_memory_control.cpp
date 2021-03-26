@@ -17,11 +17,7 @@
  *
  */
 
-#if 0
-#include "fabric_memory_control.h"
-#else
 #include "fabric_endpoint.h"
-#endif
 
 #include "fabric.h"
 #include "fabric_check.h" /* CHECK_FI_ERR */

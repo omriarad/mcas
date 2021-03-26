@@ -53,7 +53,7 @@ public:
     PINF("Value size:%lu", Options.value_size);
     PINF("Endpoint: %s", Options.addr.c_str());
   }
-  
+
   unsigned long cleanup(unsigned rank)
   {
     PINF("Cleanup %u", rank);
@@ -67,7 +67,7 @@ public:
       for (unsigned long i = 0; i < Options.pairs; i++)
         _store->free_memory(_data[i].data);
     }
-    
+
     _store->close_pool(_pool);
 
     ::free(_value);
@@ -85,7 +85,7 @@ protected:
   std::vector<void *>                            _get_results;
   unsigned                                       _repeats_remaining = Options.repeats;
   component::IMCAS::memory_handle_t              _memhandle;
-  char *                                         _value;  
+  char *                                         _value;
 };
 
 class Write_IOPS_task : public IOPS_base
@@ -108,9 +108,9 @@ public:
       _memhandle = _store->register_direct_memory(_value, Options.value_size);
       if(_memhandle == component::IMCAS::MEMORY_HANDLE_NONE)
         throw General_exception("memory registration failed");
-      
+
     }
-        
+
     for (unsigned long i = 0; i < Options.pairs; i++) {
       _data[i].key = common::random_string(Options.key_size);
     }
@@ -125,7 +125,7 @@ public:
       if(_store->delete_pool(_pool) != S_OK)
         throw General_exception("failed to delete prior pool");
     }
-    
+
     _pool = _store->create_pool(poolname, GiB(Options.pool_size));
 
     if(_pool == component::IMCAS::POOL_ERROR)
@@ -139,7 +139,7 @@ public:
     if (_iterations == 0) {
       recreate_pool(rank);
       PINF("Starting WRITE worker: rank %u", rank);
-      _start_time = std::chrono::high_resolution_clock::now();     
+      _start_time = std::chrono::high_resolution_clock::now();
     }
 
     status_t rc = S_OK;
@@ -157,7 +157,7 @@ public:
                        _value,
                        Options.value_size);
     }
-      
+
     if (rc != S_OK)
       throw General_exception("put operation failed:rc=%d", rc);
 
@@ -167,7 +167,7 @@ public:
 
       _end_time = std::chrono::high_resolution_clock::now();
       _elapsed += _end_time - _start_time;
-      
+
       if(_repeats_remaining == 0) {
         PINF("Worker: %u complete", rank);
         return false;
@@ -188,14 +188,14 @@ public:
     sprintf(poolname, "cpp_bench.pool.%u", rank);
 
     _store->delete_pool(poolname); /* delete any existing pool */
-    
+
     _pool = _store->create_pool(poolname, GiB(Options.pool_size));
 
     _data = new record_t [Options.pairs];
     assert(_data);
-    
+
     PINF("Setting up data prior to reading: rank %u", rank);
-    
+
     /* set up value and key space */
     _value = static_cast<char*>(aligned_alloc(64, Options.value_size));
     auto svalue = common::random_string(Options.value_size);
@@ -209,10 +209,10 @@ public:
 #ifdef MEMORY_TRANSFER_SANITY_CHECK
     memset(_value,0xA,Options.value_size);
 #endif
-    
+
     status_t rc;
     for (unsigned long i = 0; i < Options.pairs; i++) {
-      
+
       _data[i].key = common::random_string(Options.key_size);
 
       /* write data in preparation for read */
@@ -228,8 +228,8 @@ public:
                          _data[i].key,
                          _value, /* same value */
                          Options.value_size);
-      }      
-        
+      }
+
       if (rc != S_OK)
         throw General_exception("put operation failed:rc=%d", rc);
     }
@@ -260,22 +260,22 @@ public:
       if(out_value_size != Options.value_size)
         throw General_exception("bad data from get_direct in read test");
     }
-    else {      
+    else {
       rc = _store->get(_pool,
                        _data[_iterations].key,
                        _data[_iterations].data,
-                       out_value_size);      
+                       out_value_size);
     }
 
     if (rc != S_OK)
       throw General_exception("get operation failed: (key=%s) rc=%d", _data[_iterations].key.c_str(),rc);
 
 #ifdef MEMORY_TRANSFER_SANITY_CHECK
-    
+
     for(unsigned i=0;i<Options.value_size;i++) {
       if(Options.direct && _value[i] != 0xA)
         throw General_exception("(direct) memory sanity check failed (i=%u)(data=%x)", i, _value[i]);
-      
+
       if(!Options.direct && reinterpret_cast<char*>(_data[_iterations].data)[i] != 0xA)
         throw General_exception("(copy) memory sanity check failed (i=%u)(data=%x)", i, _value[i]);
     }
@@ -287,7 +287,7 @@ public:
 
       _end_time = std::chrono::high_resolution_clock::now();
       _elapsed += _end_time - _start_time;
-      
+
       if(_repeats_remaining == 0) {
         PINF("Worker: %u complete", rank);
         return false;
@@ -304,13 +304,13 @@ class Mixed_IOPS_task : public IOPS_base {
 public:
 
   Mixed_IOPS_task(unsigned rank)
-  {    
+  {
 
     char poolname[64];
     sprintf(poolname, "cpp_bench.pool.%u", rank);
 
     _store->delete_pool(poolname); /* delete any existing pool */
-    
+
     _pool = _store->create_pool(poolname, GiB(Options.pool_size));
 
     _data = new record_t [Options.pairs];
@@ -330,7 +330,7 @@ public:
 
     status_t rc;
     for (unsigned long i = 0; i < Options.pairs; i++) {
-      
+
       _data[i].key = common::random_string(Options.key_size);
 
       /* write data in preparation for read */
@@ -347,12 +347,12 @@ public:
                          _value, /* same value */
                          Options.value_size);
       }
-      
+
       if (rc != S_OK)
         throw General_exception("put operation failed:rc=%d", rc);
     }
 
-  }  
+  }
 
   virtual bool do_work(unsigned rank)
   {
@@ -391,7 +391,7 @@ public:
                                 _data[_iterations].key,
                                 _value,
                                 Options.value_size,
-                                _memhandle);        
+                                _memhandle);
       }
       else {
         rc = _store->put(_pool,
@@ -399,7 +399,7 @@ public:
                          _value,
                          Options.value_size);
       }
-      
+
       if (rc != S_OK)
         throw General_exception("put operation failed:rc=%d", rc);
     }
@@ -410,7 +410,7 @@ public:
 
       _end_time = std::chrono::high_resolution_clock::now();
       _elapsed += _end_time - _start_time;
-      
+
       if(_repeats_remaining == 0) {
         PINF("Worker: %u complete", rank);
         return false;
