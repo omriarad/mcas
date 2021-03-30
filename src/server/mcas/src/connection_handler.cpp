@@ -15,7 +15,10 @@
 #include "security.h"
 #include "mcas_config.h"
 
-static constexpr unsigned EXTRA_BISCUITS = 0;
+/*
+ * Allocating a few extra receive buffers seems to improvie performance.
+ */
+static constexpr unsigned extra_buffers = 3;
 
 namespace mcas
 {
@@ -143,10 +146,10 @@ int Connection_handler::tick()
     if (option_DEBUG > 2)
       PMAJOR("Shard State: %lu %p POST_HANDSHAKE (%d)", _tick_count, common::p_fmt(this), handshakes);
 
-	/* fabric connection has allocated the first receive buffer */
+    /* fabric connection has allocated the first receive buffer */
 
     /* allocating an extra buffer or three makes the hstore benchmark run about 10% faster */
-    for (auto i = EXTRA_BISCUITS; i != 0; --i) {
+    for (auto i = extra_buffers; i != 0; --i) {
       post_recv_buffer(allocate_recv());
     }
 
@@ -170,7 +173,7 @@ int Connection_handler::tick()
       /* authentication ID becomes that from TLS session */
       set_auth_id(tls_auth_id());
     }
-    
+
     set_state(next);
     break;
   }
@@ -193,7 +196,7 @@ int Connection_handler::tick()
         throw General_exception("handshake status != S_OK (%d)", msg->get_status());
 
       set_auth_id(msg->auth_id());
-      
+
       /* if security_tls_auth bit is set, then we need to establish a
          GNU TLS side-channel as part of this session. this is
          triggered by sending the TLS port for the client to accept
@@ -212,7 +215,7 @@ int Connection_handler::tick()
       }
 
       free_buffer(iob);
-      
+
     }
     break;
   }  // end switch
@@ -227,13 +230,13 @@ void Connection_handler::configure_security(const std::string& bind_ipaddr,
 {
   if(Connection_base::debug_level() > 1)
     PLOG("config security (addr:%s, port:%u)", bind_ipaddr.c_str(), bind_port);
-  
+
   if(bind_ipaddr.empty() == false) {
     set_security_binding(bind_ipaddr, bind_port);
     set_security_params(cert_file, key_file);
   }
 }
-  
+
 void Connection_handler::respond_to_handshake(bool start_tls)
 {
   auto reply_iob = allocate_send();
