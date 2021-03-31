@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -15,8 +15,9 @@
 #ifndef MCAS_HSTORE_HEAP_CC_H
 #define MCAS_HSTORE_HEAP_CC_H
 
-#include "hstore_config.h"
+#include "heap.h"
 
+#include "hstore_config.h"
 #include "as_emplace.h"
 #include "cptr.h"
 #include "histogram_log2.h"
@@ -28,7 +29,6 @@
 
 #include <ccpm/interfaces.h>
 #include <common/byte_span.h>
-#include <common/exceptions.h> /* General_exception */
 #include <common/logging.h> /* log_source */
 #include <common/string_view.h>
 #include <nupm/region_descriptor.h>
@@ -53,15 +53,8 @@ namespace impl
 struct heap_cc_ephemeral;
 
 struct heap_cc
+	: private heap
 {
-	using byte_span = common::byte_span;
-	using string_view = common::string_view;
-private:
-	byte_span _pool0_full; /* entire extent of pool 0 */
-	byte_span _pool0_heap; /* portion of pool 0 which can be used for the heap */
-	unsigned _numa_node;
-	std::size_t _more_region_uuids_size;
-	std::array<std::uint64_t, 1024U> _more_region_uuids;
 	std::unique_ptr<heap_cc_ephemeral> _eph;
 
 public:
@@ -83,6 +76,7 @@ public:
 		, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_
 		, string_view id
 		, string_view backing_file
+		, std::uint64_t uuid
 		, const byte_span *iov_addl_first_
 		, const byte_span *iov_addl_last_
 		, impl::allocation_state_emplace *ase
