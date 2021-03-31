@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -39,9 +39,9 @@ heap_cc_ephemeral::heap_cc_ephemeral(
 	, const std::vector<byte_span> &rv_full_
 	, const byte_span &pool0_heap_
 )
-	: common::log_source(debug_level_)
+	: heap_ephemeral(debug_level_)
 	, _heap(std::move(p))
-	, _managed_regions(id_, backing_file_, rv_full_)
+	, _primary_region(id_, backing_file_, rv_full_)
 	, _capacity(
 		::size(pool0_heap_)
 		+
@@ -124,7 +124,7 @@ void heap_cc_ephemeral::add_managed_region(
 	}
 	_heap->add_regions(ccpm::region_vector_t(r_heap));
 	CPLOG(0, "%s : %p.%zx", __func__, ::base(r_heap), ::size(r_heap));
-	_managed_regions.address_map_push_back(r_full);
+	_primary_region.address_map_push_back(r_full);
 	_capacity += ::size(r_heap);
 	CPLOG(0, "%s after IHeap::add_regions size %zu", __func__, _heap->get_regions().size());
 	for ( const auto &r : _heap->get_regions() )

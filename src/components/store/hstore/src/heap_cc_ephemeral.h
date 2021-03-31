@@ -14,7 +14,7 @@
 #ifndef MCAS_HSTORE_HEAP_CC_EPHEMERAL_H
 #define MCAS_HSTORE_HEAP_CC_EPHEMERAL_H
 
-#include <common/logging.h> /* log_source */
+#include "heap_ephemeral.h"
 
 #include "hstore_config.h"
 #include "histogram_log2.h"
@@ -42,13 +42,13 @@ namespace impl
 }
 
 struct heap_cc_ephemeral
-  : private common::log_source
+  : public heap_ephemeral
 {
 private:
 	using byte_span = common::byte_span;
 	using string_view = common::string_view;
 	std::unique_ptr<ccpm::IHeap_expandable> _heap;
-	nupm::region_descriptor _managed_regions;
+	nupm::region_descriptor _primary_region;
 	std::size_t _capacity;
 	std::size_t _allocated;
 	impl::allocation_state_emplace *_ase;
@@ -77,11 +77,11 @@ private:
 		, const std::vector<byte_span> &rv_full
 		, const byte_span &pool0_heap
 	);
-	nupm::region_descriptor get_managed_regions() const { return _managed_regions; }
-	nupm::region_descriptor set_managed_regions(nupm::region_descriptor n)
+	nupm::region_descriptor get_primary_region() const override { return _primary_region; }
+	nupm::region_descriptor set_primary_region(nupm::region_descriptor n) override
 	{
 		using std::swap;
-		swap(n, _managed_regions);
+		swap(n, _primary_region);
 		return n;
 	}
 
@@ -135,9 +135,10 @@ public:
 		, ccpm::ownership_callback_t f
 	);
 	std::size_t free(persistent_t<void *> *p_, std::size_t sz_);
+	std::size_t capacity() const override { return _capacity; };
 	heap_cc_ephemeral(const heap_cc_ephemeral &) = delete;
 	heap_cc_ephemeral& operator=(const heap_cc_ephemeral &) = delete;
-	void add_managed_region(const byte_span &r_full, const byte_span &r_heap, unsigned numa_node);
+	void add_managed_region(const byte_span &r_full, const byte_span &r_heap, unsigned numa_node) override;
 };
 
 #endif

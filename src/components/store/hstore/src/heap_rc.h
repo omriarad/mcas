@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -15,9 +15,10 @@
 #ifndef MCAS_HSTORE_HEAP_RC_H
 #define MCAS_HSTORE_HEAP_RC_H
 
+#include "heap.h"
+
 #include "hstore_config.h"
 #include "histogram_log2.h"
-#include "hop_hash_log.h"
 #include "persister_nupm.h"
 #include "rc_alloc_wrapper_lb.h"
 #include "trace_flags.h"
@@ -49,15 +50,9 @@ namespace impl
 struct heap_rc_ephemeral;
 
 struct heap_rc
+	: private heap
 {
 private:
-	using byte_span = common::byte_span;
-	using string_view = common::string_view;
-	byte_span _pool0_full; /* entire extent of pool 0 */
-	byte_span _pool0_heap; /* portion of pool 0 which can be used for the heap */
-	unsigned _numa_node;
-	std::size_t _more_region_uuids_size;
-	std::array<std::uint64_t, 1024U> _more_region_uuids;
 	tracked_header _tracked_anchor;
 	std::unique_ptr<heap_rc_ephemeral> _eph;
 
@@ -67,28 +62,30 @@ public:
 		, byte_span pool0_full
 		, byte_span pool0_heap
 		, unsigned numa_node
-		, string_view id_
+		, string_view id
 		, string_view backing_file
 	);
 	explicit heap_rc(
 		unsigned debug_level
 		, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager
-		, string_view id_
+		, string_view id
 		, string_view backing_file
-		, const byte_span *iov_addl_first_
-		, const byte_span *iov_addl_last_
+		, const std::uint64_t uuid
+		, const byte_span *iov_addl_first
+		, const byte_span *iov_addl_last
 	);
 	/* allocation_state_combined offered, but not used */
 	explicit heap_rc(
-		const unsigned debug_level
-		, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager
-		, const string_view id
-		, const string_view backing_file
+		const unsigned debug_level_
+		, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_
+		, const string_view id_
+		, const string_view backing_file_
 		, impl::allocation_state_combined const *
+		, const std::uint64_t uuid_
 		, const byte_span *iov_addl_first_
 		, const byte_span *iov_addl_last_
 	)
-		: heap_rc(debug_level, dax_manager, id, backing_file, iov_addl_first_, iov_addl_last_)
+		: heap_rc(debug_level_, dax_manager_, id_, backing_file_, uuid_, iov_addl_first_, iov_addl_last_)
 	{
 	}
 
@@ -98,8 +95,6 @@ public:
 	~heap_rc();
 
     static constexpr std::uint64_t magic_value() { return 0xc74892d72eed493a; }
-
-	static byte_span open_region(const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager, std::uint64_t uuid, unsigned numa_node);
 
 	auto grow(
 		const std::unique_ptr<nupm::dax_manager_abstract> & dax_manager

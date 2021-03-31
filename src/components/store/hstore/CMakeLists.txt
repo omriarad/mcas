@@ -90,6 +90,7 @@ set(SOURCES
 	src/as_emplace.cpp
 	src/as_extend.cpp
 	src/dax_manager.cpp
+	src/heap.cpp
 	src/heap_cc.cpp
 	src/heap_cc_ephemeral.cpp
 	src/heap_rc.cpp
