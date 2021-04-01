@@ -19,6 +19,7 @@
 #include "trace_flags.h"
 
 #include <nupm/dax_manager_abstract.h>
+#include <limits> /* numeric_limits::max */
 #include <numeric> /* acccumulate */
 #include <vector>
 
@@ -83,7 +84,10 @@ auto heap::grow(
 			const auto &old_region_list = old_regions.address_map();
 			const auto old_list_size = old_region_list.size();
 			const auto old_size = region_size(old_region_list);
-			eph_->set_primary_region(dax_manager_->resize_region(old_regions.id(),  _numa_node, old_size + increment_));
+			if ( old_regions.id().size() != 0 )
+			{
+				eph_->set_primary_region(dax_manager_->resize_region(old_regions.id(),  _numa_node, old_size + increment_));
+			}
 			const auto new_region_list = eph_->get_primary_region().address_map();
 			const auto new_size = region_size(new_region_list);
 			const auto new_list_size = new_region_list.size();
@@ -101,8 +105,8 @@ auto heap::grow(
 						, " grow"
 					);
 				}
+				grown = true;
 			}
-			grown = true;
 		}
 
 		/* devdax regions cannot be resized. Request a secondary region. */
@@ -118,7 +122,7 @@ auto heap::grow(
 			 */
 			auto &uuid_incr = _more_region_uuids[_more_region_uuids_size];
 			uuid_incr = _more_region_uuids_size;
-			for ( ; uuid_incr != 0; ++uuid_incr )
+			for ( ; uuid_incr != std::numeric_limits<std::uint64_t>::max(); ++uuid_incr )
 			{
 				auto string_id_new = std::to_string(uuid_ + uuid_incr);
 
@@ -158,7 +162,7 @@ auto heap::grow(
 					throw std::bad_alloc();
 				}
 			}
-			if ( uuid_incr == 0 )
+			if ( uuid_incr == std::numeric_limits<std::uint64_t>::max() )
 			{
 				throw std::bad_alloc(); /* no more UUIDs */
 			}
