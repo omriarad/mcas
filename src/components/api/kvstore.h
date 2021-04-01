@@ -163,7 +163,7 @@ protected:
     E_ALREADY_OPEN   = E_ERROR_BASE - 6,
   };
 
-  std::string strerror(int e)
+  static std::string strerror(int e)
   {
     static std::map<int, std::string> errs {
       { S_MORE, "MORE" }
