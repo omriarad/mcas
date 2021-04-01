@@ -278,14 +278,13 @@ TEST_F(KVStore_test, CreatePools)
   std::cerr << "key alloc " << key_alloc << "\n";
   std::cerr << "value alloc " << value_alloc << "\n";
   auto pool_alloc_needed = index_alloc + key_alloc + value_alloc;
-  std::size_t pool_header_size = 0x4d0;
-  auto pool_alloc = pool_header_size + pool_alloc_needed * 4U/ 3U;
-  if ( std::getenv("POOL_ALLOCATE_FACTOR") )
-  {
-    double af = std::stod(getenv("POOL_ALLOCATE_FACTOR"));
-    pool_alloc = std::size_t(double(pool_alloc) * af);
-    std::cerr << "pool allocation estimate: " << pool_alloc << "\n";
-  }
+  std::size_t pool_header_size = 0x2000;
+  auto pool_alloc = pool_header_size + pool_alloc_needed;
+
+  double af = common::env_value("POOL_ALLOCATE_FACTOR", 1.8);
+  pool_alloc = std::size_t(double(pool_alloc) * af);
+  std::cerr << "pool allocation estimate: " << pool_alloc << "\n";
+
   ASSERT_TRUE(_kvstore);
   timer t(
     [] (timer::duration_t d) {
@@ -386,7 +385,7 @@ long unsigned KVStore_test::put_many(
       }
       else
       {
-         std::cerr << __func__ << " FAIL " << key << "\n";
+         std::cerr << __func__ << " FAIL " << r << " (" << component::IKVStore::strerror(r) << ") " << key << "\n";
       }
     }
   }
