@@ -510,7 +510,7 @@ auto dax_manager::resize_region(
   if ( it == _mapped_spaces.end() )
   {
     PLOG("%s: failed to find %.*s", __func__, int(id_.size()), id_.begin());
-    throw std::runtime_error(std::string(__func__) + ": failed to find " + std::string(id_));
+    throw std::runtime_error(std::string(__func__) + ": failed to find \"" + std::string(id_) + "\"");
   }
   else
   {
