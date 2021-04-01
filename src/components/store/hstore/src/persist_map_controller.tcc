@@ -218,7 +218,7 @@ template <typename Allocator>
 	}
 	catch ( const std::exception & )
 	{
-		PLOG("%s: %s 0x%zx", __func__, "failed resizing to 0x%zx", bucket_count());
+		PLOG("%s: failed hash map resizing to 0x%zx", __func__, bucket_count());
 		throw;
 	}
 
