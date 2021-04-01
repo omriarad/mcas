@@ -740,10 +740,6 @@ int main(int argc, char* argv[])
     std::cerr << e.what() << std::endl;
     return -1;
   }
-  catch (const Exception &e) {
-    std::cerr << e.cause() << std::endl;
-    return -1;
-  }
 
   return -1;
 }

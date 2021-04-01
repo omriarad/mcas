@@ -51,11 +51,13 @@
 
 //#define INTERRUPT_ON_EXCEPTION
 
-class Exception {
+class Exception
+  : public std::exception {
  protected:
   Exception() {}
 
   Exception(const char *fmt, ...)
+    : std::exception()
   {
     char cause[512];
     va_list args;
@@ -75,6 +77,7 @@ class Exception {
 #endif
   }
  public:
+  const char *what() const noexcept { return _cause; }
   const char *cause() const { return _cause; }
 
   void set_cause(const char *cause) {
