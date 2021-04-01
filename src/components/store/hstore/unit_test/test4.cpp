@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 #pragma GCC diagnostic pop
 
+#include <common/env.h>
 #include <common/profiler.h>
 #include <common/to_string.h>
 #include <common/utils.h>
