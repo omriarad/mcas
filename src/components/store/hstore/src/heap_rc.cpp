@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -19,11 +19,12 @@
 #include "hstore_config.h"
 #include "tracked_header.h"
 #include "valgrind_memcheck.h"
+#include <common/byte_span.h>
+#include <common/string_view.h>
 #include <common/utils.h>
 #include <algorithm> /* max */
 #include <cinttypes>
 #include <memory> /* make_unique */
-#include <numeric> /* acccumulate */
 #include <stdexcept> /* range_error */
 #include <string> /* to_string */
 
@@ -34,11 +35,7 @@
 heap_rc::heap_rc(
 	unsigned debug_level_, byte_span pool0_full_, byte_span pool0_heap_, unsigned numa_node_, const string_view id_, const string_view backing_file_
 )
-	: _pool0_full(pool0_full_)
-	, _pool0_heap(pool0_heap_)
-	, _numa_node(numa_node_)
-	, _more_region_uuids_size(0)
-	, _more_region_uuids()
+	: heap(pool0_full_, pool0_heap_, numa_node_)
 	, _tracked_anchor(debug_level_, &_tracked_anchor, &_tracked_anchor, sizeof(_tracked_anchor), sizeof(_tracked_anchor))
 	, _eph(std::make_unique<heap_rc_ephemeral>(debug_level_, id_, backing_file_))
 {
@@ -62,6 +59,21 @@ heap_rc::heap_rc(
 	persister_nupm::persist(this, sizeof(*this));
 }
 
+namespace
+{
+	using byte_span = common::byte_span;
+	using string_view = common::string_view;
+	auto open_region(const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_, string_view id_, unsigned numa_node_) -> byte_span
+	{
+		auto & iovs = dax_manager_->open_region(id_, numa_node_).address_map();
+		if ( iovs.size() != 1 )
+		{
+			throw std::range_error("failed to re-open region " + std::string(id_));
+		}
+		return iovs.front();
+	}
+}
+
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Winit-self"
 #pragma GCC diagnostic ignored "-Wuninitialized"
@@ -70,14 +82,11 @@ heap_rc::heap_rc(
 	, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_
 	, const string_view id_
     , const string_view backing_file_
+    , const std::uint64_t uuid_
 	, const byte_span *iov_addl_first_
 	, const byte_span *iov_addl_last_
 )
-	: _pool0_full(this->_pool0_full)
-	, _pool0_heap(this->_pool0_heap)
-	, _numa_node(this->_numa_node)
-	, _more_region_uuids_size(this->_more_region_uuids_size)
-	, _more_region_uuids(this->_more_region_uuids)
+	: heap(*this)
 	, _tracked_anchor(this->_tracked_anchor)
 	, _eph(std::make_unique<heap_rc_ephemeral>(debug_level_, id_, backing_file_))
 {
@@ -99,7 +108,7 @@ heap_rc::heap_rc(
 
 	for ( std::size_t i = 0; i != _more_region_uuids_size; ++i )
 	{
-		auto r = open_region(dax_manager_, _more_region_uuids[i], _numa_node);
+		auto r = open_region(dax_manager_, std::to_string(uuid_ + _more_region_uuids[i]), _numa_node);
 		_eph->add_managed_region(r, r, _numa_node);
 		VALGRIND_MAKE_MEM_DEFINED(::base(r), ::size(r));
 		VALGRIND_CREATE_MEMPOOL(::base(r), 0, true);
@@ -113,37 +122,9 @@ heap_rc::~heap_rc()
 	quiesce();
 }
 
-auto heap_rc::open_region(const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_, std::uint64_t uuid_, unsigned numa_node_) -> byte_span
-{
-	auto & iovs = dax_manager_->open_region(std::to_string(uuid_), numa_node_).address_map();
-	if ( iovs.size() != 1 )
-	{
-		throw std::range_error("failed to re-open region " + std::to_string(uuid_));
-	}
-	return iovs.front();
-}
-
 auto heap_rc::regions() const -> nupm::region_descriptor
 {
-	return _eph->get_managed_regions();
-}
-
-namespace
-{
-	using byte_span = common::byte_span;
-	std::size_t region_size(const std::vector<byte_span> &v)
-	{
-		return
-			std::accumulate(
-				v.begin()
-				, v.end()
-				, std::size_t(0)
-				, [] (std::size_t s, const byte_span &iov) -> std::size_t
-					{
-						return s + ::size(iov);
-					}
-			);
-	}
+	return _eph->get_primary_region();
 }
 
 auto heap_rc::grow(
@@ -152,97 +133,7 @@ auto heap_rc::grow(
 	, std::size_t increment_
 ) -> std::size_t
 {
-	if ( 0 < increment_ )
-	{
-		if ( _more_region_uuids_size == _more_region_uuids.size() )
-		{
-			throw std::bad_alloc(); /* max # of regions used */
-		}
-		const auto hstore_grain_size = std::size_t(1) << (HSTORE_LOG_GRAIN_SIZE);
-		auto size = ( (increment_ - 1) / hstore_grain_size + 1 ) * hstore_grain_size;
-
-		auto grown = false;
-		{
-			const auto old_regions = regions();
-			const auto &old_region_list = old_regions.address_map();
-			const auto old_list_size = old_region_list.size();
-			const auto old_size = region_size(old_region_list);
-			_eph->set_managed_regions(dax_manager_->resize_region(old_regions.id(),  _numa_node, old_size + increment_));
-			const auto new_region_list = regions().address_map();
-			const auto new_size = region_size(new_region_list);
-			const auto new_list_size = new_region_list.size();
-
-			if ( old_size <  new_size )
-			{
-				for ( auto i = old_list_size; i != new_list_size; ++i )
-				{
-					const auto &r = new_region_list[i];
-					_eph->add_managed_region(r, r, _numa_node);
-					hop_hash_log<trace_heap_summary>::write(
-						LOG_LOCATION
-						, " pool ", ::base(r), " .. ", ::end(r)
-						, " size ", ::size(r)
-						, " grow"
-					);
-				}
-			}
-			grown = true;
-		}
-
-		if ( ! grown )
-		{
-			auto uuid = _more_region_uuids_size == 0 ? uuid_ : _more_region_uuids[_more_region_uuids_size-1];
-			auto uuid_next = uuid + 1;
-			for ( ; uuid_next != uuid; ++uuid_next )
-			{
-				if ( uuid_next != 0 )
-				{
-					try
-					{
-						/* Note: crash between here and "Slot persist done" may cause dax_manager_
-						 * to leak the region.
-						 */
-						auto rv = dax_manager_->create_region(std::to_string(uuid_next), _numa_node, size).address_map();
-						{
-							auto &slot = _more_region_uuids[_more_region_uuids_size];
-							slot = uuid_next;
-							persister_nupm::persist(&slot, sizeof slot);
-							/* Slot persist done */
-						}
-						{
-							++_more_region_uuids_size;
-							persister_nupm::persist(&_more_region_uuids_size, _more_region_uuids_size);
-						}
-						for ( const auto &r : rv )
-						{
-							_eph->add_managed_region(r, r, _numa_node);
-							hop_hash_log<trace_heap_summary>::write(
-								LOG_LOCATION
-								, " pool ", ::base(r), " .. ", ::end(r)
-								, " size ", ::size(r)
-								, " grow"
-							);
-						}
-						break;
-					}
-					catch ( const std::bad_alloc & )
-					{
-						/* probably means that the uuid is in use */
-					}
-					catch ( const General_exception & )
-					{
-						/* probably means that the space cannot be allocated */
-						throw std::bad_alloc();
-					}
-				}
-			}
-			if ( uuid_next == uuid )
-			{
-				throw std::bad_alloc(); /* no more UUIDs */
-			}
-		}
-	}
-	return _eph->capacity();
+	return heap::grow(_eph.get(), dax_manager_, uuid_, increment_);
 }
 
 void heap_rc::quiesce()

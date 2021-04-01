@@ -125,6 +125,7 @@ template <
         , dax_manager_
         , id_
         , backing_file_
+		, _uuid
         , iov_addl_first_
         , iov_addl_last_
 #if USE_CC_HEAP == 4

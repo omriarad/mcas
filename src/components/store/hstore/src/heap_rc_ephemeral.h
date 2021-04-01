@@ -15,7 +15,7 @@
 #ifndef MCAS_HSTORE_HEAP_RC_EPHEMERAL_H
 #define MCAS_HSTORE_HEAP_RC_EPHEMERAL_H
 
-#include <common/logging.h>
+#include "heap_ephemeral.h"
 
 #include "hstore_config.h"
 #include "histogram_log2.h"
@@ -32,13 +32,13 @@
 #include <string>
 
 struct heap_rc_ephemeral
-	: private common::log_source
+	: public heap_ephemeral
 {
 private:
 	using byte_span = common::byte_span;
 	using string_view = common::string_view;
 	nupm::Rca_LB _heap;
-	nupm::region_descriptor _managed_regions;
+	nupm::region_descriptor _primary_region;
 	std::size_t _allocated;
 	std::size_t _capacity;
 	/* The set of reconstituted addresses. Only needed during recovery.
@@ -61,9 +61,9 @@ private:
 public:
 	explicit heap_rc_ephemeral(unsigned debug_level, string_view id, string_view backing_file);
 
-	void add_managed_region(const byte_span &r_full, const byte_span &r_heap, unsigned numa_node);
-	nupm::region_descriptor get_managed_regions() const { return _managed_regions; }
-	nupm::region_descriptor set_managed_regions(nupm::region_descriptor n) { using std::swap; swap(n, _managed_regions); return n; }
+	void add_managed_region(const byte_span &r_full, const byte_span &r_heap, unsigned numa_node) override;
+	nupm::region_descriptor get_primary_region() const override { return _primary_region; }
+	nupm::region_descriptor set_primary_region(nupm::region_descriptor n) override { using std::swap; swap(n, _primary_region); return n; }
 
 	template <bool B>
 		void write_hist(const byte_span & pool_) const
@@ -92,7 +92,7 @@ public:
 		}
 
 	std::size_t allocated() const {  return _allocated; }
-	std::size_t capacity() const { return _capacity; };
+	std::size_t capacity() const override { return _capacity; };
 	void inject_allocation(void *p, std::size_t sz, unsigned numa_node);
 	void *allocate(std::size_t sz, unsigned numa_node, std::size_t alignment);
 	void *allocate_tracked(std::size_t sz, unsigned numa_node, std::size_t alignment);

@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -23,9 +23,9 @@ heap_rc_ephemeral::heap_rc_ephemeral(
 	, const string_view id_
 	, const string_view backing_file_
 )
-	: common::log_source(debug_level_)
+	: heap_ephemeral(debug_level_)
 	, _heap(debug_level_)
-	, _managed_regions(id_, backing_file_, {})
+	, _primary_region(id_, backing_file_, {})
 	, _allocated(0)
 	, _capacity(0)
 	, _reconstituted()
@@ -38,7 +38,7 @@ void heap_rc_ephemeral::add_managed_region(const byte_span &r_full, const byte_s
 {
 	_heap.add_managed_region(::base(r_heap), ::size(r_heap), int(numa_node));
 	CPLOG(2, "%s : %p.%zx", __func__, ::base(r_heap), ::size(r_heap));
-	_managed_regions.address_map_push_back(r_full);
+	_primary_region.address_map_push_back(r_full);
 	_capacity += ::size(r_heap);
 }
 

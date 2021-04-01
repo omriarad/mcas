@@ -50,6 +50,8 @@ run_hstore() {
     prefix
     $DIR/mcas-hstore-ado-0.sh $1
   fi
+  sleep $DELAY
+  $DIR/mcas-hstore-ado-0.sh $1
 }
 
 prefix

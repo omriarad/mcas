@@ -398,6 +398,8 @@ status_t Pool_instance::put(const string_view_key key,
       auto p_to_free = p._ptr;
       auto len_to_free = p._length;
 
+      CPLOG(3, PREFIX "allocating %lu bytes alignment %lu", value_len, choose_alignment(value_len));
+      
       p._ptr = _lb.alloc(value_len, NUMA_ZONE, choose_alignment(value_len));
 
       memcpy(p._ptr, value, value_len);
@@ -418,6 +420,9 @@ status_t Pool_instance::put(const string_view_key key,
     (*_map)[k]._value_lock->unlock();
   }
   else { /* key does not already exist */
+
+    CPLOG(3, PREFIX "allocating %lu bytes alignment %lu", value_len, choose_alignment(value_len));
+
     auto buffer = _lb.alloc(value_len,
                             NUMA_ZONE,
                             choose_alignment(value_len));
