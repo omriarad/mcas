@@ -63,9 +63,9 @@ namespace
 {
 	using byte_span = common::byte_span;
 	using string_view = common::string_view;
-	auto open_region(const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_, string_view id_, unsigned numa_node_) -> byte_span
+	byte_span open_region(const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_, string_view id_, unsigned numa_node_)
 	{
-		auto & iovs = dax_manager_->open_region(id_, numa_node_).address_map();
+		auto iovs = dax_manager_->open_region(id_, numa_node_).address_map();
 		if ( iovs.size() != 1 )
 		{
 			throw std::range_error("failed to re-open region " + std::string(id_));
