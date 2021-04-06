@@ -159,7 +159,7 @@ template <typename T>
 			void persist_this(const Allocator &al_)
 			{
 				/* If using native pmem persist functions, persist should only be necessary
-				 * for the header. Data should have been persistted by pmem_memcpy_persist
+				 * for the header. Data should have been persisted by pmem_memcpy_persist
 				 * or pmem_memset_persist
 				 */
 #if MCAS_HSTORE_USE_PMEM_PERSIST
