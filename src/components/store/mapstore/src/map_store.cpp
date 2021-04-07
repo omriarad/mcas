@@ -352,14 +352,13 @@ Pool_session *get_session(const IKVStore::pool_t pid) {
   return session;
 }
 
-status_t Pool_instance::put(const string_view_key key,
-                          const void *value,
-                          const size_t value_len,
-                          unsigned int flags) {
+status_t Pool_instance::put(string_view_key key,
+			    const void *value,
+			    const size_t value_len,
+			    unsigned int flags) {
 
   if (!value || !value_len || value_len > _nsize) {
-    PWRN("Map_store: invalid parameters (value=%p, value_len=%lu)", value,
-         value_len);
+    PWRN("Map_store: invalid parameters (value=%p, value_len=%lu)", value, value_len);
     return E_INVAL;
   }
 

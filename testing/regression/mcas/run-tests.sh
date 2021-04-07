@@ -18,11 +18,11 @@ run_hstore() {
   shift
  # run each test
   prefix
-  GOAL=195000 ELEMENT_COUNT=2000000 STORE=hstore PERFTEST=put $DIR/mcas-hstore-put-0.sh $1
+  GOAL=185000 ELEMENT_COUNT=2000000 STORE=hstore PERFTEST=put $DIR/mcas-hstore-put-0.sh $1
   prefix
   GOAL=200000 ELEMENT_COUNT=2000000 STORE=hstore PERFTEST=get $DIR/mcas-hstore-get-0.sh $1
   prefix
-  GOAL=750 ELEMENT_COUNT=6000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-put-0.sh $1
+  GOAL=350 ELEMENT_COUNT=6000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-put-0.sh $1
   prefix
   GOAL=1800 ELEMENT_COUNT=6000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-get-0.sh $1
   prefix
@@ -37,7 +37,7 @@ run_hstore() {
   prefix
   $DIR/mcas-hstore-cc-get-0.sh $1
   prefix
-  GOAL=750 ELEMENT_COUNT=2000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-put-0.sh $1
+  GOAL=300 ELEMENT_COUNT=2000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-put-0.sh $1
   prefix
   GOAL=1800 ELEMENT_COUNT=2000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-get-0.sh $1
   prefix
@@ -50,14 +50,21 @@ run_hstore() {
     prefix
     $DIR/mcas-hstore-ado-0.sh $1
   fi
-  sleep $DELAY
-  $DIR/mcas-hstore-ado-0.sh $1
 }
 
+# default: goal is 25% speed
+BUILD_SCALE=25
+# if parameter say release or the directory name includes release, expect full speed
+if [[ "$1" == release || "$DIR" == */release/* ]]
+then :
+  BUILD_SCALE=100
+fi
+
 prefix
-$DIR/mcas-mapstore-put-0.sh $1
+SCALE="$BUILD_SCALE" $DIR/mcas-mapstore-put-0.sh $1
 prefix
-$DIR/mcas-mapstore-get-0.sh $1
+SCALE="$BUILD_SCALE" $DIR/mcas-mapstore-get-0.sh $1
+
 if has_module_xpmem
 then :
   prefix
@@ -65,16 +72,16 @@ then :
 fi
 
 # default assumption: $FSDAX is not mounted. Expect disk performance (15%)
-FSDAX_SCALE=15
+FSDAX_FILE_SCALE=15
 if findmnt "$FSDAX_DIR" > /dev/null
 then :
   # found a mount. Probably pmem
-  FSDAX_SCALE=100
+  FSDAX_FILE_SCALE=100
 fi
 
 # default: goal is 25% speed
 BUILD_SCALE=25
-# if parameter say release or the directory name includes release, expect full speed
+# if parameter says release or the directory name includes release, expect full speed
 if [[ "$1" == release || "$DIR" == */release/* ]]
 then :
   BUILD_SCALE=100
@@ -91,11 +98,12 @@ fi
 
 if has_fsdax
 then :
+  FSDAX_CPU_SCALE=90
   if test -d "$FSDAX_DIR"
   then :
     rm -Rf "$FSDAX_DIR/*"
     # scale goal by build expectation (relaase vs debug), backing file expectation (disk vs pmem), and fsdax expectation (currently 100%)
-    DAXTYPE=fsdax SCALE="$BUILD_SCALE $FSDAX_SCALE 100" USE_ODP=1 run_hstore true $1
+    DAXTYPE=fsdax SCALE="$BUILD_SCALE $FSDAX_FILE_SCALE $FSDAX_CPU_SCALE" USE_ODP=1 run_hstore true $1
   else :
     echo "$FSDAX_DIR not present. Skipping fsdax"
   fi
