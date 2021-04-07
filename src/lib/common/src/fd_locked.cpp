@@ -27,10 +27,20 @@
 
 common::fd_locked::fd_locked()
   : Fd_open()
+  , lock_check()
+{}
+
+common::fd_locked::fd_locked(const char *pathname_, int flags_, ::mode_t mode_)
+  : Fd_open(pathname_, flags_, mode_)
+  , lock_check(fd())
 {}
 
 common::fd_locked::fd_locked(int fd_)
   : Fd_open(fd_)
+  , lock_check(fd())
+{}
+
+common::lock_check::lock_check(int fd_)
 {
   /* Protection against using the same file in different processes */
   if ( ::lockf(fd_, F_TLOCK, 0) != 0 )
