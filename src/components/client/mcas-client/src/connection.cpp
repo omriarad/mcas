@@ -928,6 +928,10 @@ Connection_handler::Connection_handler(const unsigned              debug_level,
     try {
       rapidjson::Document doc;
       doc.Parse(other.data());
+      if ( doc.HasParseError() )
+      {
+        throw std::domain_error{std::string{"JSON parse error \""} + rapidjson::GetParseError_En(doc.GetParseError()) + "\" at " + std::to_string(doc.GetErrorOffset())};
+      }
       auto security = doc.FindMember("security");
 
       /* set security options */
