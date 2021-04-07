@@ -36,7 +36,7 @@
 
 #define QUOTE(X) #X
 
-#if MCAS_TM_ENABLED
+#if MCAS_TM_ENABLE
 /* declaration of the root timer_split instancei: once per thread, and probably in a function call argument list */
 #define TM_ROOT(tag) common::perf::timer_split tm; const common::perf::timer_to_exit *pa_ = nullptr; _TM_SCOPE_DEF(tag) common::perf::timer_to_exit tte_##tag{pa_, tm, w_##tag};
 /* timer_split actual formal argument (without and with other args) */

@@ -49,9 +49,9 @@ if(BYTE_USES_STD)
 endif()
 
 if(INVASIVE_PERF)
-  add_definitions(-DMCAS_TM_ENABLED=1)
+  add_definitions(-DMCAS_TM_ENABLE=1)
 else()
-  add_definitions(-DMCAS_TM_ENABLED=0)
+  add_definitions(-DMCAS_TM_ENABLE=0)
 endif()
 
 if(FEATURE_TIMESTAMPS)
