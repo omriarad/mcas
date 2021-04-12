@@ -34,10 +34,19 @@ namespace common
     Fd_open();
 
     /*
+     * The preferred constructor, as any exception will explain (to some extent)
+     * what went wrong.
+     */
+    explicit Fd_open(const char *pathname, int flags, mode_t mode = 0);
+
+    /*
+     * Not the preferred constructor, as an exception does not say *why* the fd
+     * was negative. That said, this form is necessary when some function other
+     * than open(), e.g. pipe(), provides the fd.
+     *
      * @throw std::logic_error : initialized with a negative value
      */
     explicit Fd_open(int fd);
-    explicit Fd_open(const char *pathname, int flags, mode_t mode = 0);
 
     ~Fd_open();
     Fd_open(Fd_open &&) noexcept = default;

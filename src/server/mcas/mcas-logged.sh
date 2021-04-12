@@ -18,9 +18,9 @@ LOG=$1; shift
 # 3. Invasive profiling
 #
 #   Compile: run cmake with -DINVASIVE_PERF=1
-#   Runtime: set env variable MCAS_DURATION_CLOCK_ENABLED=1
+#   Runtime: set env variable MCAS_INVASIVE_PERF_ENABLE=1
 #
 #   Both the compile and runtime enablements will incur a runtime performance penalty.
 #
-echo Duration enabled $MCAS_DURATION_CLOCK_ENABLED > $LOG
-MCAS_DURATION_CLOCK_ENABLED=1 $DIR/mcas --profile mcas.prof ${1+"$@"} 2>&1 | tee -a $LOG
+echo Duration enabled $MCAS_INVASIVE_PERF_ENABLE > $LOG
+MCAS_INVASIVE_PERF_ENABLE=1 $DIR/mcas --profile mcas.prof ${1+"$@"} 2>&1 | tee -a $LOG

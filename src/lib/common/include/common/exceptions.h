@@ -36,6 +36,7 @@
 
 #include <assert.h>
 #include <common/types.h>
+#include <common/stack_trace.h>
 #include <cstdarg>
 #include <string>
 #include <utility> /* forward */
@@ -50,12 +51,15 @@
 #define ADD_LOC(X) X __FILE__ ":" TOSTRING(__LINE__)
 
 //#define INTERRUPT_ON_EXCEPTION
+//#define STACKTRACE_ON_EXCEPTION
 
-class Exception {
+class Exception
+  : public std::exception {
  protected:
   Exception() {}
 
   Exception(const char *fmt, ...)
+    : std::exception()
   {
     char cause[512];
     va_list args;
@@ -70,11 +74,15 @@ class Exception {
     snprintf(_cause, 512, "%s<< EXCEPTION - %s >>%s", ESC_ERR, cause, ESC_END);
 #pragma GCC diagnostic pop
 
+#ifdef STACKTRACE_ON_EXCEPTION
+    print_stacktrace();
+#endif
 #ifdef INTERRUPT_ON_EXCEPTION
     asm("int3");
 #endif
   }
  public:
+  const char *what() const noexcept { return _cause; }
   const char *cause() const { return _cause; }
 
   void set_cause(const char *cause) {

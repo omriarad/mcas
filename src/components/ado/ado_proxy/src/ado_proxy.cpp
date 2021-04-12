@@ -26,6 +26,7 @@
 #include <api/ado_itf.h>
 #include <common/logging.h>
 #include <rapidjson/document.h>
+#include <rapidjson/error/en.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <sys/ipc.h>
@@ -375,6 +376,10 @@ void ADO_proxy::launch(unsigned debug_level)
     }
     req.SetObject();
     req.Parse(docker_buffer(_docker.get()));
+    if ( req.HasParseError() )
+    {
+      throw std::domain_error{std::string{"JSON parse error \""} + rapidjson::GetParseError_En(req.GetParseError()) + "\" at " + std::to_string(req.GetErrorOffset())};
+    }
     _container_id = req["Id"].GetString();
 
     // launch container

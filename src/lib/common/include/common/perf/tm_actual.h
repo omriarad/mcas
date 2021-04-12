@@ -36,7 +36,7 @@
 
 #define QUOTE(X) #X
 
-#if MCAS_TM_ENABLED
+#if MCAS_TM_ENABLE
 /* declaration of the root timer_split instancei: once per thread, and probably in a function call argument list */
 #define TM_INSTANCE common::perf::timer_split tm_;
 /* timer_split actual formal argument (without and with other args) */
@@ -49,7 +49,6 @@
 #define TM_SCOPE(tag) _TM_SCOPE_DEF(tag) _TM_SCOPE_USE(tag);
 #define TM_SPLIT(tag) static common::perf::writer_at_exit<common::perf::duration_stat> w_##tag(std::cerr, QUOTE(tag)); tte.split(w_##tag)
 #else
-#error Want TM_ENABLED
 #define TM_INSTANCE
 #define TM_ACTUAL0
 #define TM_ACTUAL

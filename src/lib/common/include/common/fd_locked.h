@@ -18,11 +18,29 @@
 
 namespace common
 {
+  struct lock_check
+  {
+    lock_check() {}
+    lock_check(int fd);
+  };
+
   struct fd_locked
     : public Fd_open
+    , private lock_check
   {
     fd_locked();
+
     /*
+     * The preferred constructor, as any exception will explain (to some extent)
+     * what went wrong.
+     */
+    explicit fd_locked(const char *pathname, int flags, mode_t mode = 0);
+
+    /*
+     * Not the preferred constructor, as an exception does not say *why* the fd
+     * was negative. That said, this form is necessary when some function other
+     * than open(), e.g. pipe(), provides the fd.
+     *
      * @throw std::logic_error : initialized with a negative value
      */
     explicit fd_locked(int fd);

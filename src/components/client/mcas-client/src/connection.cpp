@@ -136,13 +136,15 @@ public:
 struct mr_many
 {
 	std::vector<memory_registered> _vec;
-	mr_many(Registrar_memory_direct *rmd_, gsl::span<const mcas::range<char *>> range_, gsl::span<const component::IKVStore::memory_handle_t> handles_)
+	mr_many(TM_ACTUAL Registrar_memory_direct *rmd_, gsl::span<const mcas::range<char *>> range_, gsl::span<const component::IKVStore::memory_handle_t> handles_)
 		: _vec()
 	{
+		TM_SCOPE();
 		_vec.reserve(std::size(range_));
 		for ( std::size_t i = 0; i != std::size(range_); ++i )
 		{
 			_vec.emplace_back(
+				TM_REF
 				rmd_
 				, range_[i]
 				/* If no handle provided, or handle value is "HANDLE_NONE",
@@ -926,6 +928,10 @@ Connection_handler::Connection_handler(const unsigned              debug_level,
     try {
       rapidjson::Document doc;
       doc.Parse(other.data());
+      if ( doc.HasParseError() )
+      {
+        throw std::domain_error{std::string{"JSON parse error \""} + rapidjson::GetParseError_En(doc.GetParseError()) + "\" at " + std::to_string(doc.GetErrorOffset())};
+      }
       auto security = doc.FindMember("security");
 
       /* set security options */

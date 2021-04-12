@@ -22,13 +22,13 @@ run_hstore() {
   prefix
   GOAL=200000 ELEMENT_COUNT=2000000 STORE=hstore PERFTEST=get $DIR/mcas-hstore-get-0.sh $1
   prefix
-  GOAL=750 ELEMENT_COUNT=10000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-put-0.sh $1
+  GOAL=750 ELEMENT_COUNT=6000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-put-0.sh $1
   prefix
-  GOAL=2000 ELEMENT_COUNT=10000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-get-0.sh $1
+  GOAL=1800 ELEMENT_COUNT=6000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-get-0.sh $1
   prefix
-  GOAL=1250 FORCE_DIRECT=1 ELEMENT_COUNT=10000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-put_direct-0.sh $1
+  GOAL=1250 FORCE_DIRECT=1 ELEMENT_COUNT=6000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-put_direct-0.sh $1
   prefix
-  GOAL=1900 FORCE_DIRECT=1 ELEMENT_COUNT=10000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-get_direct-0.sh $1
+  GOAL=1250 FORCE_DIRECT=1 ELEMENT_COUNT=6000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-get_direct-0.sh $1
   prefix
   # includes async_put, async_erase, async_put_direct
   $DIR/mcas-hstore-cc-kvtest-0.sh $1
@@ -37,19 +37,21 @@ run_hstore() {
   prefix
   $DIR/mcas-hstore-cc-get-0.sh $1
   prefix
-  GOAL=750 ELEMENT_COUNT=10000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-put-0.sh $1
+  GOAL=750 ELEMENT_COUNT=2000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-put-0.sh $1
   prefix
-  GOAL=2000 ELEMENT_COUNT=10000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-get-0.sh $1
+  GOAL=1800 ELEMENT_COUNT=2000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-get-0.sh $1
   prefix
-  GOAL=1900 FORCE_DIRECT=1 ELEMENT_COUNT=10000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-put_direct-0.sh $1
+  GOAL=1250 FORCE_DIRECT=1 ELEMENT_COUNT=2000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-put_direct-0.sh $1
   prefix
-  GOAL=1250 FORCE_DIRECT=1 ELEMENT_COUNT=10000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-get_direct-0.sh $1
-  prefix
+  GOAL=1250 FORCE_DIRECT=1 ELEMENT_COUNT=2000 VALUE_LENGTH=2000000 $DIR/mcas-hstore-cc-get_direct-0.sh $1
+
   if $ado_prereq
   then :
     prefix
     $DIR/mcas-hstore-ado-0.sh $1
   fi
+  sleep $DELAY
+  $DIR/mcas-hstore-ado-0.sh $1
 }
 
 prefix
@@ -62,9 +64,25 @@ then :
   $DIR/mcas-mapstore-ado-0.sh $1
 fi
 
+# default assumption: $FSDAX is not mounted. Expect disk performance (15%)
+FSDAX_SCALE=15
+if findmnt "$FSDAX_DIR" > /dev/null
+then :
+  # found a mount. Probably pmem
+  FSDAX_SCALE=100
+fi
+
+# default: goal is 25% speed
+BUILD_SCALE=25
+# if parameter say release or the directory name includes release, expect full speed
+if [[ "$1" == release || "$DIR" == */release/* ]]
+then :
+  BUILD_SCALE=100
+fi
+
 if has_devdax
 then :
-  DAXTYPE=devdax USE_ODP=0 run_hstore has_module_mcasmod $1
+  DAXTYPE=devdax SCALE="$BUILD_SCALE" USE_ODP=0 run_hstore has_module_mcasmod $1
   # Conflict test, as coded, works only for devdax, not fsdax
   # Conflict in fsdax occurs when data files exist, not when only arenas exist
   prefix
@@ -75,12 +93,9 @@ if has_fsdax
 then :
   if test -d "$FSDAX_DIR"
   then :
-    if df "$FSDAX_DIR" > /dev/null
-    then :
-      DAXTYPE=fsdax USE_ODP=1 run_hstore true $1
-    else :
-      echo "iNo filesystem mounted on $FSDAX_DIR. Skipping fsdax"
-    fi
+    rm -Rf "$FSDAX_DIR/*"
+    # scale goal by build expectation (relaase vs debug), backing file expectation (disk vs pmem), and fsdax expectation (currently 100%)
+    DAXTYPE=fsdax SCALE="$BUILD_SCALE $FSDAX_SCALE 100" USE_ODP=1 run_hstore true $1
   else :
     echo "$FSDAX_DIR not present. Skipping fsdax"
   fi

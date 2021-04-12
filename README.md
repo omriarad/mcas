@@ -15,7 +15,7 @@ The key attributes of the solution are:
 3. Support for both RDMA and traditional TCP/IP network transports.
 4. Zero-copy transfer capable with RDMA and GPU-Direct capable.
 5. Support for C++ and Rust (experimental) based in-store compute plugins.
-6. Support for C++, Python and Rust (experimental) clients. 
+6. Support for C++, Python and Rust (experimental) clients.
 
 ## Documentation
 
@@ -25,13 +25,13 @@ The key attributes of the solution are:
 * [More documentation](./info/index.md)
 
 
-## Run dependencies for your OS 
+## Run dependencies for your OS
 
 ``` bash
 cd deps
 ./install-<Your-OS-Version>.sh
 cd ../
-``` 
+```
 
 ## How to Build
 
@@ -54,7 +54,7 @@ Create build directory at root level.  We normally use `mcas/build` (The deadult
 ```bash
 mkdir build
 cd build
-cmake -DBUILD_KERNEL_SUPPORT=ON -DFLATBUFFERS_BUILD_TESTS=0 -DTBB_BUILD_TESTS=0 -DBUILD_PYTHON_SUPPORT=1 -DBUILD_MPI_APPS=0 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
+cmake -DBUILD_KERNEL_SUPPORT=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
 ```
 
 Or perform a Release build (which will be much faster):
@@ -62,7 +62,7 @@ Or perform a Release build (which will be much faster):
 ```bash
 mkdir build
 cd build
-cmake -DBUILD_KERNEL_SUPPORT=ON -DFLATBUFFERS_BUILD_TESTS=0 -DTBB_BUILD_TESTS=0 -DBUILD_PYTHON_SUPPORT=1 -DBUILD_MPI_APPS=0 -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
+cmake -DBUILD_KERNEL_SUPPORT=ON -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
 ```
 
 Sometimes we build with an alternate compiler:
@@ -70,7 +70,7 @@ Sometimes we build with an alternate compiler:
 ```bash
 mkdir clang
 cd clang
-cmake -DBUILD_KERNEL_SUPPORT=ON -DFLATBUFFERS_BUILD_TESTS=0 -DTBB_BUILD_TESTS=0 -DBUILD_PYTHON_SUPPORT=1 -DBUILD_MPI_APPS=0 -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
+cmake -DBUILD_KERNEL_SUPPORT=ON -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
 ```
 
 Or with code coverage:
@@ -78,7 +78,7 @@ Or with code coverage:
 ```bash
 mkdir coverage
 cd coverage
-cmake -DBUILD_KERNEL_SUPPORT=ON -DFLATBUFFERS_BUILD_TESTS=0 -DTBB_BUILD_TESTS=0 -DBUILD_PYTHON_SUPPORT=1 -DCMAKE_BUILD_TYPE=Debug -DCODE_COVERAGE=1 -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
+cmake -DBUILD_KERNEL_SUPPORT=ON -DCMAKE_BUILD_TYPE=Debug -DCODE_COVERAGE=1 -DCMAKE_INSTALL_PREFIX:PATH=`pwd`/dist ..
 ```
 
 ### One-time build
@@ -89,7 +89,7 @@ make bootstrap
 ### Normal build
 ```bash
 make -j
-make install 
+make install
 ```
 
 

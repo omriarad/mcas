@@ -65,9 +65,6 @@ class Shard_launcher {
       catch (const std::exception &e) {
         PLOG("shard %d failed to launch: %s", i, e.what());
       }
-      catch (const Exception &e) {
-        PLOG("shard %d failed to launch: %s", i, e.cause());
-      }
     }
   }
 
