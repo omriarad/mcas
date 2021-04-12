@@ -101,21 +101,6 @@ namespace
 
     return rc == 0 ? stat_buf.st_blksize : -1;
   }
-
-  std::string get_time_string()
-  {
-    time_t rawtime;
-    ::tm *timeinfo;
-    time(&rawtime);
-    timeinfo = localtime(&rawtime);
-    char buffer[80];
-
-    // want YYYY_MM_DD_HH_MM format
-    strftime(buffer, sizeof(buffer), "%Y_%m_%d_%H_%M", timeinfo);
-    std::string timestring(buffer);
-
-    return timestring;
-  }
 }
 
 Experiment::Experiment(std::string name_, const ProgramOptions &options)
@@ -134,8 +119,9 @@ Experiment::Experiment(std::string name_, const ProgramOptions &options)
   , _duration_directed(options.duration ? std::chrono::duration_cast<std::chrono::high_resolution_clock::duration>(std::chrono::seconds(*options.duration)) : boost::optional<std::chrono::high_resolution_clock::duration>())
   , _end_time_directed()
   , _component(options.component)
+  , _timestring(options.time_string)
   , _results_path("./results")
-  , _report_filename(options.report_file_name)
+  , _report_filename(options.report_file_path)
   , _do_json_reporting(options.do_json_reporting)
   , _test_name(name_)
   , _store()
@@ -496,7 +482,7 @@ try
       rapidjson::Document document = _get_report_document();
       if (!document.HasMember("experiment"))
       {
-        _initialize_experiment_report(document);
+        _initialize_experiment_report(document, _timestring);
       }
     }
 
@@ -694,25 +680,25 @@ rapidjson::Document Experiment::_get_report_document()
 {
   rapidjson::Document document;
 
-  if (_report_filename.empty())
+  if (!_report_filename)
   {
-    auto e = "filename for report is empty";
+    auto e = "filename for report is missing";
     PERR(PREFIX "%s!", e);
     throw std::runtime_error(e);
   }
 
   try
   {
-    std::unique_ptr<FILE, int (*)(FILE *)> pFile(::fopen(_report_filename.c_str(), "r"), ::fclose);
+    std::unique_ptr<FILE, int (*)(FILE *)> pFile(::fopen(_report_filename->c_str(), "r"), ::fclose);
     if ( ! pFile )
     {
       auto er = errno;
-      auto e = std::string("get_report_document failed fopen call opening '") + _report_filename + "'";
+      auto e = std::string("get_report_document failed fopen call opening '") + *_report_filename + "'";
       PERR(PREFIX "%s: %s", e.c_str(), std::strerror(er));
       throw std::system_error(std::error_code(er, std::system_category()), e);
     }
 
-    auto file_size = GetFileSize(_report_filename);
+    auto file_size = GetFileSize(*_report_filename);
 
     /* error indication is silently ignored */
     auto buffer_size = file_size == -1 ? 0 : std::size_t(file_size);
@@ -743,7 +729,7 @@ rapidjson::Document Experiment::_get_report_document()
   return document;
 }
 
-void Experiment::_initialize_experiment_report(rapidjson::Document& document)
+void Experiment::_initialize_experiment_report(rapidjson::Document& document, std::string timestring)
 {
   if (_verbose)
   {
@@ -764,13 +750,14 @@ void Experiment::_initialize_experiment_report(rapidjson::Document& document)
     .AddMember("pool_flags", _pool_flags, allocator)
     ;
 
+#if 0
   // first experiment could take some time; parse out start time from the filename we're using
   const std::string REPORT_NAME_START = "results_";
   const std::string REPORT_NAME_END = ".json";
   auto time_start = _report_filename.find(REPORT_NAME_START);
   auto time_end = _report_filename.find(REPORT_NAME_END);
   std::string timestring = _report_filename.substr(time_start + REPORT_NAME_START.length(), time_end - time_start - REPORT_NAME_START.length());
-
+#endif
   temp_object.AddMember("date", rapidjson::StringRef(timestring.c_str()), allocator);
 
   document.AddMember("experiment", temp_object, allocator);
@@ -790,7 +777,7 @@ void Experiment::_initialize_experiment_report(rapidjson::Document& document)
 
   try
   {
-    std::ofstream outf(_report_filename.c_str());
+    std::ofstream outf(_report_filename->c_str());
     outf << strbuf.GetString() << std::endl;
   }
   catch(...)
@@ -843,7 +830,7 @@ void Experiment::_report_document_save(rapidjson::Document& document, unsigned c
   _debug_print(core, "_report_document_save: writing to ofstream");
   try
   {
-    std::ofstream outf(_report_filename.c_str());
+    std::ofstream outf(_report_filename->c_str());
     outf << strbuf.GetString() << std::endl;
   }
   catch(...)
@@ -924,55 +911,56 @@ BinStatistics Experiment::_compute_bin_statistics_from_vector(std::vector<double
   return stats;
 }
 
-  /* create_report: output a report in JSON format with experiment data
+  /* start_report: begin a report in JSON format with experiment data
    * Report format:
    *      experiment object - contains experiment parameters
    *      data object - actual results
    */
-std::string Experiment::create_report(const std::string component_)
+std::string Experiment::start_report(string_view component_, string_view tag_)
 {
   PLOG("%s", "creating JSON report");
-  std::string timestring = get_time_string();
-
-  // create json document/object
-  rapidjson::Document document;
-  document.SetObject();
 
   // write to file
   std::string results_path = "./results";
   boost::filesystem::path dir(results_path);
   if (boost::filesystem::create_directory(dir))
   {
-    std::cout << "Created directory for testing: " << results_path << std::endl;
+    std::cout << "Created directory for testing (results): " << results_path << std::endl;
   }
 
-  std::string specific_results_path = results_path + "/" + component_;
+  std::string specific_results_path = results_path + "/" + std::string(component_);
 
   boost::filesystem::path sub_dir(specific_results_path);
   if (boost::filesystem::create_directory(sub_dir))
   {
-    std::cout << "Created directory for testing: " << specific_results_path << std::endl;
+    std::cout << "Created directory for testing (specific result): " << specific_results_path << std::endl;
   }
 
   rapidjson::StringBuffer sb;
-  rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(sb);
-  document.Accept(writer);
+  {
+    rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(sb);
+    // create json document/object
+    rapidjson::Document document;
+    document.SetObject();
+    document.Accept(writer);
+  }
 
-  std::string output_file_name = specific_results_path + "/results_" + timestring + ".json";
-  std::ofstream outf(output_file_name);
+  std::string output_file_path = specific_results_path + "/" + "results_" + std::string(tag_) + ".json";
+  std::ofstream outf(output_file_path);
 
   if ( outf )
   {
     outf << sb.GetString() << std::endl;
-    PLOG("created report with filename '%s'", output_file_name.c_str());
+    PLOG("created report with filename '%s'", output_file_path.c_str());
   }
   else
   {
-    PERR(PREFIX "couldn't open report file %s to write.", output_file_name.c_str());
+    PERR(PREFIX "couldn't open report file %s to write.", output_file_path.c_str());
   }
 
-  return output_file_name;
+  return output_file_path;
 }
+
 unsigned long Experiment::GetElementSize(unsigned core, std::size_t index)
 {
   if ( _element_size == 0 || _element_size == std::size_t(-1) )

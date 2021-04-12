@@ -76,6 +76,7 @@ auto MCAS_client::load_factory() -> IFabric_factory *
   return factory;
 }
 
+/* make_fabric: source/IP/provider form */
 auto MCAS_client::make_fabric_sip(component::IFabric_factory &        factory_,
                               const common::string_view src_addr_,
                               const common::string_view domain_name_,
@@ -127,6 +128,7 @@ auto MCAS_client::make_fabric_sip(component::IFabric_factory &        factory_,
   return factory_.make_fabric(fabric_spec.str());
 }
 
+/* make_fabric: address/prover/device form */
 auto MCAS_client::make_fabric_apd(component::IFabric_factory &factory_,
                               const common::string_view  // ip_addr
                               ,
@@ -266,11 +268,13 @@ status_t MCAS_client::async_get_direct(IKVStore::pool_t          pool,
                                        async_handle_t &          out_handle,
                                        IKVStore::memory_handle_t handle)
 {
-  return _connection->async_get_direct(pool, key, value, value_len, out_handle, registrar(), handle, 0);
+  TM_ROOT();
+  return _connection->async_get_direct(TM_REF pool, key, value, value_len, out_handle, registrar(), handle, 0);
 }
 
 status_t MCAS_client::check_async_completion(async_handle_t &handle)
 {
+  TM_ROOT();
   return _connection->check_async_completion(handle);
 }
 

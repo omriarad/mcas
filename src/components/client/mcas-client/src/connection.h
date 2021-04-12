@@ -27,6 +27,7 @@
 #include <common/exceptions.h>
 #include <common/utils.h>
 #include <common/byte_buffer.h>
+#include <common/perf/tm.h>
 #include <common/string_view.h>
 #include <gsl/pointers>
 #include <sys/mman.h>
@@ -205,7 +206,7 @@ public:
                             gsl::span<const component::IKVStore::memory_handle_t> handles,
                             unsigned int                         flags);
 
-  status_t async_get_direct(const component::IMCAS::pool_t       pool,
+  status_t async_get_direct(TM_FORMAL const component::IMCAS::pool_t       pool,
                string_view_key    key,
                             void *                               value,
                             size_t &                             value_len,
@@ -476,7 +477,7 @@ private:
                                             const size_t   value_len,
                                             const unsigned flags);
 
-  component::IMCAS::async_handle_t put_locate_async(pool_t                              pool,
+  component::IMCAS::async_handle_t put_locate_async(TM_FORMAL pool_t                              pool,
                                             string_view_key key,
                                                     gsl::span<const common::const_byte_span> values,
                                                     component::Registrar_memory_direct *rmd,
@@ -487,7 +488,7 @@ private:
                                             string_view_key key,
                                                          const unsigned flags);
 
-  component::IMCAS::async_handle_t get_locate_async(pool_t                              pool,
+  component::IMCAS::async_handle_t get_locate_async(TM_FORMAL pool_t                              pool,
                                             string_view_key key,
                                                     void *                              value,
                                                     size_t &                            value_len,

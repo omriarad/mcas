@@ -774,13 +774,14 @@ status_t Pool_instance::map_keys(std::function<int(string_view_key key)> functio
   return S_OK;
 }
 
-status_t Pool_instance::resize_value(string_view_key key,
-                                   const size_t new_size,
-                                   const size_t alignment) {
+status_t Pool_instance::resize_value(const string_view_key key,
+                                     const size_t new_size,
+                                     const size_t alignment)
+{
 
   CPLOG(1, PREFIX "resize_value (key=%.*s, new_size=%lu, align=%lu",
         int(key.size()), common::pointer_cast<char>(key.data()), new_size, alignment);
-  
+
   if (new_size == 0) return E_INVAL;
 
 #ifndef SINGLE_THREADED
@@ -790,7 +791,10 @@ status_t Pool_instance::resize_value(string_view_key key,
   auto i = _map->find(string_t(key.data(), key.size(), aac));
 
   if (i == _map->end()) return IKVStore::E_KEY_NOT_FOUND;
-  if (i->second._length == new_size) return E_INVAL;
+  if (i->second._length == new_size) {
+    CPLOG(2, PREFIX "resize_value request for same size!");
+    return E_INVAL;
+  }
 
   write_touch();
 
@@ -808,7 +812,10 @@ status_t Pool_instance::resize_value(string_view_key key,
                     out_key_handle,
                     nullptr);
 
-  if (out_key_handle == IKVStore::KEY_NONE) return E_INVAL;
+  if (out_key_handle == IKVStore::KEY_NONE) {
+    CPLOG(2, PREFIX "bad lock result");
+    return E_INVAL;
+  }
 
   CPLOG(2, PREFIX "resize_value locked key-value pair");
 
