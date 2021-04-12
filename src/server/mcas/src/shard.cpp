@@ -665,9 +665,6 @@ void Shard::process_message_pool_request(Connection_handler *handler,
             for (auto &r : regions.address_map()) {
               CPLOG(2, "region: %p %lu MiB", ::base(r), REDUCE_MB(::size(r)));
               /* pre-register memory region with RDMA */
-#if 0
-              handler->ondemand_register(r.iov_base, r.iov_len);
-#endif
               handler->ondemand_register(common::make_const_byte_span(r));
             }
           }

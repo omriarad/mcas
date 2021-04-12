@@ -47,13 +47,6 @@ class Region_manager : private common::log_source {
    *
    * @return Memory region handle
    */
-  inline memory_region_t ondemand_register(const void* target, size_t target_len)
-  {
-    /* transport will now take care of repeat registrations */
-    auto it = _reg.emplace(debug_level(), _conn, target, target_len, 0, 0);
-    CPLOG(2, "%s registered %p 0x%zx (total %zu)", __func__, target, target_len, _reg.size());
-    return it->mr();
-  }
   memory_region_t ondemand_register(const_byte_span target)
   {
     /* transport will now take care of repeat registrations */
