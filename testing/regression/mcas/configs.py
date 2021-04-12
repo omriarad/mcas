@@ -5,12 +5,14 @@ from install_prefix import install_prefix
 
 class config_0(dm) :
     """ basic configuration """
-    def __init__(self, shard_proto_):
+    def __init__(self, shard_proto_, count_):
         dm.__init__(self, {
                 "shards" : [
-                    shard_proto_.value()
+            #        shard_proto_.value()
                 ],
             })
+        for i in range(0, count_):
+            self._value["shards"].append(shard_proto_.step(i).value())
 
 from securities import pem_cert
 
