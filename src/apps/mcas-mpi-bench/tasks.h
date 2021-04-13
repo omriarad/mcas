@@ -50,6 +50,10 @@ public:
     , _memhandle()
     , _value()
   {
+    if ( ! _store )
+    {
+      std::cerr << "Failed to create (or open) " << Options.addr << " device " << Options.device << "\n";
+    }
     PINF("Value size:%lu", Options.value_size);
     PINF("Endpoint: %s", Options.addr.c_str());
   }
