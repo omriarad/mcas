@@ -298,11 +298,7 @@ std::unique_ptr<arena> nupm::dax_manager::make_arena_none(
 )
 {
 	PLOG("%s: %s is unsuitable as an arena: neither a character file nor a directory", __func__, p.c_str());
-	return
-		std::make_unique<arena_none>(
-			static_cast<log_source &>(*this)
-			, p
-		);
+	throw std::runtime_error(std::string(p.c_str()) + " is unsuitable as an arena: neither a character file nor a directory");
 }
 
 std::unique_ptr<arena> nupm::dax_manager::make_arena_dev(const path &p, addr_t base_, bool force_reset)
