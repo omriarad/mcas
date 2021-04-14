@@ -48,4 +48,7 @@ class dm(object):
 
     def json(self):
         """ provide the dict value in JSON """
-        return json.dumps(self.value(), indent=4)
+        return json.dumps(
+                self.value()
+                # , indent=4
+            )
