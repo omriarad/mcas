@@ -13,7 +13,7 @@ TESTID="mcas-$STORE-$PERFTEST-$KEY_LENGTH-$VALUE_LENGTH-$DAXTYPE"
 CLIENT_HOST=${CLIENT_HOST:-hostname}
 
 # parameters for MCAS server and client
-NODE_IP="$(node_ip)"
+NODE_IP=${NODE_IP:-"$(node_ip)"}
 DEBUG=${DEBUG:-0}
 PERF_OPTS=${PERF_OPTS:-"--skip_json_reporting"}
 
@@ -35,10 +35,10 @@ for SH in $(seq 0 $((SHARD_COUNT-1)))
 do :
   PORT=$((PORT_BASE+SH))
   CORE=$(clamp_cpu $((14+SH)))
-  [ 0 -lt $DEBUG ] && echo $DIR/../bin/kvstore-perf --cores "$CORE" --src_addr $NODE_IP --server $NODE_IP --port $PORT \
+  [ 0 -lt $DEBUG ] && echo $DIR/remote-client.sh --cores "$CORE" --server $NODE_IP --port $PORT \
                           --test $PERFTEST --component mcas --elements $ELEMENT_COUNT --size $STORE_SIZE ${PERF_OPTS} \
                           --key_length $KEY_LENGTH --value_length $VALUE_LENGTH --debug_level $DEBUG
-  ssh ribbit1.almaden.ibm.com $DIR/../bin/kvstore-perf --cores "$CORE" --src_addr $NODE_IP --server $NODE_IP --port $PORT \
+  ssh "$CLIENT_HOST" $DIR/remote-client.sh --cores "$CORE" --server $NODE_IP --port $PORT \
                           --test $PERFTEST --component mcas --elements $ELEMENT_COUNT --size $STORE_SIZE ${PERF_OPTS} \
                           --key_length $KEY_LENGTH --value_length $VALUE_LENGTH --debug_level $DEBUG &> "$CLIENT_LOG-$SH" &
   CLIENT_PID[$SH]=$!
