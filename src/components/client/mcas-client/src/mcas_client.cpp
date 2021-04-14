@@ -32,52 +32,11 @@ unsigned debug_level = 0;
 }
 }  // namespace mcas
 
-MCAS_client::MCAS_client(const unsigned                      debug_level,
-                         const common::string_view           src_device,
-                         const common::string_view           src_addr,
-                         const common::string_view           provider,
-                         const common::string_view           dest_addr,
-                         std::uint16_t                       port,
-                         const unsigned                      patience_,
-                         const common::string_view           other_)
-: common::log_source(debug_level),
-  _factory(load_factory()),
-  _fabric(make_fabric_sip(*_factory, src_addr, src_device, provider)),
-  _ep(_fabric->make_endpoint(common::json::serializer<common::json::dummy_writer>::object{}.str(), dest_addr, port)),
-  _bm(debug_level, _ep.get()),
-  _transport(_ep->make_open_client()),
-  _connection(std::make_unique<mcas::client::Connection_handler>(debug_level, _transport.get(), _bm, patience_, other_)),
-  _open_connection(*_connection)
+namespace
 {
-  CPLOG(3, "Extra config: %s", other_.data());
-}
-
-Open_connection::Open_connection(mcas::client::Connection_handler &_connection)
-    : _open_cnxn((_connection.bootstrap(), &_connection))
-{
-}
-
-Open_connection::~Open_connection()
-{
-  if (_open_cnxn) {
-    _open_cnxn->shutdown();
-  }
-}
-
-auto MCAS_client::load_factory() -> IFabric_factory *
-{
-  IBase *comp = load_component("libcomponent-fabric.so", net_fabric_factory);
-
-  if (!comp)
-    throw General_exception("Fabric component not found");
-
-  auto factory = static_cast<IFabric_factory *>(comp->query_interface(IFabric_factory::iid()));
-  assert(factory);
-  return factory;
-}
-
 /* make_fabric: source/IP/provider form */
-auto MCAS_client::make_fabric_sip(component::IFabric_factory &        factory_,
+auto make_fabric_sip(component::IFabric_factory &        factory_,
+		unsigned debug_,
                               const common::string_view src_addr_,
                               const common::string_view domain_name_,
                               const common::string_view fabric_prov_name_) -> IFabric *
@@ -125,48 +84,52 @@ auto MCAS_client::make_fabric_sip(component::IFabric_factory &        factory_,
         ;
     }
 
-  return factory_.make_fabric(fabric_spec.str());
+  return factory_.make_fabric(fabric_spec.str(), { {+component::IFabric_factory::k_debug, std::to_string(debug_)} } );
+}
 }
 
-/* make_fabric: address/prover/device form */
-auto MCAS_client::make_fabric_apd(component::IFabric_factory &factory_,
-                              const common::string_view  // ip_addr
-                              ,
-                              const common::string_view provider,
-                              const common::string_view device) -> IFabric *
+MCAS_client::MCAS_client(const unsigned                      debug_level,
+                         const common::string_view           src_device,
+                         const common::string_view           src_addr,
+                         const common::string_view           provider,
+                         const common::string_view           dest_addr,
+                         std::uint16_t                       port,
+                         const unsigned                      patience_,
+                         const common::string_view           other_)
+: common::log_source(debug_level),
+  _factory(load_factory()),
+  _fabric(make_fabric_sip(*_factory, debug_level, src_addr, src_device, provider)),
+  _ep(_fabric->make_endpoint(common::json::serializer<common::json::dummy_writer>::object{}.str(), dest_addr, port)),
+  _bm(debug_level, _ep.get()),
+  _transport(_ep->make_open_client()),
+  _connection(std::make_unique<mcas::client::Connection_handler>(debug_level, _transport.get(), _bm, patience_, other_)),
+  _open_connection(*_connection)
 {
-  namespace c_json = common::json;
-  using json = c_json::serializer<c_json::dummy_writer>;
-  auto mr_mode =
-    json::array(
-      provider == "sockets"
-      ? json::array(
-        "FI_MR_VIRT_ADDR"
-        , "FI_MR_ALLOCATED"
-        , "FI_MR_PROV_KEY"
-      )
-      : json::array(
-          "FI_MR_LOCAL"
-        , "FI_MR_VIRT_ADDR"
-        , "FI_MR_ALLOCATED"
-        , "FI_MR_PROV_KEY"
-      )
-    )
-    ;
+  CPLOG(3, "Extra config: %s", other_.data());
+}
 
-  auto fabric_spec =
-    json::object(
-      json::member("fabric_attr", json::object(json::member("prov_name", provider)))
-      , json::member(
-          "domain_attr"
-          , json::object(
-              json::member("mr_mode", std::move(mr_mode))
-              , json::member("name", device)
-            )
-        )
-      , json::member("ep_attr", json::object(json::member("type", "FI_EP_MSG")))
-    );
-  return factory_.make_fabric(fabric_spec.str());
+Open_connection::Open_connection(mcas::client::Connection_handler &_connection)
+    : _open_cnxn((_connection.bootstrap(), &_connection))
+{
+}
+
+Open_connection::~Open_connection()
+{
+  if (_open_cnxn) {
+    _open_cnxn->shutdown();
+  }
+}
+
+auto MCAS_client::load_factory() -> IFabric_factory *
+{
+  IBase *comp = load_component("libcomponent-fabric.so", net_fabric_factory);
+
+  if (!comp)
+    throw General_exception("Fabric component not found");
+
+  auto factory = static_cast<IFabric_factory *>(comp->query_interface(IFabric_factory::iid()));
+  assert(factory);
+  return factory;
 }
 
 int MCAS_client::thread_safety() const { return IKVStore::THREAD_MODEL_SINGLE_PER_POOL; }

@@ -23,6 +23,7 @@
 #include <cstddef> /* size_t */
 #include <cstdint> /* uint16_t, uint64_t */
 #include <functional>
+#include <map>
 #include <stdexcept> /* runtime_error */
 #include <vector>
 
@@ -798,12 +799,17 @@ class IFabric_factory : public component::IBase {
    * @return
    */
   virtual ~IFabric_factory() {}
+
+  using map_create = std::map<std::string, std::string>;
+
+  static constexpr const char *k_debug = "debug";
   /**
    * @throw std::bad_alloc - out of memory
    * @throw std::domain_error : json file parse-detected error
    * @throw IFabric_runtime_error - ::fi_control fail
    */
   virtual IFabric *make_fabric(const common::string_view json_configuration) = 0;
+  virtual IFabric *make_fabric(const common::string_view json_configuration, const map_create & options) = 0;
 };
 
 }  // namespace component

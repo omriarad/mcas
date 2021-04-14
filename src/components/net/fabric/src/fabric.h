@@ -186,7 +186,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error : ::fi_eq_open fail
    * @throw fabric_runtime_error : std::runtime_error : ::fi_control fail
    */
-  explicit Fabric(common::string_view json_configuration);
+  explicit Fabric(unsigned debug_, common::string_view json_configuration);
   int trywait(::fid **fids, std::size_t count) const;
   /**
    * @throw fabric_runtime_error : std::runtime_error : ::fi_domain fail

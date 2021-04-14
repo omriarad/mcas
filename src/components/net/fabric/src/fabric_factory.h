@@ -52,6 +52,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error : ::fi_control fail
    */
   component::IFabric * make_fabric(common::string_view json_configuration) override;
+  component::IFabric * make_fabric(common::string_view json_configuration, const map_create & options) override;
 };
 
 #endif

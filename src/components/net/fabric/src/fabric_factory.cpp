@@ -30,9 +30,19 @@ Fabric_factory::Fabric_factory()
 {
 }
 
-auto Fabric_factory::make_fabric(common::string_view json_configuration) -> component::IFabric *
+auto Fabric_factory::make_fabric(common::string_view json_configuration_) -> component::IFabric *
 {
-  return new Fabric(json_configuration);
+	return make_fabric(json_configuration_, map_create());
+}
+
+auto Fabric_factory::make_fabric(
+	common::string_view json_configuration_
+	, const map_create & mc_
+) -> component::IFabric *
+{
+	auto debug_it = mc_.find(+k_debug);
+	unsigned debug_level = unsigned(debug_it == mc_.end() ? 0 : std::stoul(debug_it->second));
+  return new Fabric(debug_level, json_configuration_);
 }
 
 void *Fabric_factory::query_interface(component::uuid_t& itf_uuid) {
