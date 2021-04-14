@@ -10,7 +10,7 @@ PORT_BASE=${PORT_BASE:-11911}
 DAXTYPE="${DAXTYPE:-$(choose_dax_type)}"
 # testname-keylength-valuelength-store-netprovider
 TESTID="mcas-$STORE-$PERFTEST-$KEY_LENGTH-$VALUE_LENGTH-$DAXTYPE"
-CLIENT_HOST=${CLIENT_HOST:-hostname}
+CLIENT_HOST=${CLIENT_HOST:-$(hostname -f)}
 
 # parameters for MCAS server and client
 NODE_IP=${NODE_IP:-"$(node_ip)"}
