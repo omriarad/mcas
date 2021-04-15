@@ -44,7 +44,6 @@ static constexpr const unsigned TLS_DEBUG_LEVEL = 3;
 static constexpr const char* ENVIRONMENT_VARIABLE_CERT = "CERT";
 static constexpr const char* ENVIRONMENT_VARIABLE_KEY = "KEY";
 static constexpr const char* ENVIRONMENT_VARIABLE_SC = "SHORT_CIRCUIT_BACKEND";
-static constexpr const char* ENVIRONMENT_VARIABLE_FORCE_DIRECT = "FORCE_DIRECT";
 
 /* static constructor called once */
 static void print_logs(int level, const char* msg) { printf("GnuTLS [%d]: %s", level, msg); }
@@ -921,8 +920,6 @@ Connection_handler::Connection_handler(const unsigned              debug_level,
 
   if(::getenv(ENVIRONMENT_VARIABLE_KEY) && ::getenv(ENVIRONMENT_VARIABLE_CERT))
     _options.tls = true;
-  if(::getenv(ENVIRONMENT_VARIABLE_FORCE_DIRECT))
-    _force_direct = true;
 
   if(other.data()) {
     try {
@@ -1602,44 +1599,11 @@ status_t Connection_handler::async_put_direct(const IMCAS::pool_t               
     auto iobr = make_iob_ptr_recv();
     auto iobs = make_iob_ptr_send();
 
-    if (
-        ! _force_direct
-        &&
-        values_.size() == 1 /* A simplification. We could change the small put code to handle multiple source */
-		&&
-        mcas::protocol::Message_IO_request::would_fit(key_.size() + ::size(values_.front()), iobs->original_length())
-        &&
-        mem_handles_.front() != IKVStore::HANDLE_NONE
-        ) {
-      /* Fast path: small size and memory already registered */
-      CPLOG(1, "%s: using small send for direct put key=(%.*s) key_len=%lu value=(%.20s...) value_len=%lu", __func__, int(key_.size()),
-            common::pointer_cast<char>(key_.data()), key_.size(), static_cast<const char *>(::base(values_.front())), ::size(values_.front()));
-
-      const auto msg =
-        new (iobs->base()) mcas::protocol::Message_IO_request(iobs->length(), auth_id(), request_id(), pool_,
-                                                              mcas::protocol::OP_PUT,  // op
-                                                              key_, size(values_.front()), flags_);
-
-      if (_options.short_circuit_backend) msg->add_scbe();
-
-      post_recv(&*iobr);
-
-      iobs->set_length(msg->msg_len());
-      iobs->iov[1].iov_base = const_cast<void*>(::base(values_.front()));
-      iobs->iov[1].iov_len =  size(values_.front());
-      iobs->desc[1] = static_cast<buffer_base *>(mem_handles_.front())->get_desc();
-      post_send(iobs->iov, iobs->iov + 2, iobs->desc, &*iobs, msg, __func__); /* send two concatentated buffers in single DMA */
-
-      out_async_handle_ = new async_buffer_set_simple(debug_level(), std::move(iobs), std::move(iobr));
-    }
-    else
-      {
-        /* for large puts, where the receiver will not have
-         * sufficient buffer space, we use put locate (DMA write) protocol */
-        out_async_handle_ = put_locate_async(TM_REF
-                                             pool_, key_, values_, rmd_,
-                                             mem_handles_, flags_);
-      }
+    /* for large puts, where the receiver will not have
+     * sufficient buffer space, we use put locate (DMA write) protocol */
+    out_async_handle_ = put_locate_async(TM_REF
+                                         pool_, key_, values_, rmd_,
+                                         mem_handles_, flags_);
     return S_OK;
   }
   catch (const Exception &e) {
