@@ -114,10 +114,12 @@ namespace common
 
 void pr_info(const char * format, ...) __attribute__((format(printf, 1, 2)));
 
+static constexpr size_t max_buffer = 2048;
+
 inline void pr_info(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
@@ -133,7 +135,7 @@ void pr_error(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void pr_error(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
@@ -149,7 +151,7 @@ void PLOG(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PLOG(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
@@ -165,7 +167,7 @@ void PDBG(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PDBG(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
@@ -181,7 +183,7 @@ void PINF(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PINF(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
@@ -197,7 +199,7 @@ void PWRN(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PWRN(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
@@ -213,7 +215,7 @@ void PERR(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PERR(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
@@ -229,7 +231,7 @@ void PEXCEP(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PEXCEP(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
@@ -245,7 +247,7 @@ void PNOTICE(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PNOTICE(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
@@ -261,7 +263,7 @@ void PMAJOR(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PMAJOR(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
@@ -277,7 +279,7 @@ void PLOG2(const char *color, const char * format, ...) __attribute__((format(pr
 inline void PLOG2(const char * color, const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = 512;
+  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
   char buffer[m_max_buffer];
