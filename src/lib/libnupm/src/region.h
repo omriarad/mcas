@@ -294,10 +294,10 @@ public:
        {
          if ( ! bucket_list.empty() )
          {
-           CPLOG(0, "%s: node %d size %d", __func__, node_ix, 1 << list_ix);
+           CPLOG(1, "%s: node %d size %d", __func__, node_ix, 1 << list_ix);
            for ( const auto &bucket : bucket_list )
            {
-             CPLOG(0, "%s: %p %zu / %zu", __func__, bucket->base(), bucket->use_count(), bucket->capacity());
+             CPLOG(1, "%s: %p %zu / %zu", __func__, bucket->base(), bucket->use_count(), bucket->capacity());
            }
          }
          ++list_ix;
