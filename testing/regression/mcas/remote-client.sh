@@ -9,5 +9,5 @@ DEBUG=${DEBUG:-0}
 
 # launch client
 
-[ 0 -lt $DEBUG ] && echo $DIR/../bin/kvstore-perf --src_addr $NODE_IP $@
-$DIR/../bin/kvstore-perf --src_addr "$NODE_IP" $@
+[ 0 -lt $DEBUG ] && echo $DIR/../bin/kvstore-perf --src_addr $NODE_IP ${1+"$@"}
+$DIR/../bin/kvstore-perf --src_addr "$NODE_IP" ${1+"$@"}

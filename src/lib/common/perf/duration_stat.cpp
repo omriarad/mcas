@@ -23,7 +23,7 @@
 using namespace common;
 using namespace perf;
 
-bool duration_stat::_clock_enabled{env_value("MCAS_INVASIVE_PERF_ENABLE", false)};
+bool duration_stat::_clock_enabled{env_value("MCAS_INVASIVE_PERF_ENABLE", true)};
 
 duration_stat::duration_stat()
 	: _duration{}
