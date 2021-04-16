@@ -118,13 +118,13 @@ namespace
   try
   {
     ::fi_info *f;
-	if ( 2 < debug_) { PLOG("%s: node %s service %s hints* %s", __func__, node_ ? node_ : "(no node)", service_ ? service_ : "(no service)", std::string(hints_ ? tostr(*hints_) : "(no hints)" ).c_str()); }
+	if ( 0 < debug_) { PLOG("%s: node %s service %s hints* %s", __func__, node_ ? node_ : "(no node)", service_ ? service_ : "(no service)", std::string(hints_ ? tostr(*hints_) : "(no hints)" ).c_str()); }
     CHECK_FI_ERR(::fi_getinfo(version_, node_, service_, 0, hints_, &f));
     return std::shared_ptr<::fi_info>(f,::fi_freeinfo);
   }
   catch ( const fabric_runtime_error &e_ )
   {
-	if ( 2 < debug_) { PLOG("%s: exc %s node %s service %s hints* %s", __func__, e_.what(), node_ ? node_ : "(no node)", service_ ? service_ : "(no service)", std::string(hints_ ? tostr(*hints_) : "(no hints)" ).c_str()); }
+	if ( 0 < debug_) { PLOG("%s: exc %s node %s service %s hints* %s", __func__, e_.what(), node_ ? node_ : "(no node)", service_ ? service_ : "(no service)", std::string(hints_ ? tostr(*hints_) : "(no hints)" ).c_str()); }
     throw e_.add(std::string(node_ ? node_ : "(no node)") + " " + std::string(service_ ? service_ : "(no service)") + " " + std::string(hints_ ? tostr(*hints_) : "(no hints)"));
   }
 
@@ -136,7 +136,7 @@ namespace
   std::shared_ptr<::fi_info> make_fi_info(const common::string_view json_configuration, unsigned debug_)
   {
     auto h0 = hints(parse_info(json_configuration));
-		if ( 2 < debug_) { PLOG("%s: hints %s", __func__, json_configuration.data()); }
+		if ( 0 < debug_) { PLOG("%s: hints %s", __func__, json_configuration.data()); }
     using p_to_mr = std::tuple<std::string, int>;
     std::vector<p_to_mr> provider_spec {
       p_to_mr{ "verbs", FI_MR_LOCAL | FI_MR_VIRT_ADDR | FI_MR_ALLOCATED | FI_MR_PROV_KEY }
@@ -157,7 +157,7 @@ namespace
         }
         catch ( fabric_runtime_error &e )
         {
-		if ( 2 < debug_) { PLOG("make_fi_info error %s", e.what()); }
+		if ( 0 < debug_) { PLOG("make_fi_info error %s", e.what()); }
           last_exception = std::current_exception();
         }
       }
@@ -171,7 +171,7 @@ namespace
       catch ( fabric_runtime_error &e )
       {
         e.add(json_configuration);
-		if ( 2 < debug_) { PLOG("make_fi_info rethrows (step 2) %s", e.what()); }
+		if ( 0 < debug_) { PLOG("make_fi_info rethrows (step 2) %s", e.what()); }
         throw;
       }
     }
