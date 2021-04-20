@@ -187,7 +187,7 @@ protected:
 
 public:
   virtual ~async_buffer_set_t() {}
-  virtual int move_along(Connection_handler *c) = 0;
+  virtual int move_along(TM_FORMAL Connection_handler *c) = 0;
 };
 
 /* Nothing more than the two buffers. Used for async erase */
@@ -196,7 +196,7 @@ struct async_buffer_set_simple : public async_buffer_set_t {
     : async_buffer_set_t(debug_level_, std::move(iobs_), std::move(iobr_))
   {
   }
-  int move_along(Connection_handler *c) override
+  int move_along(TM_ACTUAL Connection_handler *c) override
   {
     if (iobs) { /* check submission, clear and free on completion */
       if (c->test_completion(&*iobs) == false) {
@@ -289,8 +289,9 @@ public:
 
   DELETE_COPY(async_buffer_set_get_locate);
 
-  int move_along(Connection_handler *c) override
+  int move_along(TM_ACTUAL Connection_handler *c) override
   {
+	  TM_SCOPE(async_buffer_set_get_locate)
     if (_iobrd) {
       if (!c->test_completion(&*_iobrd)) {
         return E_BUSY;
@@ -410,8 +411,9 @@ public:
     }
   }
   DELETE_COPY(async_buffer_set_put_locate);
-  int                  move_along(Connection_handler *c) override
+  int                  move_along(TM_ACTUAL Connection_handler *c) override
   {
+	  TM_SCOPE(async_buffer_set_put_locate)
     if (iobs) { /* check submission, clear and free on completion */
       if (c->test_completion(&*iobs) == false) {
         return E_BUSY;
@@ -422,6 +424,7 @@ public:
     }
 
     if (iobr) { /* check recv, clear and free on completion */
+	  TM_SCOPE(async_buffer_set_put_locate_recv1)
       if (c->test_completion(&*iobr) == false) {
         return E_BUSY;
       }
@@ -458,6 +461,7 @@ public:
     }
 
     if (_iobrd) {
+	  TM_SCOPE(async_buffer_set_put_locate_dma)
       if (!c->test_completion(&*_iobrd)) {
         return E_BUSY;
       }
@@ -476,6 +480,7 @@ public:
     }
 
     if (_iobr2) {
+	  TM_SCOPE(async_buffer_set_put_locate_recv2)
       if (!c->test_completion(&*_iobr2)) {
         return E_BUSY;
       }
@@ -506,8 +511,9 @@ public:
   {
   }
   DELETE_COPY(async_buffer_set_invoke);
-  int              move_along(Connection_handler *c) override
+  int              move_along(TM_ACTUAL Connection_handler *c) override
   {
+	  TM_SCOPE(async_buffer_set_invoke)
     if (iobs) { /* check submission, clear and free on completion */
       if (c->test_completion(&*iobs) == false) {
         return E_BUSY;
@@ -588,8 +594,9 @@ public:
           );
   }
   DELETE_COPY(async_buffer_set_get_direct_offset);
-  int                         move_along(Connection_handler *c) override
+  int                         move_along(TM_ACTUAL Connection_handler *c) override
   {
+	  TM_SCOPE(async_buffer_set_get_direct_offset)
     if (iobs) { /* check submission, clear and free on completion */
       if (c->test_completion(&*iobs) == false) {
         return E_BUSY;
@@ -772,8 +779,9 @@ public:
           );
   }
   DELETE_COPY(async_buffer_set_put_direct_offset);
-  int                         move_along(Connection_handler *c) override
+  int                         move_along(TM_ACTUAL Connection_handler *c) override
   {
+	  TM_SCOPE(async_buffer_set_put_direct_offset)
     if (iobs) { /* check submission, clear and free on completion */
       if (c->test_completion(&*iobs) == false) {
         return E_BUSY;
@@ -1513,7 +1521,7 @@ status_t Connection_handler::put_direct(pool_t                               poo
   if (status == S_OK) {
     TM_SCOPE(spin)
     do {
-      status = check_async_completion(async_handle);
+      status = check_async_completion(TM_REF async_handle);
     } while (status == E_BUSY);
   }
   return status;
@@ -1667,7 +1675,7 @@ status_t Connection_handler::async_get_direct(TM_ACTUAL const IMCAS::pool_t     
   }
 }
 
-status_t Connection_handler::check_async_completion(IMCAS::async_handle_t &handle)
+status_t Connection_handler::check_async_completion(TM_ACTUAL IMCAS::async_handle_t &handle)
 {
   API_LOCK();
   auto bptrs = static_cast<async_buffer_set_t *>(handle);
@@ -1676,7 +1684,7 @@ status_t Connection_handler::check_async_completion(IMCAS::async_handle_t &handl
   int status = E_BUSY;
   try
     {
-      status = bptrs->move_along(this);
+      status = bptrs->move_along(TM_REF this);
       /* status will be one of
        * E_BUSY: the operattion is not finished, but the call to move_along may have
        * caused progress other: the operation has finished
@@ -1857,7 +1865,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     if (status == S_OK) {
       TM_SCOPE(spin)
       do {
-        status = check_async_completion(async_handle);
+        status = check_async_completion(TM_REF async_handle);
       } while (status == E_BUSY);
     }
     return status;
@@ -1877,7 +1885,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     if (status == S_OK) {
       TM_SCOPE(spin)
       do {
-        status = check_async_completion(async_handle);
+        status = check_async_completion(TM_REF async_handle);
       } while (status == E_BUSY);
     }
     return status;
@@ -1897,7 +1905,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     if (status == S_OK) {
       TM_SCOPE(spin)
       do {
-        status = check_async_completion(async_handle);
+        status = check_async_completion(TM_REF async_handle);
       } while (status == E_BUSY);
     }
     return status;

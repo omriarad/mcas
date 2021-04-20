@@ -238,7 +238,7 @@ status_t MCAS_client::async_get_direct(IKVStore::pool_t          pool,
 status_t MCAS_client::check_async_completion(async_handle_t &handle)
 {
   TM_ROOT();
-  return _connection->check_async_completion(handle);
+  return _connection->check_async_completion(TM_REF handle);
 }
 
 status_t MCAS_client::get(const IKVStore::pool_t pool,
