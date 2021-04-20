@@ -52,7 +52,7 @@ public:
 private:
   std::string _component;
   std::string _timestring;
-  std::string _results_path;
+  std::string _report_dir;
   boost::optional<std::string> _report_filename;
   bool _do_json_reporting;
   std::string _test_name;
@@ -197,7 +197,7 @@ public:
    *      experiment object - contains experiment parameters
    *      data object - actual results
    */
-  static std::string start_report(string_view component, string_view tag);
+  static std::string start_report(string_view report_dir, string_view component, string_view tag);
 
   std::size_t GetDataInputSize(std::size_t index);
 

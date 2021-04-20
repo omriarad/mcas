@@ -5,6 +5,7 @@
 
 #include "direct_memory_registered.h"
 #include "statistics.h"
+#include <common/to_string.h>
 
 #include <sys/mman.h>
 
@@ -103,7 +104,7 @@ public:
       }
       if (rc != S_OK)
       {
-        auto e = "get_direct returned !S_OK value rc = " + std::to_string(rc);
+        auto e = common::to_string("get_direct ", _i, " of ", pool_element_end(), " rc != S_OK: ", rc);
         PERR("%s.", e.c_str());
         throw std::runtime_error(e);
       }

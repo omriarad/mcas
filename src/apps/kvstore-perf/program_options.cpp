@@ -72,7 +72,7 @@ ProgramOptions::ProgramOptions(const boost::program_options::variables_map &vm_)
     , pool_name(vm_.count("pool_name") > 0 ? vm_["pool_name"].as<std::string>() : "")
     , size(vm_["size"].as<unsigned long long int>())
     , flags(vm_["flags"].as<std::uint32_t>())
-    , report_tag(vm_.count("skip_json_reporting")!=0 || vm_.count("report_tag")==0 ? boost::optional<std::string>() : vm_["report_tag"].as<std::string>())
+    , report_tag(vm_.count("skip_json_reporting")!=0 || vm_.count("report_tag")==0 ? std::vector<std::string>() : vm_["report_tag"].as<std::vector<std::string>>())
     , bin_count(vm_["bins"].as<unsigned>())
     , bin_threshold_min(vm_["latency_range_min"].as<double>())
     , bin_threshold_max(vm_["latency_range_max"].as<double>())
@@ -91,6 +91,7 @@ ProgramOptions::ProgramOptions(const boost::program_options::variables_map &vm_)
     , pci_addr(vm_.count("pci_addr") ? vm_["pci_addr"].as<std::string>() : boost::optional<std::string>())
     , log_file(vm_.count("log") ? vm_["log"].as<std::string>() : boost::optional<std::string>())
     , random(vm_.count("random"))
+    , report_dir(vm_["report_dir"].as<std::string>())
     , time_string()
     , report_file_path()
   {
@@ -200,6 +201,7 @@ void ProgramOptions::add_program_options(boost::program_options::options_descrip
       ("report_interval", po::value<unsigned>()->default_value(5),
         "Throughput test report interval, in seconds. Default: 5")
       ("random", "Generate random size of value up from 8 bytes to --value_length")
-      ("report_tag", po::value<std::string>(), "identifier for JSON report file (default is a timestamp)")
+      ("report_dir", po::value<std::string>()->default_value("./reports"), "directory for JSON reports")
+      ("report_tag", po::value<std::vector<std::string>>()->multitoken()->composing(), "identifier(s) for JSON report file (default is a timestamp)")
     ;
 }

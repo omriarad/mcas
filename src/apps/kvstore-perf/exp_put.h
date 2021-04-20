@@ -4,6 +4,7 @@
 #include "experiment.h"
 
 #include "statistics.h"
+#include <common/to_string.h>
 
 #include <chrono>
 #include <cstdlib>
@@ -49,7 +50,7 @@ class ExperimentPut : public Experiment {
       StopwatchInterval si(timer);
       auto              rc = store()->put(pool(), g_data->key(_i), g_data->value(_i), g_data->value_len(_i));
       if (rc != S_OK) {
-        auto e = "put returned !S_OK value rc = " + std::to_string(rc);
+        auto e = common::to_string("put ", _i, " of ", pool_element_end(), " rc != S_OK: ", rc);
         PERR("%s.", e.c_str());
         throw std::runtime_error(e);
       }

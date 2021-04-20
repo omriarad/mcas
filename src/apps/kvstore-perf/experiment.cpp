@@ -4,10 +4,11 @@
 #include "get_vector_from_string.h"
 #include "program_options.h"
 
-#include "common/json.h"
-#include "rapidjson/filereadstream.h"
-#include "rapidjson/prettywriter.h"
-#include "rapidjson/stringbuffer.h"
+#include <common/json.h>
+#include <common/to_string.h>
+#include <rapidjson/filereadstream.h>
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/stringbuffer.h>
 
 #include <boost/filesystem.hpp>
 #if defined(__powerpc64__)
@@ -120,7 +121,7 @@ Experiment::Experiment(std::string name_, const ProgramOptions &options)
   , _end_time_directed()
   , _component(options.component)
   , _timestring(options.time_string)
-  , _results_path("./results")
+  , _report_dir(options.report_dir)
   , _report_filename(options.report_file_path)
   , _do_json_reporting(options.do_json_reporting)
   , _test_name(name_)
@@ -309,23 +310,13 @@ int Experiment::initialize_store(unsigned core)
 
       /* stride ignores dax "major" number, so /dev/dax0.n and /dev/dax1.n map to the same memory */
       std::uint64_t addr = dax_base + dax_node_stride * device.first + dax_stride * device.second;
-#if 0
-      std::ostringstream addr_o;
-      addr_o << std::showbase << std::hex << addr;
-#endif
-      std::ostringstream device_full_name;
-      device_full_name << *_device_name << (std::isdigit(_device_name->back()) ? "." : "") << device;
       namespace c_json = common::json;
       using json = c_json::serializer<c_json::dummy_writer>;
 
       auto device_map = json::array(
         json::object(
-          json::member("path", device_full_name.str())
-#if 0
-          , json::member("addr", addr_o.str())
-#else
+          json::member("path", common::to_string(*_device_name, (std::isdigit(_device_name->back()) ? "." : ""), device))
           , json::member("addr", addr)
-#endif
         )
       );
 
@@ -916,25 +907,16 @@ BinStatistics Experiment::_compute_bin_statistics_from_vector(std::vector<double
    *      experiment object - contains experiment parameters
    *      data object - actual results
    */
-std::string Experiment::start_report(string_view component_, string_view tag_)
+std::string Experiment::start_report(string_view report_dir_, string_view component_, string_view tag_)
 {
   PLOG("%s", "creating JSON report");
 
   // write to file
-  std::string results_path = "./results";
-  boost::filesystem::path dir(results_path);
-  if (boost::filesystem::create_directory(dir))
-  {
-    std::cout << "Created directory for testing (results): " << results_path << std::endl;
-  }
+  boost::filesystem::path dir(report_dir_.begin(), report_dir_.end());
+  boost::filesystem::path sub_dir = dir / std::string(component_);
 
-  std::string specific_results_path = results_path + "/" + std::string(component_);
-
-  boost::filesystem::path sub_dir(specific_results_path);
-  if (boost::filesystem::create_directory(sub_dir))
-  {
-    std::cout << "Created directory for testing (specific result): " << specific_results_path << std::endl;
-  }
+  boost::filesystem::create_directories(sub_dir);
+  std::cout << "Directory for testing (specific result): " << sub_dir.string() << std::endl;
 
   rapidjson::StringBuffer sb;
   {
@@ -945,8 +927,9 @@ std::string Experiment::start_report(string_view component_, string_view tag_)
     document.Accept(writer);
   }
 
-  std::string output_file_path = specific_results_path + "/" + "results_" + std::string(tag_) + ".json";
-  std::ofstream outf(output_file_path);
+  boost::filesystem::path p = sub_dir / ("results_" + std::string(tag_) + ".json");
+  std::string output_file_path = p.string();
+  std::ofstream outf(output_file_path.c_str());
 
   if ( outf )
   {
@@ -1080,10 +1063,9 @@ void Experiment::_populate_pool_to_capacity(unsigned core, component::IKVStore::
 
       if (rc != S_OK)
       {
-        std::ostringstream e;
-        e << "put or put_direct returned " << rc << " (-55 is out of space)";
-        PERR(PREFIX "%s: %s.", __func__, e.str().c_str());
-        throw std::runtime_error(e.str());
+	std::string e = common::to_string("put or put_direct returned ", rc, " (-55 is out of space)");
+        PERR(PREFIX "%s: %s.", __func__, e.c_str());
+        throw std::runtime_error(e);
       }
 
       /* read back elements that have been put - this will make sure they are register on
@@ -1096,26 +1078,23 @@ void Experiment::_populate_pool_to_capacity(unsigned core, component::IKVStore::
 
       if (rc != S_OK)
       {
-        std::ostringstream e;
-        e << "readback get or get_direct returned " << rc << " (-55 is out of space)";
-        PERR(PREFIX "%s: %s.", __func__, e.str().c_str());
-        throw std::runtime_error(e.str());
+        std::string e = common::to_string("readback get or get_direct returned ", rc, " (-55 is out of space)");
+        PERR(PREFIX "%s: %s.", __func__, e.c_str());
+        throw std::runtime_error(e);
       }
 
       ++_elements_stored;
     }
     catch ( const std::exception &e )
     {
-      std::ostringstream s;
-      s << __func__ << ": " << "failed at put call " << current << "/" << _pool_num_objects << ": " << e.what();
-      PERR(PREFIX "%s", s.str().c_str());
+      std::string s = common::to_string(__func__, ": ", "failed at put call ", current, "/", _pool_num_objects, ": ", e.what());
+      PERR(PREFIX "%s", s.c_str());
       throw;
     }
     catch(...)
     {
-      std::ostringstream s;
-      s << "populate_pool_to_capacity failed at put call " << current << "/" << _pool_num_objects;
-      PERR(PREFIX "%s", s.str().c_str());
+      std::string s = common::to_string("populate_pool_to_capacity failed at put call ", current, "/", _pool_num_objects);
+      PERR(PREFIX "%s", s.c_str());
       throw;
     }
 

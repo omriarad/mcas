@@ -41,6 +41,20 @@ void run_exp(cpu_mask_t cpus, const ProgramOptions &options)
   first_exp->summarize();
 }
 
+namespace
+{
+	std::string join(const std::string &gap, std::vector<std::string> v)
+	{
+		std::string a;
+		for ( const auto &i : v )
+		{
+			if ( a.size() ) { a += gap; }
+			a += i;
+		}
+		return a;
+	}
+}
+
 using exp_f        = void (*)(cpu_mask_t, const ProgramOptions &);
 using test_element = std::pair<std::string, exp_f>;
 static const std::vector<test_element> test_vector{
@@ -92,10 +106,10 @@ int main(int argc, char *argv[])
     Experiment::g_data =
         new Data(options.elements, options.key_length, options.value_length, options.random);
 
-    Options.time_string = get_time_string();
-    Options.report_file_path =
-      Options.do_json_reporting
-      ? Experiment::start_report(Options.component, Options.report_tag ? *Options.report_tag : Options.time_string)
+    options.time_string = get_time_string();
+    options.report_file_path =
+      options.do_json_reporting
+      ? Experiment::start_report(options.report_dir, options.component, options.report_tag.size() ? join("-", options.report_tag) : options.time_string)
       : "";
 
     cpu_mask_t cpus;
@@ -118,7 +132,7 @@ int main(int argc, char *argv[])
     else {
       const auto it =
         std::find_if(test_vector.begin(), test_vector.end(),
-                     [&Options](const test_element &a) { return a.first == Options.test; }
+                     [&options](const test_element &a) { return a.first == options.test; }
         );
       if (it == test_vector.end()) {
         PERR("No such test: %s.", options.test.c_str());
