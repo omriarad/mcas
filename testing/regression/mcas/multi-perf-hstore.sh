@@ -11,6 +11,8 @@ DAXTYPE="${DAXTYPE:-$(choose_dax_type)}"
 # testname-keylength-valuelength-store-netprovider
 TESTID="mcas-$STORE-$PERFTEST-$KEY_LENGTH-$VALUE_LENGTH-$DAXTYPE"
 CLIENT_HOST=${CLIENT_HOST:-$(hostname -f)}
+CLIENT_CORE_BASE=${CLIENT_CORE_BASE:-14}
+CLIENT_CORE_STRIDE=${CLIENT_CORE_STRIDE:-5}
 
 # parameters for MCAS server and client
 NODE_IP=${NODE_IP:-"$(node_ip)"}
@@ -34,13 +36,13 @@ typeset -a CLIENT_PID
 for SH in $(seq 0 $((SHARD_COUNT-1)))
 do :
   PORT=$((PORT_BASE+SH))
-  CORE=$(clamp_cpu $((14+SH)))
+  CORE=$(clamp_cpu $((CLIENT_CORE_BASE+SH*CLIENT_CORE_STRIDE)))
   [ 0 -lt $DEBUG ] && echo $DIR/remote-client.sh --cores "$CORE" --server $NODE_IP --port $PORT \
                           --test $PERFTEST --component mcas --elements $ELEMENT_COUNT --size $STORE_SIZE ${PERF_OPTS} \
-                          --key_length $KEY_LENGTH --value_length $VALUE_LENGTH --debug_level $DEBUG
+                          --key_length $KEY_LENGTH --value_length $VALUE_LENGTH --report_tag $SH --debug_level $DEBUG
   ssh "$CLIENT_HOST" $DIR/remote-client.sh --cores "$CORE" --server $NODE_IP --port $PORT \
                           --test $PERFTEST --component mcas --elements $ELEMENT_COUNT --size $STORE_SIZE ${PERF_OPTS} \
-                          --key_length $KEY_LENGTH --value_length $VALUE_LENGTH --debug_level $DEBUG &> "$CLIENT_LOG-$SH" &
+                          --key_length $KEY_LENGTH --value_length $VALUE_LENGTH --report_tag $SH --debug_level $DEBUG &> "$CLIENT_LOG-$SH" &
   CLIENT_PID[$SH]=$!
 done
 
@@ -62,7 +64,14 @@ wait $SERVER_PID; SERVER_RC=$?
 # check result
 
 GOAL=$(scale $GOAL $SCALE)
+TOTAL=0
 for SH in $(seq 0 $((SHARD_COUNT-1)))
 do :
-  pass_fail_by_code client ${CLIENT_RC[$SH]} server $SERVER_RC && pass_by_iops "$CLIENT_LOG-$SH" $TESTID $GOAL
+  r=$(pass_fail_by_code client ${CLIENT_RC[$SH]} server $SERVER_RC && pass_by_iops "$CLIENT_LOG-$SH" $TESTID-$SH $GOAL)
+  echo $r
+  n=$(echo "$r" | sed -e 's/^Test .*[(]//' -e 's/ of [0-9][0-9]* IOPS[)]$//')
+  if [[ "$n" =~ ^[0-9][0-9]*$ ]]
+  then TOTAL=$((TOTAL+n))
+  fi
 done
+echo $TESTID $TOTAL
