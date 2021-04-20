@@ -4,6 +4,7 @@
 #include "experiment.h"
 
 #include "statistics.h"
+#include <common/to_string.h>
 
 #include <sstream>
 #include <stdexcept>
@@ -66,10 +67,9 @@ public:
         auto rc = store()->get(pool(), g_data->key(std::size_t(_i)), pval, pval_len);
         if ( rc != S_OK )
         {
-          std::ostringstream e;
-          e << "pool_element_end = " << pool_element_end() << " get rc != S_OK: " << rc << " @ _i = " << _i;
-          PERR("[%u] %s. Exiting.", core, e.str().c_str());
-          throw std::runtime_error(e.str());
+          auto e = common::to_string("put ", _i, " of ", pool_element_end(), " rc != S_OK: ", rc);
+          PERR("[%u] %s. Exiting.", core, e.c_str());
+          throw std::runtime_error(e);
         }
       }
       store()->free_memory(pval);

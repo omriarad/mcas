@@ -41,6 +41,20 @@ void run_exp(cpu_mask_t cpus, const ProgramOptions &options)
   first_exp->summarize();
 }
 
+namespace
+{
+	std::string join(const std::string &gap, std::vector<std::string> v)
+	{
+		std::string a;
+		for ( const auto &i : v )
+		{
+			if ( a.size() ) { a += gap; }
+			a += i;
+		}
+		return a;
+	}
+}
+
 using exp_f        = void (*)(cpu_mask_t, const ProgramOptions &);
 using test_element = std::pair<std::string, exp_f>;
 static const std::vector<test_element> test_vector{
@@ -95,7 +109,7 @@ int main(int argc, char *argv[])
     options.time_string = get_time_string();
     options.report_file_path =
       options.do_json_reporting
-      ? Experiment::start_report(options.component, options.report_tag ? *options.report_tag : options.time_string)
+      ? Experiment::start_report(options.report_dir, options.component, options.report_tag.size() ? join("-", options.report_tag) : options.time_string)
       : "";
 
     cpu_mask_t cpus;
