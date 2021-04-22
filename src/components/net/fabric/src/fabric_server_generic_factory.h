@@ -51,7 +51,7 @@ class Fabric_server_generic_factory
 
   /* pending connections: inserts by polling thread, removes by user thread */
   std::mutex _m_pending;
-  Pending_cnxns _pending;
+  pending_cnxns _pending;
 
   Open_cnxns _open;
   /* a write tells the listener thread to exit */
@@ -103,6 +103,8 @@ public:
   Fabric_server_generic_factory(Fabric_server_generic_factory &&) noexcept;
 
   /*
+   * returns pointer to endpoint, or null if no pending connections
+   *
    * @throw std::system_error : read error on event pipe
    */
   component::IFabric_endpoint_unconnected_server * get_new_endpoint_unconnected();

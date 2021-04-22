@@ -18,6 +18,7 @@
 #include <common/byte_span.h>
 #include <common/string_view.h>
 
+#include <gsl/pointers>
 #include <gsl/span>
 #include <chrono>
 #include <cstddef> /* size_t */
@@ -666,7 +667,7 @@ class IFabric_server_factory : public IFabric_passive_endpoint {
    * @throw std::system_error : failure to listen for connections
    */
 	virtual IFabric_endpoint_unconnected_server *get_new_endpoint_unconnected() = 0;
-	virtual IFabric_server *open_connection(IFabric_endpoint_unconnected_server *) = 0;
+	virtual gsl::not_null<IFabric_server *> open_connection(gsl::not_null<IFabric_endpoint_unconnected_server *>) = 0;
 
   /**
    * Close connection and release any associated resources
@@ -716,7 +717,7 @@ class IFabric_server_grouped_factory : public IFabric_passive_endpoint {
    * @throw std::system_error : read error on event pipe
    */
 	virtual IFabric_endpoint_unconnected_server *get_new_endpoint_unconnected() = 0;
-	virtual IFabric_server_grouped *open_connection(IFabric_endpoint_unconnected_server *) = 0;
+	virtual gsl::not_null<IFabric_server_grouped *> open_connection(gsl::not_null<IFabric_endpoint_unconnected_server *> ) = 0;
 
   /**
    * Close connection and release any associated resources

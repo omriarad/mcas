@@ -33,7 +33,7 @@ class Fabric_server_factory
 {
 public:
 	component::IFabric_endpoint_unconnected_server * get_new_endpoint_unconnected() override { return Fabric_server_generic_factory::get_new_endpoint_unconnected(); }
-	Fabric_server *open_connection(component::IFabric_endpoint_unconnected_server *) override;
+	gsl::not_null<component::IFabric_server *> open_connection(gsl::not_null<component::IFabric_endpoint_unconnected_server *>) override;
   /**
    * Note: fi_info is not const because we reuse it when constructing the passize endpoint
    *

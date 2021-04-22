@@ -19,6 +19,7 @@
 #include "event_expecter.h"
 #include "fabric_connection_server.h"
 #include "fabric_endpoint.h"
+#include <gsl/pointers>
 
 struct fi_info;
 
@@ -46,7 +47,7 @@ public:
    */
 
 	explicit Fabric_server(
-		component::IFabric_endpoint_unconnected_server *aep
+		gsl::not_null<component::IFabric_endpoint_unconnected_server *> aep
 	);
   ~Fabric_server();
 

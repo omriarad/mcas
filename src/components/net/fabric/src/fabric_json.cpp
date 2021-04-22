@@ -695,17 +695,17 @@ std::shared_ptr<fi_info> parse_info(const common::string_view s_)
  * Add json specifications to configuration info
  *
  *  {
- *    "caps" : [ array of capabilities specified by strings enumerated in fabric_caps.h ]
- *    "mode" : [ array of modes specified by strings enumerated in fabric_modes.h ]
- *    "addr_format" : scalar value from strings enumerated in fabric_addr_format.h
+ *    "caps" : [ array of capabilities specified by strings enumerated in bits_caps.h ]
+ *    "mode" : [ array of modes specified by strings enumerated in bits__modes.h ]
+ *    "addr_format" : scalar value from strings enumerated in enum_addr_format.h
  *    "src_addr" : string
  *    "dest_addr" : string
  *    "tx_attr" : {
  *      "caps" : (see above)
  *      "mode" : (see above)
- *      "op_flags" : [ array of flags specified by strings enumerated in fabric_op_flags.h ]
- *      "msg_order" : [ array of flags specified by strings enumerated in fabric_msg_order.h ]
- *      "comp_order": [ array of flags specified by strings enumerated in fabric_comp_order.h ]
+ *      "op_flags" : [ array of flags specified by strings enumerated in bits_op_flags.h ]
+ *      "msg_order" : [ array of flags specified by strings enumerated in bits_msg_order.h ]
+ *      "comp_order": [ array of flags specified by strings enumerated in bits_comp_order.h ]
  *      "inject_size" : unsigned
  *      "size" : unsigned
  *      "iov_limit" : unsigned
@@ -715,17 +715,17 @@ std::shared_ptr<fi_info> parse_info(const common::string_view s_)
  *    "rx_attr" : {
  *      "caps" : (see above)
  *      "mode" : (see above)
- *      "op_flags" : [ array of flags specified by strings enumerated in fabric_op_flags.h ]
- *      "msg_order" : [ array of flags specified by strings enumerated in fabric_msg_order.h ]
- *      "comp_order": [ array of flags specified by strings enumerated in fabric_comp_order.h ]
+ *      "op_flags" : [ array of flags specified by strings enumerated in bits_op_flags.h ]
+ *      "msg_order" : [ array of flags specified by strings enumerated in bits_msg_order.h ]
+ *      "comp_order": [ array of flags specified by strings enumerated in bits_comp_order.h ]
  *      "total_buffered_recv" : unsigned
  *      "size" : unsigned
  *      "iov_limit" : unsigned
  *    }
  *
  *    "ep_attr" : {
- *      "type" : [ array of flags specified by strings enumerated in fabric_ep_type.h ]
- *      "protocol" : scalar value from strings enumerated in fabric_protocol.h
+ *      "type" : [ array of flags specified by strings enumerated in enum_ep_type.h ]
+ *      "protocol" : scalar value from strings enumerated in enum_ep_protocol.h
  *      "protocol_version" : unsigned
  *      "max_msg_size" : unsigned
  *      "msg_prefix_size" : unsigned

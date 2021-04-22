@@ -17,7 +17,7 @@
 #include "fabric_endpoint.h"
 
 Fabric_server::Fabric_server(
-	component::IFabric_endpoint_unconnected_server *aep_
+	gsl::not_null<component::IFabric_endpoint_unconnected_server *> aep_
 )
 	: Fabric_connection_server(aep_)
 {}

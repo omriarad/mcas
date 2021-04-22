@@ -27,7 +27,7 @@ Fabric_server_factory::Fabric_server_factory(Fabric &fabric_, event_producer &eq
 Fabric_server_factory::~Fabric_server_factory()
 {}
 
-auto Fabric_server_factory::open_connection(component::IFabric_endpoint_unconnected_server *aep) -> Fabric_server *
+auto Fabric_server_factory::open_connection(gsl::not_null<component::IFabric_endpoint_unconnected_server *> aep) -> gsl::not_null<component::IFabric_server *>
 {
 	auto conn = new Fabric_server(aep);
 	/* wait for an acnowledgment from the client, and add to open list */

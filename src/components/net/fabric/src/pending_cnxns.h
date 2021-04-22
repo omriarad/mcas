@@ -28,7 +28,7 @@ namespace component
 	struct IFabric_endpoint_unconnected_server;
 }
 
-class Pending_cnxns
+struct pending_cnxns
 {
 public:
   using cnxn_t = std::unique_ptr<component::IFabric_endpoint_unconnected_server>;
@@ -37,7 +37,7 @@ private:
   using guard = std::lock_guard<std::mutex>;
   std::queue<cnxn_t> _q;
 public:
-  Pending_cnxns();
+  pending_cnxns();
   void push(cnxn_t && c);
   cnxn_t remove();
 };

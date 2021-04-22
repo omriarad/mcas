@@ -38,7 +38,7 @@ std::shared_ptr<event_expecter> Fabric_server_grouped_factory::new_server(Fabric
 #endif
 
 /* Note: shared_ptr may be overkill */
-auto Fabric_server_grouped_factory::open_connection(component::IFabric_endpoint_unconnected_server * aep) -> Fabric_server_grouped *
+auto Fabric_server_grouped_factory::open_connection(gsl::not_null<component::IFabric_endpoint_unconnected_server *> aep) -> gsl::not_null<component::IFabric_server_grouped *>
 {
 	auto conn = new Fabric_server_grouped(&*aep);
 	/* wait for an acnowledgment from the client, and add to open list */
