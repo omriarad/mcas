@@ -15,6 +15,7 @@
 
 #include <common/delete_copy.h>
 #include <common/moveable_ptr.h>
+#include <gsl/pointers>
 
 namespace component
 {
@@ -26,11 +27,10 @@ namespace component
 struct server_connection
 {
 private:
-  component::IFabric_server_factory *_f;
-  common::moveable_ptr<component::IFabric_endpoint_unconnected_server> _ep;
-  common::moveable_ptr<component::IFabric_server> _cnxn;
+	gsl::not_null<component::IFabric_server_factory *> _f;
+	common::moveable_ptr<component::IFabric_endpoint_unconnected_server> _ep;
+	common::moveable_ptr<component::IFabric_server> _cnxn;
   DELETE_COPY(server_connection);
-	static component::IFabric_server *get_connection(component::IFabric_server_factory *f, component::IFabric_endpoint_unconnected_server *ep);
 public:
   component::IFabric_server &cnxn() const { return *_cnxn; }
   explicit server_connection(component::IFabric_server_factory &ep);

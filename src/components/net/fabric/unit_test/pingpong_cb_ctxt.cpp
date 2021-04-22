@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2019] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -11,16 +11,10 @@
    limitations under the License.
 */
 
-#include <api/fabric_itf.h>
 #include "pingpong_cb_ctxt.h"
 
 #include "pingpong_cnxn_state.h"
-
-buffer_state::buffer_state(component::IFabric_memory_control &cnxn_, std::size_t buffer_size_, std::uint64_t remote_key_, std::size_t msg_size_)
-  : _rm{cnxn_, buffer_size_, remote_key_}
-  , v{{&_rm[0], msg_size_}}
-  , d{_rm.desc()}
-{}
+#include <api/fabric_itf.h>
 
 void cb_ctxt::cb_simple(void *ctxt_, ::status_t stat_, std::uint64_t, std::size_t len_, void *)
 {

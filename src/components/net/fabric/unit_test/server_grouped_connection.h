@@ -34,7 +34,6 @@ private:
 
   server_grouped_connection(server_grouped_connection &&) noexcept;
   DELETE_COPY(server_grouped_connection);
-  static component::IFabric_server_grouped *get_connection(component::IFabric_server_grouped_factory *f, component::IFabric_endpoint_unconnected_server *ep);
 
 public:
   component::IFabric_server_grouped &cnxn() const { return *_cnxn; }

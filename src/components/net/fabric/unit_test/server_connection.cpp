@@ -17,17 +17,20 @@
 #include <exception>
 #include <iostream> /* cerr */
 
-component::IFabric_server *server_connection::get_connection(component::IFabric_server_factory *f_, component::IFabric_endpoint_unconnected_server *ep_)
+namespace
 {
-	component::IFabric_server *cnxn = nullptr;
-	while ( ! ( cnxn = f_->open_connection(ep_) ) ) {}
-	return cnxn;
+	gsl::not_null<component::IFabric_endpoint_unconnected_server *> get_ep(gsl::not_null<component::IFabric_server_factory *> f_)
+	{
+		component::IFabric_endpoint_unconnected_server *ep = nullptr;
+		while ( ! ( ep = f_->get_new_endpoint_unconnected() ) ) {}
+		return gsl::not_null<component::IFabric_endpoint_unconnected_server *>(ep);
+	}
 }
 
 server_connection::server_connection(component::IFabric_server_factory &f_)
   : _f(&f_)
-  , _ep(_f->get_new_endpoint_unconnected())
-  , _cnxn(get_connection(_f, _ep))
+  , _ep(get_ep(_f))
+  , _cnxn(_f->open_connection(_ep))
 {
 }
 

@@ -611,8 +611,13 @@ TEST_F(Fabric_test, JsonSucceed)
       std::shared_ptr<component::IFabric_server_factory>(
         fabric->open_server_factory(
           json::object(
-            json::member("tx_attr", json::array("FI_ORDER_STRICT", "FI_ORDER_DATA"))
-            , json::member("inject_size", 16)
+            json::member
+	    ( "tx_attr"
+	    , json::object
+	      ( json::member("comp_order", json::array("FI_ORDER_STRICT", "FI_ORDER_DATA"))
+              , json::member("inject_size", 16)
+              )
+            )
           ).str()
           , control_port_1
         )
@@ -647,7 +652,7 @@ TEST_F(Fabric_test, JsonParseAddrStr)
           fabric->open_server_factory(
             json::object(
               json::member("addr_format", "FI_ADDR_STR")
-              , json::member("dest", json::string("fi_shm://" + std::to_string(getpid())))
+              , json::member("dest_addr", json::string("fi_shm://" + std::to_string(getpid())))
             ).str()
             , control_port_1
           )
