@@ -105,7 +105,7 @@ Fabric_transport::Fabric_transport(const boost::optional<std::string> &fabric,
                    const boost::optional<std::string> &device,
                    unsigned                            port)
   : _fabric_debug(mcas::global::debug_level > 1),
-    _fabric(make_fabric(fabric, fabric_provider, device, port)),
+    _fabric(make_fabric(fabric, fabric_provider, device, _fabric_debug)),
     _server_factory(make_server_factory(*_fabric, boost::numeric_cast<uint16_t>(port))),
     _port(port)
 {

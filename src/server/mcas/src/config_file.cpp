@@ -53,7 +53,7 @@ namespace config
 static constexpr const char *debug_level = "debug_level";
 
 static constexpr const char *shards = "shards";
-static constexpr const char *port = "port";
+static constexpr const char *port = "port"; /* among other uses, Zyre cluster attribute */
 static constexpr const char *net_providers = "net_providers";
 static constexpr const char *dax_config = "dax_config";
 static constexpr const char *resources = "resources";
@@ -66,10 +66,10 @@ static constexpr const char *ado_params = "ado_params";
 static constexpr const char *ado_path = "ado_path";
 static constexpr const char *ado_signals = "ado_signals";
 static constexpr const char *security = "security";
-static constexpr const char *cluster = "cluster";
+static constexpr const char *cluster = "cluster"; /* Zyre cluster attribute */
 static constexpr const char *core = "core";
-static constexpr const char *group = "group";
-static constexpr const char *name = "name";
+static constexpr const char *group = "group"; /* Zyre cluster attribute */
+static constexpr const char *name = "name"; /* Zyre cluster attribute */
 }
 
 namespace
