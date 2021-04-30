@@ -73,13 +73,13 @@ public:
 	void post_recv(
 		gsl::span<const ::iovec> buffers
 		, void **desc
-		, void *context
+		, context_t context
 	) override
 	{ return fabric_endpoint::post_recv(buffers, desc, context); }
 
 	void post_recv(
 		gsl::span<const ::iovec> buffers
-		, void *context
+		, context_t context
 	) override
 	{ return fabric_endpoint::post_recv(buffers, context); }
 };

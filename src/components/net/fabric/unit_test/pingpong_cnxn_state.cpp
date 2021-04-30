@@ -37,6 +37,6 @@ void cnxn_state::send(buffer_state &bt_, cb_ctxt *tx_ctxt_)
   }
   else
   {
-    comm().post_send(&*bt_.v.begin(), &*bt_.v.end(), &*bt_.d.begin(), tx_ctxt_);
+    comm().post_send(bt_.v, &*bt_.d.begin(), tx_ctxt_);
   }
 }

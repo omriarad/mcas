@@ -163,7 +163,7 @@ struct mr_many
  * is an async handle.
  */
 struct async_buffer_set_t : public component::IMCAS::Opaque_async_handle, protected common::log_source {
-  using iob_ptr = std::unique_ptr<client::Fabric_transport::buffer_t, iob_free>;
+  using iob_ptr = Connection_handler::iob_ptr;
 
 protected:
   iob_ptr        iobs;
@@ -199,14 +199,14 @@ struct async_buffer_set_simple : public async_buffer_set_t {
   int move_along(TM_ACTUAL Connection_handler *c) override
   {
     if (iobs) { /* check submission, clear and free on completion */
-      if (c->test_completion(&*iobs) == false) {
+      if (c->test_completion(iobs->to_context()) == false) {
         return E_BUSY;
       }
       iobs.reset(nullptr);
     }
 
     if (iobr) { /* check recv, clear and free on completion */
-      if (c->test_completion(&*iobr) == false) {
+      if (c->test_completion(iobr->to_context()) == false) {
         return E_BUSY;
       }
 
@@ -283,7 +283,7 @@ public:
           , _desc[0]
           , _addr, key_
           );
-    c->post_read(std::begin(_v), std::end(_v), std::begin(_desc), _addr, key_, &*_iobrd);
+    c->post_read(_v, std::begin(_desc), _addr, key_, _iobrd->to_context());
     /* End */
   }
 
@@ -293,7 +293,7 @@ public:
   {
 	  TM_SCOPE(async_buffer_set_get_locate)
     if (_iobrd) {
-      if (!c->test_completion(&*_iobrd)) {
+      if (!c->test_completion(&*_iobrd->to_context())) {
         return E_BUSY;
       }
       /* What to do when DMA completes */
@@ -312,7 +312,7 @@ public:
 
     if ( iobr )
       {
-        if ( ! c->test_completion(&*iobr) )
+        if ( ! c->test_completion(iobr->to_context()) )
           {
             return E_BUSY;
           }
@@ -415,7 +415,7 @@ public:
   {
 	  TM_SCOPE(async_buffer_set_put_locate)
     if (iobs) { /* check submission, clear and free on completion */
-      if (c->test_completion(&*iobs) == false) {
+      if (c->test_completion(iobs->to_context()) == false) {
         return E_BUSY;
       }
       /* What to do when first send completes */
@@ -425,7 +425,7 @@ public:
 
     if (iobr) { /* check recv, clear and free on completion */
 	  TM_SCOPE(async_buffer_set_put_locate_recv1)
-      if (c->test_completion(&*iobr) == false) {
+      if (c->test_completion(iobr->to_context()) == false) {
         return E_BUSY;
       }
       /* What to do when first recv completes */
@@ -456,13 +456,13 @@ public:
             );
       }
 
-      c->post_write(_v, &*_desc.begin(), _addr, key, &*_iobrd);
+      c->post_write(_v, &*_desc.begin(), _addr, key, _iobrd->to_context());
       /* End */
     }
 
     if (_iobrd) {
 	  TM_SCOPE(async_buffer_set_put_locate_dma)
-      if (!c->test_completion(&*_iobrd)) {
+      if (!c->test_completion(&*_iobrd->to_context())) {
         return E_BUSY;
       }
       /* What to do when DMA completes */
@@ -481,7 +481,7 @@ public:
 
     if (_iobr2) {
 	  TM_SCOPE(async_buffer_set_put_locate_recv2)
-      if (!c->test_completion(&*_iobr2)) {
+      if (!c->test_completion(&*_iobr2->to_context())) {
         return E_BUSY;
       }
       /* What to do when second recv completes */
@@ -515,14 +515,14 @@ public:
   {
 	  TM_SCOPE(async_buffer_set_invoke)
     if (iobs) { /* check submission, clear and free on completion */
-      if (c->test_completion(&*iobs) == false) {
+      if (c->test_completion(iobs->to_context()) == false) {
         return E_BUSY;
       }
       iobs.reset(nullptr);
     }
 
     if (iobr) { /* check recv, clear and free on completion */
-      if (c->test_completion(&*iobr) == false) {
+      if (c->test_completion(iobr->to_context()) == false) {
         return E_BUSY;
       }
       return c->receive_and_process_ado_response(iobr, *out_ado_response);
@@ -598,7 +598,7 @@ public:
   {
 	  TM_SCOPE(async_buffer_set_get_direct_offset)
     if (iobs) { /* check submission, clear and free on completion */
-      if (c->test_completion(&*iobs) == false) {
+      if (c->test_completion(iobs->to_context()) == false) {
         return E_BUSY;
       }
       /* What to do when first send completes */
@@ -607,7 +607,7 @@ public:
     }
 
     if (iobr) { /* check recv, clear and free on completion */
-      if (c->test_completion(&*iobr) == false) {
+      if (c->test_completion(iobr->to_context()) == false) {
         return E_BUSY;
       }
       /* What to do when first recv completes */
@@ -649,7 +649,7 @@ public:
       }
 
     if (_addr_cursor != _addr_list.end()) {
-      if (_iobrd && !c->test_completion(&*_iobrd)) {
+      if (_iobrd && !c->test_completion(&*_iobrd->to_context())) {
         return E_BUSY;
       }
 
@@ -671,14 +671,14 @@ public:
             , _desc[0]
             , _addr_cursor->addr, _key
             );
-      c->post_read(std::begin(_v), std::end(_v), std::begin(_desc), _addr_cursor->addr, _key, &*_iobrd);
+      c->post_read(_v, std::begin(_desc), _addr_cursor->addr, _key, _iobrd->to_context());
       _buffer += _addr_cursor->len;
       ++_addr_cursor;
       /* End */
     }
 
     if (_iobrd) {
-      if (!c->test_completion(&*_iobrd)) {
+      if (!c->test_completion(&*_iobrd->to_context())) {
         return E_BUSY;
       }
       /* What to do when DMA completes */
@@ -703,7 +703,7 @@ public:
 
     /* release in process, or not needed because length is 0 */
     if ( _iobr2 ) {
-      if ( _iobr2 && ! c->test_completion(&*_iobr2) ) {
+      if ( _iobr2 && ! c->test_completion(&*_iobr2->to_context()) ) {
         return E_BUSY;
       }
       /* What to do when second recv completes */
@@ -783,7 +783,7 @@ public:
   {
 	  TM_SCOPE(async_buffer_set_put_direct_offset)
     if (iobs) { /* check submission, clear and free on completion */
-      if (c->test_completion(&*iobs) == false) {
+      if (c->test_completion(iobs->to_context()) == false) {
         return E_BUSY;
       }
       /* What to do when first send completes */
@@ -792,7 +792,7 @@ public:
     }
 
     if (iobr) { /* check recv, clear and free on completion */
-      if (c->test_completion(&*iobr) == false) {
+      if (c->test_completion(iobr->to_context()) == false) {
         return E_BUSY;
       }
       /* What to do when first recv completes */
@@ -836,7 +836,7 @@ public:
       }
 
     if (_addr_cursor != _addr_list.end()) {
-      if (_iobrd && !c->test_completion(&*_iobrd)) {
+      if (_iobrd && !c->test_completion(_iobrd->to_context())) {
         return E_BUSY;
       }
 
@@ -860,14 +860,14 @@ public:
             , _key
             );
 
-      c->post_write(_v, std::begin(_desc), _addr_cursor->addr, _key, &*_iobrd);
+      c->post_write(_v, std::begin(_desc), _addr_cursor->addr, _key, _iobrd->to_context());
       _buffer += _addr_cursor->len;
       ++_addr_cursor;
       /* End */
     }
 
     if (_iobrd) {
-      if (!c->test_completion(&*_iobrd)) {
+      if (!c->test_completion(_iobrd->to_context())) {
         return E_BUSY;
       }
       /* What to do when DMA completes */
@@ -892,7 +892,7 @@ public:
     }
 
     if ( _iobr2 ) {
-      if ( ! c->test_completion(&*_iobr2) ) {
+      if ( ! c->test_completion(&*_iobr2->to_context()) ) {
         return E_BUSY;
       }
       /* What to do when second recv completes */
@@ -1031,7 +1031,7 @@ Connection_handler::pool_t Connection_handler::open_pool(const string_view name,
 
     post_recv(&*iobr);
     sync_inject_send(&*iobs, msg, __func__);
-    wait_for_completion(&*iobr); /* await response */
+    wait_for_completion(iobr->to_context()); /* await response */
 
     const auto response_msg = msg_recv<const mcas::protocol::Message_pool_response>(&*iobr, __func__);
 
@@ -1082,7 +1082,7 @@ Connection_handler::create_pool(const string_view  name,
 
     post_recv(&*iobr);
     sync_inject_send(&*iobs, msg, __func__);
-    wait_for_completion(&*iobr);
+    wait_for_completion(iobr->to_context());
 
     const auto response_msg = msg_recv<const mcas::protocol::Message_pool_response>(&*iobr, __func__);
 
@@ -1116,7 +1116,7 @@ status_t Connection_handler::close_pool(const pool_t pool)
   post_recv(&*iobr);
   sync_inject_send(&*iobs, msg, __func__);
   try {
-    wait_for_completion(&*iobr);
+    wait_for_completion(iobr->to_context());
 
     const auto response_msg = msg_recv<const mcas::protocol::Message_pool_response>(&*iobr, __func__);
 
@@ -1157,7 +1157,7 @@ status_t Connection_handler::delete_pool(const string_view name)
   post_recv(&*iobr);
   sync_inject_send(&*iobs, msg, __func__);
   try {
-    wait_for_completion(&*iobr);
+    wait_for_completion(iobr->to_context());
 
     const auto response_msg = msg_recv<const mcas::protocol::Message_pool_response>(&*iobr, __func__);
 
@@ -1188,7 +1188,7 @@ status_t Connection_handler::delete_pool(const IMCAS::pool_t pool)
   post_recv(&*iobr);
   sync_inject_send(&*iobs, msg, __func__);
   try {
-    wait_for_completion(&*iobr);
+    wait_for_completion(iobr->to_context());
 
     const auto response_msg = msg_recv<const mcas::protocol::Message_pool_response>(&*iobr, __func__);
 
@@ -1222,7 +1222,7 @@ status_t Connection_handler::configure_pool(const IMCAS::pool_t pool, const stri
   post_recv(&*iobr);
   sync_inject_send(&*iobs, msg, __func__);
   try {
-    wait_for_completion(&*iobr);
+    wait_for_completion(iobr->to_context());
     const auto response_msg = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, __func__);
 
     return response_msg->get_status();
@@ -1279,7 +1279,7 @@ status_t Connection_handler::put(const pool_t       pool,
     sync_send(&*iobs, msg, __func__); /* this will clean up iobs */
     {
       TM_SCOPE(wait_recv)
-      wait_for_completion(&*iobr);
+      wait_for_completion(iobr->to_context());
     }
 
     const auto response_msg = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, __func__);
@@ -1311,7 +1311,7 @@ auto Connection_handler::locate(const pool_t pool_, const std::size_t offset_, c
   post_recv(&*iobr);
   sync_inject_send(&*iobs, msg, __func__);
   /* wait for response from header before posting the value */
-  wait_for_completion(&*iobr);
+  wait_for_completion(iobr->to_context());
 
   const auto response = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, __func__);
 
@@ -1357,7 +1357,7 @@ IMCAS::async_handle_t Connection_handler::put_locate_async(TM_ACTUAL const pool_
   iobs->set_length(msg->msg_len());
 
   post_recv(&*iobr);
-  post_send(iobs->iov, iobs->iov + 1, iobs->desc, &*iobs, msg, __func__);
+  post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
 
   /*
    * The entire put_locate protocol involves five completions at the client:
@@ -1401,7 +1401,7 @@ IMCAS::async_handle_t Connection_handler::get_direct_offset_async(const pool_t  
   iobs->set_length(msg->msg_len());
 
   post_recv(&*iobr);
-  post_send(iobs->iov, iobs->iov + 1, iobs->desc, &*iobs, msg, __func__);
+  post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
 
   /*
    * The entire get_direct_offset protocol involves five completions at the
@@ -1431,7 +1431,7 @@ IMCAS::async_handle_t Connection_handler::put_direct_offset_async(const pool_t  
   iobs->set_length(msg->msg_len());
 
   post_recv(&*iobr);
-  post_send(iobs->iov, iobs->iov + 1, iobs->desc, &*iobs, msg, __func__);
+  post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
 
   /*
    * The entire get_direct_offset protocol involves five completions at the
@@ -1466,17 +1466,17 @@ Connection_handler::get_locate_async(TM_ACTUAL const pool_t                     
 		iobs->set_length(msg->msg_len());
 
 		post_recv(&*iobr);
-		post_send(iobs->iov, iobs->iov + 1, iobs->desc, &*iobs, msg, __func__);
+		post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
 
 		{
 			TM_SCOPE(wait_send)
-			wait_for_completion(&*iobs);
+			wait_for_completion(iobs->to_context());
 		}
 		iobs.reset(nullptr);
 
 		{
 				TM_SCOPE(wait_recv)
-				wait_for_completion(&*iobr);
+				wait_for_completion(iobr->to_context());
 		}
 	}
 	const auto response_msg = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, "ASYNC GET_LOCATE");
@@ -1559,7 +1559,7 @@ status_t Connection_handler::async_put(const IMCAS::pool_t    pool,
 
     /* post both send and receive */
     post_recv(&*iobr);
-    post_send(iobs->iov, iobs->iov + 1, iobs->desc, &*iobs, msg, __func__);
+    post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
 
     out_handle = new async_buffer_set_simple(debug_level(), std::move(iobs), std::move(iobr));
 
@@ -1734,7 +1734,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
 
     post_recv(&*iobr);
     sync_inject_send(&*iobs, msg, __func__);
-    wait_for_completion(&*iobr);
+    wait_for_completion(iobr->to_context());
 
     const auto response_msg = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, __func__);
 #if 0
@@ -1794,7 +1794,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
       sync_inject_send(&*iobs, msg, __func__);
       {
         TM_SCOPE(wait_recv)
-        wait_for_completion(&*iobr); /* TODO; could we issue the recv and send together? */
+        wait_for_completion(iobr->to_context()); /* TODO; could we issue the recv and send together? */
       }
 
       const auto response_msg = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, __func__);
@@ -1816,10 +1816,11 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
         void *desc[] = {region.get_memory_descriptor()};
 
         ::iovec iov[]{{value, data_len - 1}};
-        post_recv(std::begin(iov), std::end(iov), std::begin(desc), &iov[0]);
+	fi_context2 ctxt;
+        post_recv(iov, std::begin(desc), &ctxt);
 
         /* synchronously wait for receive to complete */
-        wait_for_completion(&iov);
+        wait_for_completion(&ctxt);
         CPLOG(1, "%s Received value from two stage get", __func__);
       }
       else {
@@ -2001,7 +2002,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
 
       post_recv(&*iobr);
       sync_inject_send(&*iobs, msg, __func__);
-      wait_for_completion(&*iobr);
+      wait_for_completion(iobr->to_context());
 
       const auto response_msg = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, __func__);
 
@@ -2044,7 +2045,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
 
       /* post both send and receive */
       post_recv(&*iobr);
-      post_send(iobs->iov, iobs->iov + 1, iobs->desc, &*iobs, msg, __func__);
+      post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
 
       out_async_handle = new async_buffer_set_simple(debug_level(), std::move(iobs), std::move(iobr));
     }
@@ -2075,7 +2076,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
 
       post_recv(&*iobr);
       sync_inject_send(&*iobs, msg, msg->base_message_size(), __func__);
-      wait_for_completion(&*iobr);
+      wait_for_completion(iobr->to_context());
 
       const auto response_msg = msg_recv<const mcas::protocol::Message_INFO_response>(&*iobr, __func__);
 
@@ -2113,7 +2114,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
       post_recv(&*iobr);
       sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
 
-      wait_for_completion(&*iobr);
+      wait_for_completion(iobr->to_context());
       const auto response_msg = msg_recv<const mcas::protocol::Message_INFO_response>(&*iobr, __func__);
 
       out_attr.clear();
@@ -2149,7 +2150,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
       post_recv(&*iobr);
       sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
 
-      wait_for_completion(&*iobr);
+      wait_for_completion(iobr->to_context());
       const auto response_msg = msg_recv<const mcas::protocol::Message_stats>(&*iobr, __func__);
 
       status = response_msg->get_status();
@@ -2200,7 +2201,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
       post_recv(&*iobr);
       sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
 
-      wait_for_completion(&*iobr);
+      wait_for_completion(iobr->to_context());
       const auto response_msg = msg_recv<const mcas::protocol::Message_INFO_response>(&*iobr, "FIND");
 
       status = response_msg->get_status();
@@ -2285,7 +2286,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
 
       post_recv(&*iobr);
       sync_send(&*iobs_, msg_, __func__);
-      wait_for_completion(&*iobr); /* wait for response */
+      wait_for_completion(iobr->to_context()); /* wait for response */
 
       return receive_and_process_ado_response(iobr, out_response_);
     }
@@ -2503,18 +2504,18 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     }
     case HANDSHAKE_SEND: {
 
-      const auto iob = make_iob_ptr_send();
-      auto       msg = new (iob->base()) mcas::protocol::Message_handshake(auth_id(), 1);
+      const auto iobs = make_iob_ptr_send();
+      auto       msg = new (iobs->base()) mcas::protocol::Message_handshake(auth_id(), 1);
       msg->set_status(S_OK);
 
       /* set security options */
       msg->security_tls_auth = _options.tls;
       PNOTICE("TLS is %s", _options.tls ? "ON" : "OFF");
-      iob->set_length(msg->msg_len());
-      post_send(iob->iov, iob->iov + 1, iob->desc, &*iob, msg, __func__);
+      iobs->set_length(msg->msg_len());
+      post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
 
       try {
-        wait_for_completion(&*iob);
+        wait_for_completion(iobs->to_context());
       }
       catch (...) {
         PERR("%s %s handshake send failed", __FILE__, __func__);
@@ -2530,10 +2531,10 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     }
     case HANDSHAKE_GET_RESPONSE: {
       const auto iobr = make_iob_ptr_recv();
-      post_recv(iobr->iov, iobr->iov + 1, iobr->desc, &*iobr);
+      post_recv({iobr->iov, iobr->iov + 1}, iobr->desc, iobr->to_context());
 
       try {
-        wait_for_completion(&*iobr);
+        wait_for_completion(iobr->to_context());
         const auto response_msg = msg_recv<const mcas::protocol::Message_handshake_reply>(&*iobr, "handshake");
 
         /* server is indicating that it wants to start TLS session */
@@ -2562,11 +2563,11 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
       auto       msg  = new (iobs->base()) mcas::protocol::Message_close_session(reinterpret_cast<uint64_t>(this));
 
       iobs->set_length(msg->msg_len());
-      post_send(iobs->iov, iobs->iov + 1, iobs->desc, &*iobs, msg, __func__);
+      post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
 
       // server-side may have disappeared
       // try {
-      //   wait_for_completion(&*iobs);
+      //   wait_for_completion(iobs->to_context());
       // }
       // catch (...) {
       // }
@@ -2613,7 +2614,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     auto iobr = p_connection->make_iob_ptr_recv();
 
     p_connection->post_recv(&*iobr);
-    p_connection->wait_for_completion(&*iobr); /* await response */
+    p_connection->wait_for_completion(iobr->to_context()); /* await response */
 
     void * base_v = iobr->base();
     uint64_t * base = reinterpret_cast<uint64_t*>(base_v);

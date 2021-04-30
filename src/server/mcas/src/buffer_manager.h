@@ -24,6 +24,7 @@
 #include <api/fabric_itf.h>
 #include <api/kvstore_itf.h>
 #include <api/registrar_memory_direct.h> /* Opaque_memory_region */
+#include <rdma/fabric.h> /* fi_context2 */
 #include <sys/mman.h>
 
 #include "mcas_config.h"
@@ -143,9 +144,12 @@ public:
   };
 
   struct buffer_internal
-    : private std::unique_ptr<void, free_deleter>
+    : protected fi_context2
+    , private std::unique_ptr<void, free_deleter>
     , public buffer_base
   {
+    fi_context2 *to_context() { return this; }
+    static buffer_internal *to_buffer(fi_context2 *c) { return static_cast<buffer_internal *>(c); }
     ::iovec iov[2];
     void *desc[2];
     iov_mem_lock _ml;

@@ -43,6 +43,6 @@ cb_ctxt::cb_ctxt(
 {
   if ( _response )
   {
-    _state->comm().post_recv(&*_buffer.v.begin(), &*_buffer.v.end(), &*_buffer.d.begin(), this);
+    _state->comm().post_recv(_buffer.v, &*_buffer.d.begin(), this);
   }
 }

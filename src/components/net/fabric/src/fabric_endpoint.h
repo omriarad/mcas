@@ -66,6 +66,7 @@ struct fabric_endpoint
 	, public component::IFabric_endpoint_connected
 	, public event_consumer
 {
+  using context_t = component::fabric::context_t;
 private:
   using byte_span = common::byte_span;
   Fabric &_fabric;
@@ -120,6 +121,15 @@ private:
   /* true after an FI_SHUTDOWN event has been observed */
   std::atomic<bool> _shut_down;
 
+	explicit fabric_endpoint(
+		Fabric &fabric
+		, event_producer &ev
+		, std::tuple<
+			std::shared_ptr<::fi_info>
+			, fabric_types::addr_ep_t
+		> domain_info_and_peer_addr
+	);
+
   /* BEGIN component::IFabric_op_completer */
 
   /* END IFabric_op_completer */
@@ -162,6 +172,33 @@ private:
 	);
 
 public:
+  /*
+   * @throw fabric_bad_alloc : std::bad_alloc - out of memory
+   * @throw fabric_runtime_error : std::runtime_error : ::fi_domain fail
+   * @throw fabric_runtime_error : std::runtime_error : ::fi_ep_bind fail
+   * @throw fabric_runtime_error : std::runtime_error : ::fi_enable fail
+   * @throw fabric_runtime_error : std::runtime_error : ::fi_ep_bind fail (event registration)
+   * @throw fabric_runtime_error : std::runtime_error : ::fi_endpoint fail (make_fid_aep)
+   * @throw fabric_runtime_error : std::runtime_error : ::fi_wait_open fail
+   * @throw fabric_runtime_error : std::runtime_error : ::fi_cq_open fail (make_fid_cq)
+   * @throw bad_dest_addr_alloc
+   * @throw std::system_error (receiving fabric server name)
+   * @throw std::system_error - creating event pipe fd pair
+   */
+  explicit fabric_endpoint(
+    Fabric &fabric
+    , event_producer &ev
+    , const ::fi_info &info
+    , common::string_view remote_addr_
+    , std::uint16_t port
+  );
+  explicit fabric_endpoint(
+    Fabric &fabric
+    , event_producer &ev
+    , const ::fi_info &info
+  );
+
+  ~fabric_endpoint();
   const ::fi_info &ep_info() const { return *_ep_info; }
   ::fi_info &modifiable_ep_info() const { return *_ep_info; }
   Fabric_cq &rxcq() { return _rxcq; }
@@ -197,22 +234,22 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite &completion_callback, void *callback_param) override;
+  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite &completion_callback, poll_context_t callback_param) override;
   /*
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, void *callback_param) override;
+  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, poll_context_t callback_param) override;
   /**
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions(component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, void *callback_param) override;
+  std::size_t poll_completions(component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, poll_context_t callback_param) override;
   /**
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions_tentative(component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, void *callback_param) override;
+  std::size_t poll_completions_tentative(component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, poll_context_t callback_param) override;
 
   std::size_t stalled_completion_count() override
   {
@@ -236,12 +273,12 @@ public:
   void post_send(
     gsl::span<const ::iovec> buffers
     , void **desc
-    , void *context
+    , context_t context
   );
 
   void post_send(
     gsl::span<const ::iovec> buffers
-    , void *context
+    , context_t context
   );
 
   /*
@@ -250,12 +287,12 @@ public:
   void post_recv(
     gsl::span<const ::iovec> buffers
     , void **desc
-    , void *context
+    , context_t context
   );
 
   void post_recv(
     gsl::span<const ::iovec> buffers
-    , void *context
+    , context_t context
   );
 
   /*
@@ -266,14 +303,14 @@ public:
     , void **desc
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   );
 
   void post_read(
     gsl::span<const ::iovec> buffers
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   );
 
   /*
@@ -284,49 +321,20 @@ public:
     , void **desc
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   );
 
   void post_write(
     gsl::span<const ::iovec> buffers
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   );
 
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_inject fail
    */
   void inject_send(const void *buf, std::size_t len);
-
-public:
-  /*
-   * @throw fabric_bad_alloc : std::bad_alloc - out of memory
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_domain fail
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_ep_bind fail
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_enable fail
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_ep_bind fail (event registration)
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_endpoint fail (make_fid_aep)
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_wait_open fail
-   * @throw fabric_runtime_error : std::runtime_error : ::fi_cq_open fail (make_fid_cq)
-   * @throw bad_dest_addr_alloc
-   * @throw std::system_error (receiving fabric server name)
-   * @throw std::system_error - creating event pipe fd pair
-   */
-  explicit fabric_endpoint(
-    Fabric &fabric
-    , event_producer &ev
-    , ::fi_info &info
-    , common::string_view remote_addr_
-    , std::uint16_t port
-  );
-  explicit fabric_endpoint(
-    Fabric &fabric
-    , event_producer &ev
-    , ::fi_info &info
-  );
-
-  ~fabric_endpoint();
 
   fabric_types::addr_ep_t get_name() const;
 

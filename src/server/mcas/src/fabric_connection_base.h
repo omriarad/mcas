@@ -69,10 +69,6 @@ class Fabric_connection_base : protected common::log_source {
   enum class action_type {
         ACTION_NONE = 0, /* unused */
         ACTION_RELEASE_VALUE_LOCK_SHARED,
-#if 0
-        ACTION_RELEASE_VALUE_LOCK_EXCLUSIVE, /* unused */
-        ACTION_POOL_DELETE, /* unused */
-#endif
   };
 
   /* deferred actions */
@@ -158,21 +154,21 @@ private:
     CPLOG(2, "Completed recv (%p) (complete %zu)", common::p_fmt(iob), _completed_recv_buffers.size());
   }
 
-  static void completion_callback(void *   context,
+  static void completion_callback(component::fabric::context_t context,
                                   status_t st,
                                   std::uint64_t,  // completion_flags,
                                   std::size_t len,
                                   void *      error_data,
-                                  void *      cnxn) noexcept
+                                  component::IFabric_op_completer::poll_context_t cnxn) noexcept
   {
     if (LIKELY(st == S_OK)) {
-      auto iob = static_cast<buffer_t *>(context);
+	    gsl::not_null<buffer_t *> iob(buffer_t::to_buffer(context));
       iob->completion_cb(cnxn, iob);
     }
     else {
       PERR("Fabric_connection_base: fabric operation failed st != S_OK (st=%d, "
            "context=%p, len=%lu)",
-           st, context, len);
+           st, static_cast<void *>(context), len);
       PERR("Error: %s", static_cast<char *>(error_data));
     }
   }
@@ -197,7 +193,7 @@ private:
 
   void post_recv_buffer(buffer_t *buffer)
   {
-    _preconnection->post_recv(buffer->iov, buffer->iov + 1, buffer->desc, buffer);
+    _preconnection->post_recv({buffer->iov, buffer->iov + 1}, buffer->desc, buffer->to_context());
     ++_recv_buffer_posted_count;
     posted_count_log();
     CPLOG(2, "Posted recv (%p) (complete %zu)", common::p_fmt(buffer), _completed_recv_buffers.size());
@@ -219,7 +215,7 @@ private:
     else {
       CPLOG(2, "Fabric_connection_base: posting send (%p, %p)", common::p_fmt(buffer), iov->iov_base);
 
-      transport()->post_send(iov, iov + 1, buffer->desc, buffer);
+      transport()->post_send({iov, iov + 1}, buffer->desc, buffer->to_context());
       ++_send_buffer_posted_count;
       posted_count_log();
       CPLOG(2, "%s buffer (%p)", __func__, common::p_fmt(buffer));
@@ -236,7 +232,7 @@ private:
     CPLOG(2, "Posted send (%p) ... value (%.*s) (len=%lu,ptr=%p)", common::p_fmt(buffer),
          int(val_iov.iov_len), static_cast<char *>(val_iov.iov_base), val_iov.iov_len, val_iov.iov_base);
 
-    transport()->post_send(buffer->iov, buffer->iov + 2, buffer->desc, buffer);
+    transport()->post_send({buffer->iov, buffer->iov + 2}, buffer->desc, buffer->to_context());
   }
 
   buffer_t *posted_recv()

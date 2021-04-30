@@ -54,7 +54,7 @@ void remote_memory_accessor::send_msg(component::IFabric_endpoint_connected &cnx
   std::vector<void *> d{rm_.desc()};
   try
   {
-    cnxn_.post_send(&*v.begin(), &*v.end(), &*d.begin(), this);
+    cnxn_.post_send(v, &*d.begin(), this);
     ::wait_poll(
       cnxn_
       , [this] (void *ctxt_, ::status_t stat_, std::uint64_t, std::size_t, void *) -> void

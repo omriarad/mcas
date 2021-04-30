@@ -113,7 +113,7 @@ void *Fabric_server::get_memory_descriptor(
 void Fabric_server::post_send(
 	gsl::span<const ::iovec> buffers
 	, void **desc
-	, void *context
+	, context_t context
 )
 {
 	return aep()->post_send(buffers, desc, context);
@@ -121,7 +121,7 @@ void Fabric_server::post_send(
 
 void Fabric_server::post_send(
 	gsl::span<const ::iovec> buffers
-	, void *context
+	, context_t context
 )
 {
 	return aep()->post_send(buffers, context);
@@ -130,7 +130,7 @@ void Fabric_server::post_send(
 void Fabric_server::post_recv(
 	gsl::span<const ::iovec> buffers
 	, void **desc
-	, void *context
+	, context_t context
 )
 {
 	return aep()->post_recv(buffers, desc, context);
@@ -138,7 +138,7 @@ void Fabric_server::post_recv(
 
 void Fabric_server::post_recv(
 	gsl::span<const ::iovec> buffers
-	, void *context
+	, context_t context
 )
 {
 	return aep()->post_recv(buffers, context);
@@ -149,7 +149,7 @@ void Fabric_server::post_read(
 	, void **desc
 	, std::uint64_t remote_addr
 	, std::uint64_t key
-	, void *context
+	, context_t context
 )
 {
 	return aep()->post_read(buffers, desc, remote_addr, key, context);
@@ -159,7 +159,7 @@ void Fabric_server::post_read(
 	gsl::span<const ::iovec> buffers,
 	std::uint64_t remote_addr,
 	std::uint64_t key,
-	void *context
+	context_t context
 )
 {
 	return aep()->post_read(buffers, remote_addr, key, context);
@@ -170,7 +170,7 @@ void Fabric_server::post_write(
 	, void **desc
 	, std::uint64_t remote_addr
 	, std::uint64_t key
-	, void *context
+	, context_t context
 )
 {
 	return aep()->post_write(buffers, desc, remote_addr, key, context);
@@ -180,7 +180,7 @@ void Fabric_server::post_write(
 	gsl::span<const ::iovec> buffers,
 	std::uint64_t remote_addr,
 	std::uint64_t key,
-	void *context
+	context_t context
 )
 {
 	return aep()->post_write(buffers, remote_addr, key, context);

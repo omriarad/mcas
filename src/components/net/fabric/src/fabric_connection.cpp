@@ -16,6 +16,9 @@
 
 #include "fabric_endpoint.h"
 
+#include "rdma-fi_cm.h" /* fi_shutdown */
+#include <common/logging.h> /* PLOG */
+
 fabric_connection::fabric_connection(
 	component::IFabric_endpoint_unconnected_client *aep_
 		, fabric_types::addr_ep_t peer_addr_
@@ -32,6 +35,20 @@ fabric_connection::fabric_connection(
 	: _aep(static_cast<fabric_endpoint *>(aep_))
 	, _peer_addr(peer_addr_)
 {
+}
+
+fabric_connection::~fabric_connection()
+{
+  try
+  {
+    /* "the flags parameter is reserved and must be 0" */
+    ::fi_shutdown(&aep()->ep(), 0);
+    /* The other side may in turn give us a shutdown event. We do not need to see it. */
+  }
+  catch ( const std::exception &e )
+  {
+    PLOG("connection shutdown error %s", e.what());
+  }
 }
 
 fabric_endpoint *fabric_connection::aep() const

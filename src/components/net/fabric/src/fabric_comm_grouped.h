@@ -31,6 +31,7 @@ struct async_req_record;
 class Fabric_comm_grouped
   : public component::IFabric_group
 {
+	using context_t = IFabric_group::context_t;
   Fabric_generic_grouped &_conn;
   Fabric_cq_grouped _rx;
   Fabric_cq_grouped _tx;
@@ -47,14 +48,14 @@ public:
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_sendv fail
    */
-  void post_send(gsl::span<const ::iovec> buffers, void **desc, void *context) override;
-  void post_send(gsl::span<const ::iovec> buffers, void *context) override;
+  void post_send(gsl::span<const ::iovec> buffers, void **desc, context_t context) override;
+  void post_send(gsl::span<const ::iovec> buffers, context_t context) override;
 
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_recvv fail
    */
-  void post_recv(gsl::span<const ::iovec> buffers, void **desc, void *context) override;
-  void post_recv(gsl::span<const ::iovec> buffers, void *context) override;
+  void post_recv(gsl::span<const ::iovec> buffers, void **desc, context_t context) override;
+  void post_recv(gsl::span<const ::iovec> buffers, context_t context) override;
 
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_readv fail
@@ -64,13 +65,13 @@ public:
     , void **desc
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   ) override;
   void post_read(
     gsl::span<const ::iovec> buffers
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   ) override;
 
   /*
@@ -81,13 +82,13 @@ public:
     , void **desc
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   ) override;
   void post_write(
     gsl::span<const ::iovec> buffers
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   ) override;
 
   /*

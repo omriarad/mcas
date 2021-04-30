@@ -24,12 +24,11 @@
 #include "fabric_types.h"
 #include "fd_control.h"
 
-#include "rdma-fi_cm.h" /* fi_connect, fi_shutdown */
+#include "rdma-fi_cm.h" /* fi_connect */
 
 #include <algorithm> /* copy */
 #include <cstdint> /* size_t */
 #include <exception>
-#include <iostream> /* cerr */
 #include <memory> /* unique_ptr */
 
 namespace
@@ -71,20 +70,6 @@ try
 catch ( fabric_runtime_error &e )
 {
   throw e.add("in Fabric_connection_client constuctor");
-}
-
-Fabric_connection_client::~Fabric_connection_client()
-{
-  try
-  {
-    /* "the flags parameter is reserved and must be 0" */
-    ::fi_shutdown(&aep()->ep(), 0);
-    /* The server may in turn give us a shutdown event. We do not need to see it. */
-  }
-  catch ( const std::exception &e )
-  {
-    std::cerr << "CLIENT connection shutdown error " << e.what() << "\n";
-  }
 }
 
 /* _ev.read_eq() in client, no-op in server */

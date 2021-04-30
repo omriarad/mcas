@@ -23,6 +23,7 @@
 struct cnxn_state;
 
 struct cb_ctxt
+  : fi_context2
 {
   using cb_t = void (*)(cb_ctxt *ctxt, ::status_t stat, std::size_t len);
 private:

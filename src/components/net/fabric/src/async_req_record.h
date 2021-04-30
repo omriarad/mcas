@@ -20,6 +20,9 @@
 #ifndef _FABRIC_ASYNC_REQ_RECORD_H_
 #define _FABRIC_ASYNC_REQ_RECORD_H_
 
+#include <api/fabric_itf.h> /* context_t */
+#include <rdma/fabric.h> /* fi_context2 */
+
 class Fabric_cq_grouped;
 
 /*
@@ -29,12 +32,14 @@ class Fabric_cq_grouped;
  * remember the fabric_cq to be used for completion.
  */
 struct async_req_record
+  : fi_context2
 {
+	using context_t = component::fabric::context_t;
 private:
   Fabric_cq_grouped *_cq;
-  void *_context;
+  context_t _context;
 public:
-  explicit async_req_record(Fabric_cq_grouped *cq_, void *context_)
+  explicit async_req_record(Fabric_cq_grouped *cq_, context_t context_)
     : _cq(cq_)
     , _context(context_)
   {
@@ -45,7 +50,7 @@ public:
   async_req_record(const async_req_record &) = delete;
   async_req_record &operator=(const async_req_record &) = delete;
   Fabric_cq_grouped *cq() const { return _cq; }
-  void *context() const { return _context; }
+  context_t context() const { return _context; }
 };
 
 #endif

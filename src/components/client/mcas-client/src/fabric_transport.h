@@ -20,6 +20,7 @@
 #include <api/fabric_itf.h> /* IFabric_client, IFabric_memory_region, IFabric_op_completer. IKVStore */
 #include <common/destructible.h>
 #include <common/exceptions.h>
+#include <gsl/span>
 #include <iterator> /* begin, end */
 
 namespace mcas
@@ -31,10 +32,12 @@ static constexpr size_t NUM_BUFFERS = 64; /* defines max outstanding */
 
 class Fabric_transport : protected common::log_source {
   friend struct mcas_client;
+  using context_t = component::fabric::context_t;
+  using poll_context_t = component::IFabric_op_completer::poll_context_t;
 
-  inline void u_post_recv(const ::iovec *first, const ::iovec *last, void **descriptors, void *context)
+  inline void u_post_recv(gsl::span<const ::iovec> iovs, void **descriptors, context_t context)
   {
-    _transport->post_recv(first, last, descriptors, context);
+    _transport->post_recv(iovs, descriptors, context);
   }
 
  public:
@@ -56,7 +59,7 @@ class Fabric_transport : protected common::log_source {
 
   ~Fabric_transport() {}
 
-  static component::IFabric_op_completer::cb_acceptance completion_callback(void *        context,
+  static component::IFabric_op_completer::cb_acceptance completion_callback(context_t context,
                                                                             status_t      st,
                                                                             std::uint64_t completion_flags,
                                                                             std::size_t,  // len
@@ -68,7 +71,7 @@ class Fabric_transport : protected common::log_source {
    *
    * @param iob IO buffer to wait for completion of
    */
-  void wait_for_completion(void *wr);
+  void wait_for_completion(fi_context2 *wr);
 
   /**
    * Test completion of work request
@@ -77,7 +80,7 @@ class Fabric_transport : protected common::log_source {
    *
    * @return True iff complete
    */
-  inline bool test_completion(void *wr)
+  inline bool test_completion(fi_context2 *wr)
   {
     _transport->poll_completions_tentative(completion_callback, &wr);
     return (wr == nullptr);
@@ -103,15 +106,15 @@ class Fabric_transport : protected common::log_source {
 
   inline void deregister_memory(memory_region_t region) { _transport->deregister_memory(region); }
 
-  inline void post_send(const ::iovec *first, const ::iovec *last, void **descriptors, void *context)
+  inline void post_send(gsl::span<const ::iovec> iovs, void **descriptors, context_t context)
   {
-    _transport->post_send(first, last, descriptors, context);
+    _transport->post_send(iovs, descriptors, context);
   }
 
-  inline void post_recv(const ::iovec *first, const ::iovec *last, void **descriptors, void *context)
+  inline void post_recv(gsl::span<const ::iovec> iovs, void **descriptors, context_t context)
   {
-    CPLOG(2, "%s (%p): IOV count %zu first %p:%zx", __func__, context, std::size_t(last - first), first->iov_base, first->iov_len);
-    u_post_recv(first, last, descriptors, context);
+    CPLOG(2, "%s (%p): IOV count %zu first %p:%zx", __func__, static_cast<void *>(context), iovs.size(), iovs.data()->iov_base, iovs.data()->iov_len);
+    u_post_recv(iovs, descriptors, context);
   }
 
   inline size_t max_message_size() const { return _transport->max_message_size(); }
@@ -123,8 +126,8 @@ class Fabric_transport : protected common::log_source {
    */
   void sync_send(buffer_t *iob)
   {
-    post_send(iob->iov, iob->iov + 1, iob->desc, iob);
-    wait_for_completion(iob);
+    post_send({iob->iov, iob->iov + 1}, iob->desc, iob->to_context());
+    wait_for_completion(iob->to_context());
   }
 
   /**
@@ -137,8 +140,8 @@ class Fabric_transport : protected common::log_source {
   {
     iob->iov[1] = ::iovec{iob_extra->base(), iob_extra->original_length()};
     iob->desc[1] = iob_extra->get_desc();
-    post_send(iob->iov, iob->iov + 2, iob->desc, iob);
-    wait_for_completion(iob);
+    post_send({iob->iov, iob->iov + 2}, iob->desc, iob->to_context());
+    wait_for_completion(iob->to_context());
   }
 
   /**
@@ -155,8 +158,8 @@ class Fabric_transport : protected common::log_source {
     }
     else {
       /* too big for inject, do plain send */
-      post_send(iob->iov, iob->iov + 1, iob->desc, iob);
-      wait_for_completion(iob);
+      post_send({iob->iov, iob->iov + 1}, iob->desc, iob->to_context());
+      wait_for_completion(iob->to_context());
     }
   }
 
@@ -167,17 +170,8 @@ class Fabric_transport : protected common::log_source {
    */
   void post_send(gsl::not_null<buffer_t *> iob)
   {
-    post_send(iob->iov, iob->iov + 1, iob->desc, iob);
+    post_send({iob->iov, iob->iov + 1}, iob->desc, iob->to_context());
   }
-
-#if 0
-  void post_send(buffer_t *iob, buffer_external *iob_extra)
-  {
-    iovec v[2]   = {iob->iov[0], iob_extra->iov[0]};
-    void *desc[] = {iob->desc[0], iob_extra->desc[0]};
-    post_send(&v[0], &v[2], desc, iob);
-  }
-#endif
 
   /**
    * Post receive then wait for completion before returning.
@@ -189,12 +183,12 @@ class Fabric_transport : protected common::log_source {
   void sync_recv(buffer_t *iob)
   {
     post_recv(iob);
-    wait_for_completion(iob);
+    wait_for_completion(iob->to_context());
   }
 
   void post_recv(buffer_t *iob)
   {
-    post_recv(iob->iov, iob->iov + 1, iob->desc, iob);
+    post_recv({iob->iov, iob->iov + 1}, iob->desc, iob->to_context());
   }
 
   /**
@@ -206,35 +200,23 @@ class Fabric_transport : protected common::log_source {
                   void **        desc,
                   uint64_t       remote_addr,
                   std::uint64_t  remote_key,
-                  void *         context)
+                  context_t   context)
   {
     _transport->post_write(iov, desc, remote_addr, remote_key, context);
   }
-#if 0
-  void post_write(const ::iovec *first,
-                  const ::iovec *last,
-                  void **        desc,
-                  uint64_t       remote_addr,
-                  std::uint64_t  remote_key,
-                  void *         context)
-  {
-    _transport->post_write(first, last, desc, remote_addr, remote_key, context);
-  }
-#endif
 
   /**
    * Post read (DMA)
    *
    * @param iob First IO buffer
    */
-  void post_read(const ::iovec *first,
-                 const ::iovec *last,
+  void post_read(gsl::span<const ::iovec> iovs,
                  void **        desc,
                  uint64_t       remote_addr,
                  std::uint64_t  remote_key,
-                 void *         context)
+                 context_t         context)
   {
-    _transport->post_read(first, last, desc, remote_addr, remote_key, context);
+    _transport->post_read(iovs, desc, remote_addr, remote_key, context);
   }
 
   component::IKVStore::memory_handle_t register_direct_memory(common::const_byte_span region)

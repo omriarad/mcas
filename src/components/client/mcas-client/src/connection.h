@@ -85,13 +85,13 @@ using Connection_base = mcas::client::Fabric_transport;
  *
  */
 class Connection_handler : public Connection_base {
-  using iob_ptr        = std::unique_ptr<client::Fabric_transport::buffer_t, iob_free>;
   using locate_element = protocol::Message_IO_response::locate_element;
   using string_view = common::string_view;
 
 public:
   friend struct TLS_transport;
 
+  using iob_ptr = std::unique_ptr<client::Fabric_transport::buffer_t, iob_free>;
   using memory_region_t = typename Transport::memory_region_t;
   using byte = common::byte;
   using string_view_byte = common::basic_string_view<byte>;
@@ -437,14 +437,6 @@ public:
 
 
 private:
-  /* unused */
-#if 0
-  void post_send(buffer_t *iob, const protocol::Message_IO_request *msg, buffer_external *iob_extra, const char *desc)
-  {
-    msg_send_log(msg, iob, desc);
-    Connection_base::post_send(iob, iob_extra);
-  }
-#endif
   template <typename MT>
   void post_send(buffer_t *iob, const MT *msg, const char *desc)
   {
@@ -453,10 +445,10 @@ private:
   }
 
   template <typename MT>
-  void post_send(const ::iovec *first, const ::iovec *last, void **descriptors, void *context, const MT *msg, const char *desc)
+  void post_send(gsl::span<const ::iovec> iov, void **descriptors, fi_context2 *context, const MT *msg, const char *desc)
   {
     msg_send_log(msg, context, desc);
-    Connection_base::post_send(first, last, descriptors, context);
+    Connection_base::post_send(iov, descriptors, context);
   }
 
   /**

@@ -44,6 +44,7 @@ class Fabric_client_grouped
   : public component::IFabric_client_grouped
   , public Fabric_connection_client
 {
+  using context_t = component::fabric::context_t;
   Fabric_generic_grouped _g;
 
   /* BEGIN component::IFabric_client_grouped (IFabric_connection) */
@@ -135,7 +136,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite &completion_callback, void *callback_param) override
+  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite &completion_callback, poll_context_t callback_param) override
   {
     return _g.poll_completions(completion_callback, callback_param);
   }
@@ -143,7 +144,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, void *callback_param) override
+  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, poll_context_t callback_param) override
   {
     return _g.poll_completions_tentative(completion_callback, callback_param);
   }
@@ -167,7 +168,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, void *callback_param) override
+  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, poll_context_t callback_param) override
   {
     return _g.poll_completions(completion_callback, callback_param);
   }
@@ -175,7 +176,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, void *callback_param) override
+  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, poll_context_t callback_param) override
   {
     return _g.poll_completions_tentative(completion_callback, callback_param);
   }
@@ -197,8 +198,8 @@ public:
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_recvv fail
    */
-  void post_recv(gsl::span<const ::iovec> buffers, void **desc, void *context) override { return aep()->post_recv(buffers, desc, context); }
-  void post_recv(gsl::span<const ::iovec> buffers, void *context) override { return aep()->post_recv(buffers, context); }
+  void post_recv(gsl::span<const ::iovec> buffers, void **desc, context_t context) override { return aep()->post_recv(buffers, desc, context); }
+  void post_recv(gsl::span<const ::iovec> buffers, context_t context) override { return aep()->post_recv(buffers, context); }
 
   fabric_types::addr_ep_t get_name() const { return _g.get_name(); }
 

@@ -18,6 +18,11 @@
 #include <common/byte_span.h>
 #include <common/string_view.h>
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow"
+#include <rdma/fabric.h>
+#pragma GCC diagnostic pop
+
 #include <gsl/pointers>
 #include <gsl/span>
 #include <chrono>
@@ -71,6 +76,14 @@ struct iovec; /* definition in <sys/uio.h> */
 
 namespace component
 {
+  namespace fabric
+  {
+#if 1 // MCAS_USE_CONTEXT2
+    using context_t = gsl::not_null<fi_context2 *>;
+#else
+    using context_t = void *;
+#endif
+  }
 
 class IFabric_runtime_error : public std::runtime_error {
  public:
@@ -94,6 +107,7 @@ struct IFabric_memory_region;
 
 class IFabric_op_completer {
  public:
+	 using context_t = fabric::context_t;
   virtual ~IFabric_op_completer() {}
 
   /*
@@ -119,35 +133,36 @@ class IFabric_op_completer {
    *
    * @return Number of completions processed
    */
-  using complete_old = std::function<void(void *context, ::status_t)>;
+  using complete_old = std::function<void(context_t context, ::status_t)>;
+  using poll_context_t = void *;
   using complete_definite =
-      std::function<void(void *context, ::status_t, std::uint64_t completion_flags, std::size_t len, void *error_data)>;
+      std::function<void(context_t context, ::status_t, std::uint64_t completion_flags, std::size_t len, void *error_data)>;
   using complete_tentative = std::function<
-      cb_acceptance(void *context, ::status_t, std::uint64_t completion_flags, std::size_t len, void *error_data)>;
+      cb_acceptance(context_t context, ::status_t, std::uint64_t completion_flags, std::size_t len, void *error_data)>;
   using complete_param_definite = std::function<
-      void(void *context, ::status_t, std::uint64_t completion_flags, std::size_t len, void *error_data, void *param)>;
-  using complete_param_tentative              = std::function<cb_acceptance(void *context,
+      void(context_t context, ::status_t, std::uint64_t completion_flags, std::size_t len, void *error_data, poll_context_t param)>;
+  using complete_param_tentative              = std::function<cb_acceptance(context_t context,
                                                                ::status_t,
                                                                std::uint64_t completion_flags,
                                                                std::size_t   len,
                                                                void *        error_data,
-                                                               void *        param)>;
-  using complete_param_definite_ptr_noexcept  = void (*)(void *context,
+                                                               poll_context_t        param)>;
+  using complete_param_definite_ptr_noexcept  = void (*)(context_t context,
                                                         ::status_t,
                                                         std::uint64_t completion_flags,
                                                         std::size_t   len,
                                                         void *        error_data,
-                                                        void *        param)
+                                                        poll_context_t        param)
 #if 201703L <= __cplusplus
 	noexcept
 #endif
     ;
-  using complete_param_tentative_ptr_noexcept = cb_acceptance (*)(void *context,
+  using complete_param_tentative_ptr_noexcept = cb_acceptance (*)(context_t context,
                                                                   ::status_t,
                                                                   std::uint64_t completion_flags,
                                                                   std::size_t   len,
                                                                   void *        error_data,
-                                                                  void *        param)
+                                                                  poll_context_t param)
 #if 201703L <= __cplusplus
 	noexcept
 #endif
@@ -172,25 +187,25 @@ class IFabric_op_completer {
    * @throw IFabric_runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  virtual std::size_t poll_completions(const complete_param_definite &completion_callback, void *callback_param) = 0;
+  virtual std::size_t poll_completions(const complete_param_definite &completion_callback, poll_context_t callback_param) = 0;
   /**
    * @throw IFabric_runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
   virtual std::size_t poll_completions_tentative(const complete_param_tentative &completion_callback,
-                                                 void *                          callback_param) = 0;
+                                                 poll_context_t                          callback_param) = 0;
   /**
    * @throw IFabric_runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
   virtual std::size_t poll_completions(complete_param_definite_ptr_noexcept completion_callback,
-                                       void *                               callback_param) = 0;
+                                       poll_context_t                               callback_param) = 0;
   /**
    * @throw IFabric_runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
   virtual std::size_t poll_completions_tentative(complete_param_tentative_ptr_noexcept completion_callback,
-                                                 void *                                callback_param) = 0;
+                                                 poll_context_t                                callback_param) = 0;
 
   /**
    * Get count of stalled completions.
@@ -240,6 +255,7 @@ class IFabric_op_completer {
 class IFabric_memory_control {
  public:
   using const_byte_span = common::const_byte_span;
+  using context_t = fabric::context_t;
   virtual ~IFabric_memory_control() {}
 
   using memory_region_t = IFabric_memory_region *;
@@ -293,9 +309,8 @@ class IFabric_memory_control {
    *
    * @throw IFabric_runtime_error - ::fi_recvv fail
    */
-  virtual void post_recv(gsl::span<const ::iovec> buffers, void **descriptors, void *context) = 0;
-  void post_recv(const ::iovec *first, const ::iovec *last, void **descriptors, void *context) { return post_recv( {first, last}, descriptors, context); }
-  virtual void post_recv(gsl::span<const ::iovec> buffers, void *context)                           = 0;
+  virtual void post_recv(gsl::span<const ::iovec> buffers, void **descriptors, context_t context) = 0;
+  virtual void post_recv(gsl::span<const ::iovec> buffers, context_t context)                     = 0;
 };
 
 class IFabric_client;
@@ -308,6 +323,7 @@ class IFabric_client_grouped;
 class IFabric_initiator
 {
  public:
+	using context_t = fabric::context_t;
 	virtual ~IFabric_initiator() {}
   /**
    * Asynchronously post a buffer to the connection
@@ -318,9 +334,8 @@ class IFabric_initiator
    *
    * @throw IFabric_runtime_error std::runtime_error - ::fi_sendv fail
    */
-  virtual void post_send(gsl::span<const ::iovec> buffers, void **descriptors, void *context) = 0;
-  void post_send(const ::iovec *first, const ::iovec *last, void **descriptors, void *context) { return post_send( {first, last}, descriptors, context); }
-  virtual void post_send(gsl::span<const ::iovec> buffers, void *context)                     = 0;
+  virtual void post_send(gsl::span<const ::iovec> buffers, void **descriptors, context_t context) = 0;
+  virtual void post_send(gsl::span<const ::iovec> buffers, context_t context)                     = 0;
 
   /**
    * Post RDMA read operation
@@ -337,18 +352,18 @@ class IFabric_initiator
                          void **        descriptors,
                          std::uint64_t  remote_addr,
                          std::uint64_t  key,
-                         void *         context) = 0;
+                         context_t context) = 0;
   void post_read(const ::iovec *first,
                          const ::iovec *last,
                          void **        descriptors,
                          std::uint64_t  remote_addr,
                          std::uint64_t  key,
-                         void *         context) { return post_read( { first, last }, descriptors, remote_addr, key, context); }
+                         context_t context) { return post_read( { first, last }, descriptors, remote_addr, key, context); }
 
   virtual void post_read(gsl::span<const ::iovec> buffers,
                          std::uint64_t               remote_addr,
                          std::uint64_t               key,
-                         void *                      context) = 0;
+                         context_t context) = 0;
 
   /**
    * Post RDMA write operation
@@ -365,14 +380,14 @@ class IFabric_initiator
                           void **        descriptors,
                           std::uint64_t  remote_addr,
                           std::uint64_t  key,
-                          void *         context) = 0;
+                          context_t context) = 0;
 
   void post_write(const ::iovec *first,
                           const ::iovec *last,
                           void **        descriptors,
                           std::uint64_t  remote_addr,
                           std::uint64_t  key,
-                          void *         context)
+                          context_t context)
   {
     return post_write(
       gsl::span<const ::iovec>(first, last), descriptors, remote_addr, key, context);
@@ -381,7 +396,7 @@ class IFabric_initiator
   virtual void post_write(const gsl::span<const ::iovec> buffers,
                           std::uint64_t               remote_addr,
                           std::uint64_t               key,
-                          void *                      context) = 0;
+                          context_t context) = 0;
 
   /**
    * Send message without completion
@@ -408,6 +423,8 @@ class IFabric_endpoint_connected
 	, public IFabric_initiator
 	, public IFabric_op_completer
 {
+public:
+	using context_t = IFabric_initiator::context_t;
   /* TODO: statistics collection
   */
 };

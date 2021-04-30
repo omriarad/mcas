@@ -13,6 +13,8 @@
 #ifndef _TEST_REMOTE_MEMORY_ACCESSOR_H_
 #define _TEST_REMOTE_MEMORY_ACCESSOR_H_
 
+#include <api/fabric_itf.h> /* fi_context2 */
+
 #include <cstddef> /* size_t */
 
 namespace component
@@ -23,6 +25,7 @@ namespace component
 struct registered_memory;
 
 struct remote_memory_accessor
+	: fi_context2
 {
 protected:
   void send_memory_info(component::IFabric_endpoint_connected &cnxn, registered_memory &rm);

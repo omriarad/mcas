@@ -32,6 +32,7 @@ struct async_req_record;
 
 class Fabric_cq_grouped
 {
+	using poll_context_t = component::IFabric_op_completer::poll_context_t;
   Fabric_cq_generic_grouped &_cq;
   using completion_t = std::tuple<Fabric_cq::fi_cq_entry_t, ::status_t>;
   /* completions for this comm processed but not yet forwarded, or processed and forwarded but deferred (client returned DEFER status) */
@@ -64,10 +65,10 @@ class Fabric_cq_grouped
   std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, const component::IFabric_op_completer::complete_old &cb, ::status_t status);
   std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, const component::IFabric_op_completer::complete_definite &cb, ::status_t status);
   std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, const component::IFabric_op_completer::complete_tentative &cb, ::status_t status);
-  std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, const component::IFabric_op_completer::complete_param_definite &cb, ::status_t status, void *callback_param);
-  std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, const component::IFabric_op_completer::complete_param_tentative &cb, ::status_t status, void *callback_param);
-  std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, component::IFabric_op_completer::complete_param_definite_ptr_noexcept cb, ::status_t status, void *callback_param);
-  std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, component::IFabric_op_completer::complete_param_tentative_ptr_noexcept cb, ::status_t status, void *callback_param);
+  std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, const component::IFabric_op_completer::complete_param_definite &cb, ::status_t status, poll_context_t callback_param);
+  std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, const component::IFabric_op_completer::complete_param_tentative &cb, ::status_t status, poll_context_t callback_param);
+  std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, component::IFabric_op_completer::complete_param_definite_ptr_noexcept cb, ::status_t status, poll_context_t callback_param);
+  std::size_t process_or_queue_completion(const Fabric_cq::fi_cq_entry_t &cq_entry, component::IFabric_op_completer::complete_param_tentative_ptr_noexcept cb, ::status_t status, poll_context_t callback_param);
 public:
   explicit Fabric_cq_grouped(Fabric_cq_generic_grouped &);
   ~Fabric_cq_grouped(); /* Note: need to notify the polling thread that this connection is going away, */

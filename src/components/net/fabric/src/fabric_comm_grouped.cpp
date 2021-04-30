@@ -56,7 +56,7 @@ Fabric_comm_grouped::~Fabric_comm_grouped()
 void Fabric_comm_grouped::post_send(
   gsl::span<const ::iovec> buffers_
   , void **desc_
-  , void *context_
+  , context_t context_
 )
 {
   std::unique_ptr<async_req_record> gc{new async_req_record(&_tx, context_)};
@@ -66,7 +66,7 @@ void Fabric_comm_grouped::post_send(
 
 void Fabric_comm_grouped::post_send(
   gsl::span<const ::iovec> buffers_
-  , void *context_
+  , context_t context_
 )
 {
   std::unique_ptr<async_req_record> gc{new async_req_record(&_tx, context_)};
@@ -85,7 +85,7 @@ void Fabric_comm_grouped::post_send(
 void Fabric_comm_grouped::post_recv(
   gsl::span<const ::iovec> buffers_
   , void **desc_
-  , void *context_
+  , context_t context_
 )
 {
   std::unique_ptr<async_req_record> gc{new async_req_record(&_rx, context_)};
@@ -95,7 +95,7 @@ void Fabric_comm_grouped::post_recv(
 
 void Fabric_comm_grouped::post_recv(
   gsl::span<const ::iovec> buffers_
-  , void *context_
+  , context_t context_
 )
 {
   std::unique_ptr<async_req_record> gc{new async_req_record(&_rx, context_)};
@@ -118,7 +118,7 @@ void Fabric_comm_grouped::post_read(
   , void **desc_
   , uint64_t remote_addr_
   , uint64_t key_
-  , void *context_
+  , context_t context_
 )
 {
   /* ask for a read to buffer */
@@ -131,7 +131,7 @@ void Fabric_comm_grouped::post_read(
   gsl::span<const ::iovec> buffers_,
   uint64_t remote_addr_,
   uint64_t key_,
-  void *context_
+  context_t context_
 )
 {
   /* ask for a read to buffer */
@@ -155,7 +155,7 @@ void Fabric_comm_grouped::post_write(
   , void **desc_
   , uint64_t remote_addr_
   , uint64_t key_
-  , void *context_
+  , context_t context_
 )
 {
   std::unique_ptr<async_req_record> gc{new async_req_record(&_tx, context_)};
@@ -167,7 +167,7 @@ void Fabric_comm_grouped::post_write(
   gsl::span<const ::iovec> buffers_,
   uint64_t remote_addr_,
   uint64_t key_,
-  void *context_
+  context_t context_
 )
 {
   std::unique_ptr<async_req_record> gc{new async_req_record(&_tx, context_)};

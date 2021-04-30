@@ -105,7 +105,7 @@ std::string Fabric_generic_grouped::get_local_addr()
 void Fabric_generic_grouped::post_send(
   gsl::span<const ::iovec> buffers_
   , void **desc_
-  , void *context_
+  , context_t context_
 )
 {
   std::lock_guard<std::mutex> k{_m_cnxn};
@@ -114,7 +114,7 @@ void Fabric_generic_grouped::post_send(
 
 void Fabric_generic_grouped::post_send(
   gsl::span<const ::iovec> buffers_
-  , void *context_
+  , context_t context_
 )
 {
   std::lock_guard<std::mutex> k{_m_cnxn};
@@ -148,7 +148,7 @@ void Fabric_generic_grouped::unblock_completions()
 void Fabric_generic_grouped::post_recv(
   gsl::span<const ::iovec> buffers_
   , void **desc_
-  , void *context_
+  , context_t context_
 )
 {
   std::lock_guard<std::mutex> k{_m_cnxn};
@@ -157,7 +157,7 @@ void Fabric_generic_grouped::post_recv(
 
 void Fabric_generic_grouped::post_recv(
   gsl::span<const ::iovec> buffers_
-  , void *context_
+  , context_t context_
 )
 {
   std::lock_guard<std::mutex> k{_m_cnxn};
@@ -179,7 +179,7 @@ void Fabric_generic_grouped::post_read(
   , void **desc_
   , uint64_t remote_addr_
   , uint64_t key_
-  , void *context_
+  , context_t context_
 )
 {
   std::lock_guard<std::mutex> k{_m_cnxn};
@@ -190,7 +190,7 @@ void Fabric_generic_grouped::post_read(
   gsl::span<const ::iovec> buffers_
   , uint64_t remote_addr_
   , uint64_t key_
-  , void *context_
+  , context_t context_
 )
 {
   std::lock_guard<std::mutex> k{_m_cnxn};
@@ -212,7 +212,7 @@ void Fabric_generic_grouped::post_write(
   , void **desc_
   , uint64_t remote_addr_
   , uint64_t key_
-  , void *context_
+  , context_t context_
 )
 {
   std::lock_guard<std::mutex> k{_m_cnxn};
@@ -223,7 +223,7 @@ void Fabric_generic_grouped::post_write(
   gsl::span<const ::iovec> buffers_
   , uint64_t remote_addr_
   , uint64_t key_
-  , void *context_
+  , context_t context_
 )
 {
   std::lock_guard<std::mutex> k{_m_cnxn};

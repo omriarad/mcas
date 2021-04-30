@@ -68,26 +68,38 @@ struct mr_and_address
 
 namespace
 {
-	fabric_types::addr_ep_t set_peer(std::unique_ptr<Fd_control> control_, ::fi_info &ep_info_)
+	std::tuple<
+		std::shared_ptr<::fi_info>
+		, fabric_types::addr_ep_t
+	> set_peer(std::unique_ptr<Fd_control> control_, const ::fi_info &info_)
 	{
+  		std::shared_ptr<::fi_info> domain_info(make_fi_infodup(info_, "domain"));
 		fabric_types::addr_ep_t peer_addr;
-		if ( ep_info_.ep_attr->type == FI_EP_MSG )
+		if ( domain_info->ep_attr->type == FI_EP_MSG )
 		{
 			peer_addr = control_->recv_name();
 			/* fi_connect, at least for verbs, ignores addr and uses dest_addr from the hints. */
-			ep_info_.dest_addrlen = peer_addr.size();
-			if ( 0 != ep_info_.dest_addrlen )
+			domain_info->dest_addrlen = peer_addr.size();
+			if ( 0 != domain_info->dest_addrlen )
 			{
-				ep_info_.dest_addr = ::malloc(ep_info_.dest_addrlen);
-				if ( ! ep_info_.dest_addr )
+				domain_info->dest_addr = ::malloc(domain_info->dest_addrlen);
+				if ( ! domain_info->dest_addr )
 				{
-					throw bad_dest_addr_alloc(ep_info_.dest_addrlen);
+					throw bad_dest_addr_alloc(domain_info->dest_addrlen);
 				}
-				std::copy(peer_addr.begin(), peer_addr.end(), static_cast<char *>(ep_info_.dest_addr));
+				std::copy(peer_addr.begin(), peer_addr.end(), static_cast<char *>(domain_info->dest_addr));
 			}
 		}
 		/* Other providers will look in addr: provide the name there as well. */
-		return peer_addr;
+		return { domain_info, peer_addr };
+	}
+	std::tuple<
+		std::shared_ptr<::fi_info>
+		, fabric_types::addr_ep_t
+	> set_no_peer(const ::fi_info &info_)
+	{
+  		std::shared_ptr<::fi_info> domain_info(make_fi_infodup(info_, "domain"));
+		return { domain_info, fabric_types::addr_ep_t() };
 	}
 }
 
@@ -102,14 +114,14 @@ namespace
 fabric_endpoint::fabric_endpoint(
     Fabric &fabric_
     , event_producer &ev_
-    , ::fi_info &info_
-    , common::string_view remote_address_
-    , std::uint16_t port_
+		, std::tuple<
+			std::shared_ptr<::fi_info>
+			, fabric_types::addr_ep_t
+		> domain_info_and_peer_addr_
   )
   : _fabric(fabric_)
-  , _domain_info(make_fi_infodup(info_, "domain"))
-	/* Ask the server (over TCP) what address shoudl be used for the fabric. Remember that address */
-	, _peer_addr(set_peer(std::make_unique<Fd_control>(remote_address_, _fabric.choose_port(port_)), *_domain_info))
+  , _domain_info(std::get<0>(domain_info_and_peer_addr_))
+	, _peer_addr(std::get<1>(domain_info_and_peer_addr_))
   /* NOTE: "this" is returned for context when domain-level events appear in the event queue bound to the domain
    * and not bound to a more specific entity (an endpoint, mr, av, pr scalable_ep).
    */
@@ -163,59 +175,24 @@ fabric_endpoint::fabric_endpoint(
 fabric_endpoint::fabric_endpoint(
     Fabric &fabric_
     , event_producer &ev_
-    , ::fi_info &info_
+    , const ::fi_info &info_
+    , common::string_view remote_address_
+    , std::uint16_t port_
   )
-  : _fabric(fabric_)
-  , _domain_info(make_fi_infodup(info_, "domain"))
-	, _peer_addr(fabric_types::addr_ep_t())
-  /* NOTE: "this" is returned for context when domain-level events appear in the event queue bound to the domain
-   * and not bound to a more specific entity (an endpoint, mr, av, pr scalable_ep).
-   */
-  , _domain(_fabric.make_fid_domain(*_domain_info, this))
-  , _m{}
-  , _mr_addr_to_mra{}
-  , _paging_test(common::env_value<bool>("FABRIC_PAGING_TEST", false))
-  , _fault_counter(_paging_test || common::env_value<bool>("FABRIC_PAGING_REPORT", false))
-#if CAN_USE_WAIT_SETS
-  /* verbs provider does not support wait sets */
-  , _wait_attr{
-    FI_WAIT_FD /* wait_obj type. verbs supports ony FI_WAIT_FD */
-    , 0U /* flags, "must be set to 0 by the caller" */
-  }
-  , _wait_set(make_fid_wait(fabric(), _wait_attr))
-#endif
-  , _m_fd_unblock_set{}
-  , _fd_unblock_set{}
-#if CAN_USE_WAIT_SETS
-  , _cq_attr{4096, 0U, Fabric_cq::fi_cq_format, FI_WAIT_SET, 0U, FI_CQ_COND_NONE, &*_wait_set}
-#else
-  , _cq_attr{4096, 0U, Fabric_cq::fi_cq_format, FI_WAIT_FD, 0U, FI_CQ_COND_NONE, nullptr}
-#endif
-  , _rxcq(make_fid_cq(_cq_attr, this), "rx")
-  , _txcq(make_fid_cq(_cq_attr, this), "tx")
-  , _ep_info(make_fi_infodup(domain_info(), "endpoint construction"))
-  , _ep(make_fid_aep(*_ep_info, this))
-  /* events */
-  , _event_pipe{}
-  /* NOTE: the various tests for type (FI_EP_MSG) should perhaps
-   * move to derived classses.
-   *                      connection  message boundaries  reliable
-   * FI_EP_MSG:               Y               Y              Y
-   * FI_EP_SOCK_STREAM:       Y               N              Y
-   * FI_EP_RDM:               N               Y              Y
-   * FI_EP_DGRAM:             N               Y              N
-   * FI_EP_SOCK_DGRAM:        N               N              N
-   */
-  , _event_registration( ep_info().ep_attr->type == FI_EP_MSG ? new event_registration(ev_, *this, ep()) : nullptr )
-  , _shut_down(false)
-{
-/* ERROR (probably in libfabric verbs): closing an active endpoint prior to fi_ep_bind causes a SEGV,
- * as fi_ibv_msg_ep_close will call fi_ibv_cleanup_cq whether there is CQ state to clean up.
- */
-  CHECK_FI_ERR(::fi_ep_bind(&*_ep, _txcq.fid(), FI_TRANSMIT));
-  CHECK_FI_ERR(::fi_ep_bind(&*_ep, _rxcq.fid(), FI_RECV));
-  CHECK_FI_ERR(::fi_enable(&*_ep));
-}
+  : fabric_endpoint(fabric_, ev_
+	/* Ask the server (over TCP) what address should be used for the fabric. Remember that address */
+	, set_peer(std::make_unique<Fd_control>(remote_address_, _fabric.choose_port(port_)), info_)
+	)
+{}
+
+/* Note: the info is owned by the caller, and must be copied if it is to be saved. */
+fabric_endpoint::fabric_endpoint(
+    Fabric &fabric_
+    , event_producer &ev_
+    , const ::fi_info &info_
+  )
+  : fabric_endpoint(fabric_, ev_, set_no_peer(info_))
+{}
 
 fabric_endpoint::~fabric_endpoint()
 {
@@ -232,7 +209,7 @@ fabric_endpoint::~fabric_endpoint()
 void fabric_endpoint::post_send(
   gsl::span<const ::iovec> buffers_
   , void **desc_
-  , void *context_
+  , context_t context_
 )
 {
   CHECK_FI_EQ(
@@ -251,7 +228,7 @@ void fabric_endpoint::post_send(
 
 void fabric_endpoint::post_send(
   gsl::span<const ::iovec> buffers_
-  , void *context_
+  , context_t context_
 )
 {
   auto desc = populated_desc(buffers_);
@@ -269,7 +246,7 @@ void fabric_endpoint::post_send(
 void fabric_endpoint::post_recv(
   gsl::span<const ::iovec> buffers_
   , void **desc_
-  , void *context_
+  , context_t context_
 )
 {
   CHECK_FI_EQ(
@@ -288,7 +265,7 @@ void fabric_endpoint::post_recv(
 
 void fabric_endpoint::post_recv(
   gsl::span<const ::iovec> buffers_
-  , void *context_
+  , context_t context_
 )
 {
   auto desc = populated_desc(buffers_);
@@ -310,7 +287,7 @@ void fabric_endpoint::post_read(
   , void **desc_
   , uint64_t remote_addr_
   , uint64_t key_
-  , void *context_
+  , context_t context_
 )
 {
   CHECK_FI_EQ(
@@ -333,7 +310,7 @@ void fabric_endpoint::post_read(
   gsl::span<const ::iovec> buffers_
   , uint64_t remote_addr_
   , uint64_t key_
-  , void *context_
+  , context_t context_
 )
 {
   auto desc = populated_desc(buffers_);
@@ -355,7 +332,7 @@ void fabric_endpoint::post_write(
   , void **desc_
   , uint64_t remote_addr_
   , uint64_t key_
-  , void *context_
+  , context_t context_
 )
 {
   CHECK_FI_EQ(
@@ -378,7 +355,7 @@ void fabric_endpoint::post_write(
   gsl::span<const ::iovec> buffers_
   , uint64_t remote_addr_
   , uint64_t key_
-  , void *context_
+  , context_t context_
 )
 {
   auto desc = populated_desc(buffers_);

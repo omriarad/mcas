@@ -36,6 +36,7 @@ class Fabric_cq;
 class Fabric_generic_grouped
   : public component::IFabric_endpoint_grouped
 {
+  using context_t = component::fabric::context_t;
   /* All communicators in a group share this "generic group."
    * Communicators need to serialize the items owned by the group:
    *  - the connection (except its completion queues),
@@ -118,22 +119,22 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite &callback, void *callback_param) override;
+  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite &callback, poll_context_t callback_param) override;
   /*
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, void *callback_param) override;
+  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, poll_context_t callback_param) override;
   /**
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions(component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, void *callback_param) override;
+  std::size_t poll_completions(component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, poll_context_t callback_param) override;
   /**
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions_tentative(component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, void *callback_param) override;
+  std::size_t poll_completions_tentative(component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, poll_context_t callback_param) override;
 
   std::size_t stalled_completion_count() override;
   /*
@@ -152,13 +153,13 @@ public:
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_sendv fail
    */
-  void post_send(gsl::span<const ::iovec> buffers, void **desc, void *context);
-  void post_send(gsl::span<const ::iovec> buffers, void *context);
+  void post_send(gsl::span<const ::iovec> buffers, void **desc, context_t context);
+  void post_send(gsl::span<const ::iovec> buffers, context_t context);
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_recvv fail
    */
-  void post_recv(gsl::span<const ::iovec> buffers, void **desc, void *context);
-  void post_recv(gsl::span<const ::iovec> buffers, void *context);
+  void post_recv(gsl::span<const ::iovec> buffers, void **desc, context_t context);
+  void post_recv(gsl::span<const ::iovec> buffers, context_t context);
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_readv fail
    */
@@ -167,13 +168,13 @@ public:
     , void **desc
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   );
   void post_read(
     gsl::span<const ::iovec> buffers
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   );
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_writev fail
@@ -183,13 +184,13 @@ public:
     , void **desc
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   );
   void post_write(
     gsl::span<const ::iovec> buffers
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   );
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_inject fail

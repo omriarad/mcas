@@ -50,7 +50,6 @@ public:
   );
   Fabric_connection_server(const Fabric_connection_server &) = delete;
   Fabric_connection_server &operator=(const Fabric_connection_server &) = delete;
-  ~Fabric_connection_server();
 
   /* TODO: Function shared with fabric_connection_client - combine */
   std::size_t max_message_size() const noexcept override;

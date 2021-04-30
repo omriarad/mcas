@@ -33,6 +33,8 @@ struct fid_cq;
 
 class Fabric_cq
 {
+	using context_t = component::fabric::context_t;
+	using poll_context_t = component::IFabric_op_completer::poll_context_t;
 public:
   /* Largest possible format which verbs will accept. */
   static constexpr auto fi_cq_format = FI_CQ_FORMAT_DATA;
@@ -96,22 +98,22 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite &completion_callback, void *callback_param);
+  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite &completion_callback, poll_context_t callback_param);
   /*
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, void *callback_param);
+  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, poll_context_t callback_param);
   /**
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions(component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, void *callback_param);
+  std::size_t poll_completions(component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, poll_context_t callback_param);
   /**
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions_tentative(component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, void *callback_param);
+  std::size_t poll_completions_tentative(component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, poll_context_t callback_param);
 
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_cq_readerr fail
@@ -128,21 +130,21 @@ public:
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_cq_readerr fail
    */
-  std::size_t process_cq_comp_err(const component::IFabric_op_completer::complete_param_definite &completion_callback, void *callback_param);
+  std::size_t process_cq_comp_err(const component::IFabric_op_completer::complete_param_definite &completion_callback, poll_context_t callback_param);
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_cq_readerr fail
    */
-  std::size_t process_cq_comp_err(component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, void *callback_param);
+  std::size_t process_cq_comp_err(component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, poll_context_t callback_param);
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_cq_readerr fail
    */
   std::size_t process_or_queue_cq_comp_err(const component::IFabric_op_completer::complete_tentative &completion_callback);
-  std::size_t process_or_queue_cq_comp_err(const component::IFabric_op_completer::complete_param_tentative &completion_callback, void *callback_param);
-  std::size_t process_or_queue_cq_comp_err(component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, void *callback_param);
+  std::size_t process_or_queue_cq_comp_err(const component::IFabric_op_completer::complete_param_tentative &completion_callback, poll_context_t callback_param);
+  std::size_t process_or_queue_cq_comp_err(component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, poll_context_t callback_param);
 
   std::size_t process_or_queue_completion(const fi_cq_entry_t &cq_entry, const component::IFabric_op_completer::complete_tentative &cb, ::status_t status);
-  std::size_t process_or_queue_completion(const fi_cq_entry_t &cq_entry, const component::IFabric_op_completer::complete_param_tentative &cb, ::status_t status, void *callback_param);
-  std::size_t process_or_queue_completion(const fi_cq_entry_t &cq_entry, component::IFabric_op_completer::complete_param_tentative_ptr_noexcept cb, ::status_t status, void *callback_param);
+  std::size_t process_or_queue_completion(const fi_cq_entry_t &cq_entry, const component::IFabric_op_completer::complete_param_tentative &cb, ::status_t status, poll_context_t callback_param);
+  std::size_t process_or_queue_completion(const fi_cq_entry_t &cq_entry, component::IFabric_op_completer::complete_param_tentative_ptr_noexcept cb, ::status_t status, poll_context_t callback_param);
 
   std::ptrdiff_t cq_read(fi_cq_entry_t *buf, std::size_t count) noexcept;
 

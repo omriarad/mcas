@@ -18,11 +18,10 @@
 #include "fabric_endpoint.h"
 #include "fd_control.h"
 
-#include "rdma-fi_cm.h" /* fi_accept, fi_shutdown */
+#include "rdma-fi_cm.h" /* fi_accept */
 
 #include <cstdint> /* size_t */
 #include <exception>
-#include <iostream> /* cerr */
 #include <memory> /* unique_ptr */
 
 Fabric_connection_server::Fabric_connection_server(
@@ -35,21 +34,6 @@ Fabric_connection_server::Fabric_connection_server(
     std::size_t paramlen = 0;
     auto param = nullptr;
     CHECK_FI_ERR(::fi_accept(&aep()->ep(), param, paramlen));
-  }
-}
-
-Fabric_connection_server::~Fabric_connection_server()
-{
-  try
-  {
-    /* "the flags parameter is reserved and must be 0" */
-    ::fi_shutdown(&aep()->ep(), 0);
-  /* The client may in turn call fi_shutdown, giving us an event. We do not need to see it.
-   */
-  }
-  catch ( const std::exception &e )
-  {
-    std::cerr << "SERVER connection shutdown error " << e.what() << "\n";
   }
 }
 

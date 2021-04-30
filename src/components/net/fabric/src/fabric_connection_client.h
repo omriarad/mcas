@@ -87,7 +87,6 @@ public:
   );
   Fabric_connection_client(const Fabric_connection_client &) = delete;
   Fabric_connection_client &operator=(const Fabric_connection_client &) = delete;
-  ~Fabric_connection_client();
 };
 
 #endif

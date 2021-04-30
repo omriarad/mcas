@@ -27,6 +27,7 @@ namespace component
 struct remote_memory_client_grouped;
 
 struct remote_memory_subclient
+  : fi_context2
 {
 private:
   remote_memory_client_grouped &_parent;

@@ -27,31 +27,27 @@ Fabric_transport::Fabric_transport(unsigned                   debug_level_,
       cycles_per_second(common::get_rdtsc_frequency_mhz() * 1000000.0),
       _transport(fabric_connection),
       _max_inject_size(_transport->max_inject_size()),
-#if 0
-      _bm(debug_level(), fabric_connection, NUM_BUFFERS),
-#else
       _bm(bm_),
-#endif
       _patience(patience_)
 {
 }
 
-component::IFabric_op_completer::cb_acceptance Fabric_transport::completion_callback(void *        context,
+component::IFabric_op_completer::cb_acceptance Fabric_transport::completion_callback(context_t context,
                                                                                      status_t      st,
                                                                                      std::uint64_t completion_flags,
                                                                                      std::size_t,  // len
                                                                                      void *,       // error_data
-                                                                                     void *param)
+                                                                                     poll_context_t param)
 {
   if (UNLIKELY(st != S_OK)) {
     // throw General_exception("poll_completions failed unexpectedly (st=%d)
     // (cf=%lx)", st, completion_flags);
-    PWRN("poll_completions failed unexpectedly (context/got=%p) (param/wanted=%p) (st=%d) (cf=%lx)", context, param, st, completion_flags);
+    PWRN("poll_completions failed unexpectedly (context/got=%p) (param/wanted=%p) (st=%d) (cf=%lx)", static_cast<void *>(context), param, st, completion_flags);
     return component::IFabric_op_completer::cb_acceptance::ACCEPT;
   }
 
-  if (*(static_cast<void **>(param)) == context) {
-    *static_cast<void **>(param) = nullptr; /* signals completion */
+  if (*(static_cast<fi_context2 **>(param)) == context) {
+    *static_cast<fi_context2 **>(param) = nullptr; /* signals completion */
     return component::IFabric_op_completer::cb_acceptance::ACCEPT;
   }
   else {
@@ -64,12 +60,12 @@ component::IFabric_op_completer::cb_acceptance Fabric_transport::completion_call
  *
  * @param iob IO buffer to wait for completion of
  */
-void Fabric_transport::wait_for_completion(void *wr)
+void Fabric_transport::wait_for_completion(fi_context2 *wr)
 {
-  CPLOG(1, "%s %p:%p", __func__, wr, *static_cast<void **>(wr));
+  CPLOG(1, "%s %p:%p", __func__, static_cast<void *>(&wr), static_cast<void *>(wr));
 
   auto start_time = rdtsc();
-  // currently setting time out to 2 min...
+  // default timeout is 2 min...
   while (wr && static_cast<double>(rdtsc() - start_time) / cycles_per_second <= _patience) {
     _transport->poll_completions_tentative(completion_callback, &wr);
   }

@@ -39,6 +39,7 @@ protected:
 		, fabric_types::addr_ep_t
 	);
 
+	~fabric_connection();
 	fabric_connection(const fabric_connection &) = delete;
 	fabric_connection &operator=(const fabric_connection &) = delete;
 	auto get_name() const -> fabric_types::addr_ep_t;

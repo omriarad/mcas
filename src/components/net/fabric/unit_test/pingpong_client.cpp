@@ -57,7 +57,7 @@ namespace
     {
       auto tx_ctxt = rx_ctxt_->response();
       auto &bt = tx_ctxt->buffer();
-      cs.comm().post_recv(&*br.v.begin(), &*br.v.end(), &*br.d.begin(), rx_ctxt_);
+      cs.comm().post_recv(br.v, &*br.d.begin(), rx_ctxt_);
       cs.send(bt, tx_ctxt);
       ++static_cast<uint8_t *>(bt.v.front().iov_base)[1];
     }

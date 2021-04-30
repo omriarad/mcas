@@ -43,6 +43,7 @@ class Fabric_server_grouped
 	, public event_expecter
 	, public component::IFabric_initiator /* for internal use */
 {
+	using context_t = component::IFabric_initiator::context_t;
 	Fabric_generic_grouped _g;
 
   /* BEGIN component::IFabric_server_grouped (IFabric_connection) */
@@ -135,7 +136,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite &completion_callback, void *callback_param) override
+  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite &completion_callback, poll_context_t callback_param) override
   {
     return aep()->poll_completions(completion_callback, callback_param);
   }
@@ -143,7 +144,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, void *callback_param) override
+  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, poll_context_t callback_param) override
   {
     return aep()->poll_completions_tentative(completion_callback, callback_param);
   }
@@ -151,7 +152,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, void *callback_param) override
+  std::size_t poll_completions(const component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, poll_context_t callback_param) override
   {
     return aep()->poll_completions(completion_callback, callback_param);
   }
@@ -159,7 +160,7 @@ public:
    * @throw fabric_runtime_error : std::runtime_error - cq_read unhandled error
    * @throw std::logic_error - called on closed connection
    */
-  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, void *callback_param) override
+  std::size_t poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, poll_context_t callback_param) override
   {
     return aep()->poll_completions_tentative(completion_callback, callback_param);
   }
@@ -181,14 +182,14 @@ public:
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_sendv fail
    */
-  void post_send(gsl::span<const ::iovec> buffers, void **desc, void *context) override { return _g.post_send(buffers, desc, context); }
-  void post_send(gsl::span<const ::iovec> buffers, void *context) override { return _g.post_send(buffers, context); }
+  void post_send(gsl::span<const ::iovec> buffers, void **desc, context_t context) override { return _g.post_send(buffers, desc, context); }
+  void post_send(gsl::span<const ::iovec> buffers, context_t context) override { return _g.post_send(buffers, context); }
 
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_recvv fail
    */
-  void post_recv(gsl::span<const ::iovec> buffers, void **desc, void *context) override { return _g.post_recv(buffers, desc, context); }
-  void post_recv(gsl::span<const ::iovec> buffers, void *context) override { return _g.post_recv(buffers, context); }
+  void post_recv(gsl::span<const ::iovec> buffers, void **desc, context_t context) override { return _g.post_recv(buffers, desc, context); }
+  void post_recv(gsl::span<const ::iovec> buffers, context_t context) override { return _g.post_recv(buffers, context); }
 
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_readv fail
@@ -198,13 +199,13 @@ public:
     , void **desc
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   ) override { return _g.post_read(buffers, desc, remote_addr, key, context); }
   void post_read(
     gsl::span<const ::iovec> buffers,
     std::uint64_t remote_addr,
     std::uint64_t key,
-    void *context
+    context_t context
   ) override { return _g.post_read(buffers, remote_addr, key, context); }
 
   /*
@@ -215,13 +216,13 @@ public:
     , void **desc
     , std::uint64_t remote_addr
     , std::uint64_t key
-    , void *context
+    , context_t context
   ) override { return _g.post_write(buffers, desc, remote_addr, key, context); }
   void post_write(
     gsl::span<const ::iovec> buffers,
     std::uint64_t remote_addr,
     std::uint64_t key,
-    void *context
+    context_t context
   ) override { return _g.post_write(buffers, remote_addr, key, context); }
   void inject_send(const void *buf, std::size_t len) override { return _g.inject_send(buf, len); }
 
