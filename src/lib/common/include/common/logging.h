@@ -36,6 +36,7 @@
 #ifndef __COMMON_LOGGING_H__
 #define __COMMON_LOGGING_H__
 
+#if defined(__cplusplus)
 #include <cstdio>
 #include <cstdarg>
 
@@ -81,6 +82,8 @@ namespace common
   template <typename T> const void *p_fmt(const T t) { return static_cast<const void *>(t); }
 }
 
+#endif
+
 #define NORMAL_CYAN "\033[36m"
 #define NORMAL_MAGENTA "\033[35m"
 #define NORMAL_BLUE "\033[34m"
@@ -114,16 +117,15 @@ namespace common
 
 void pr_info(const char * format, ...) __attribute__((format(printf, 1, 2)));
 
-static constexpr size_t max_buffer = 2048;
+#define PR_MAX_BUFFER 2048
 
 inline void pr_info(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%s[LOG]:" LOG_TS_FMT " %s %s\n", ESC_LOG, LOG_TS_ARG buffer, ESC_END);
 #else
@@ -135,11 +137,10 @@ void pr_error(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void pr_error(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%s[LOG]:" LOG_TS_FMT " %s %s\n", ESC_ERR, LOG_TS_ARG buffer, ESC_END);
 #else
@@ -151,11 +152,10 @@ void PLOG(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PLOG(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%s[LOG]:" LOG_TS_FMT " %s %s\n", ESC_LOG, LOG_TS_ARG buffer, ESC_END);
 #else
@@ -167,11 +167,10 @@ void PDBG(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PDBG(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%s[DBG]:" LOG_TS_FMT " %s %s\n", ESC_DBG, LOG_TS_ARG buffer, ESC_END);
 #else
@@ -183,11 +182,10 @@ void PINF(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PINF(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%s %s %s\n", ESC_INF, buffer, ESC_END);
 #else
@@ -199,11 +197,10 @@ void PWRN(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PWRN(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%s[WRN]:" LOG_TS_FMT " %s %s\n", ESC_WRN, LOG_TS_ARG buffer, ESC_END);
 #else
@@ -215,11 +212,10 @@ void PERR(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PERR(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%sError:" LOG_TS_FMT " %s %s\n", ESC_ERR, LOG_TS_ARG buffer, ESC_END);
 #else
@@ -231,11 +227,10 @@ void PEXCEP(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PEXCEP(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%sException:" LOG_TS_FMT " %s %s\n", ESC_ERR, LOG_TS_ARG buffer, ESC_END);
 #else
@@ -247,11 +242,10 @@ void PNOTICE(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PNOTICE(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%sNOTICE:" LOG_TS_FMT " %s %s\n", BRIGHT_RED, LOG_TS_ARG buffer, ESC_END);
 #else
@@ -263,11 +257,10 @@ void PMAJOR(const char * format, ...) __attribute__((format(printf, 1, 2)));
 inline void PMAJOR(const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%s[+]" LOG_TS_FMT " %s %s\n", NORMAL_BLUE, LOG_TS_ARG buffer, ESC_END);
 #else
@@ -279,11 +272,10 @@ void PLOG2(const char *color, const char * format, ...) __attribute__((format(pr
 inline void PLOG2(const char * color, const char * format, ...)
 {
 #ifdef CONFIG_DEBUG
-  static constexpr size_t m_max_buffer = max_buffer;
   va_list args;
   va_start(args, format);
-  char buffer[m_max_buffer];
-  vsnprintf(buffer, m_max_buffer, format, args);
+  char buffer[PR_MAX_BUFFER];
+  vsnprintf(buffer, PR_MAX_BUFFER, format, args);
   va_end(args);
   fprintf(stderr, "%s[+]" LOG_TS_FMT " %s %s\n", color, LOG_TS_ARG buffer, ESC_END);
 #else

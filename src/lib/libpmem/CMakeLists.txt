@@ -28,7 +28,8 @@ add_compile_options(-mavx)
 
 file(GLOB SOURCES libpmem.c memops_generic.c pmem.c pmem_posix.c ./common/*.c ./x86_64/cpu.c ./x86_64/init.c ./x86_64/memcpy/memcpy_*_sse2_*.c ./x86_64/memset/memset_*_sse2_*.c ./x86_64/memcpy/memcpy_*_avx_*.c ./x86_64/memset/memset_*_avx_*.c )
 
-add_library(pmem SHARED ${SOURCES})
+add_library(${PROJECT_NAME} SHARED ${SOURCES})
+add_library(${PROJECT_NAME}-static STATIC ${SOURCES})
 
 # if CPU supports avx512f, add that option and avx512f functions
 if(COMPILE_RESULT_VAR AND (RUN_RESULT_VAR EQUAL 0))
@@ -39,7 +40,11 @@ else()
   message(VERBOSE "AVX512 run failed compile ${COMPILE_RESULT_VAR} run ${RUN_RESULT_VAR} output ${AV512_RUN_OUTPUT}")
 endif()
 
+target_compile_options(${PROJECT_NAME} PUBLIC "-fPIC")
+target_compile_options(${PROJECT_NAME}-static PUBLIC "-fPIC")
+
 #target_compile_options(${PROJECT_NAME} PUBLIC "$<$<CONFIG:Debug>:-O0>")
 target_link_libraries(${PROJECT_NAME} stdc++fs common numa pthread ${LIB_NDCTL} dl gcov)
 
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION lib)
+install(TARGETS ${PROJECT_NAME}-static ARCHIVE DESTINATION lib)
