@@ -36,6 +36,8 @@
 #include <execinfo.h>
 #endif
 
+#include "captured_ndarray.h"
+
 /* documentation strings */
 PyDoc_STRVAR(pymcas_version_doc,
              "version() -> Get module version");
@@ -49,6 +51,96 @@ namespace global
 {
 unsigned debug_level = 3;
 }
+
+/* forward decls */
+int CapturedArrayObject_init(CapturedArrayObject *self, PyObject *args, PyObject *kwds);
+PyObject * CapturedArrayObject_new(PyTypeObject *type, PyObject *args, PyObject *kwds);
+void CapturedArrayObject_destructor(PyObject *);
+
+static PyObject * CapturedArray_array_finalize_get(PyArrayObject *NPY_UNUSED(self))
+{
+  Py_RETURN_NONE;
+}
+static PyObject * CapturedArrayObject_alloc(PyTypeObject *type, Py_ssize_t NPY_UNUSED(nitems))
+{
+  PyObject *obj;
+  /* nitems will always be 0 */
+  obj = (PyObject *)PyObject_Malloc(type->tp_basicsize);
+  PyObject_Init(obj, type);
+  return obj;
+}
+
+//static PyNumberMethods align_array_number_methods = { NULL };
+static PyGetSetDef CapturedArray_getsetdef[] =
+  {
+   {"__array_finalize__", (getter) CapturedArray_array_finalize_get, NULL, NULL, NULL},
+   {NULL, NULL, NULL, NULL, NULL}  /* Sentinel */
+  };
+
+static PyTypeObject CapturedArrayType =
+  {
+   PyVarObject_HEAD_INIT(NULL, 0)
+   "pymcascore.CapturedArray",             /* tp_name */
+   sizeof(CapturedArrayObject), /* tp_basicsize */
+   0,                         /* tp_itemsize */
+   0, //(destructor) CapturedArrayObject_destructor, /* tp_dealloc */
+   0,                         /* tp_print */
+   0,                         /* tp_getattr */
+   0,                         /* tp_setattr */
+   0,                         /* tp_as_async */
+   0,                         /* tp_repr */
+   0, //&align_array_number_methods,                         /* tp_as_number */
+   0,                         /* tp_as_sequence */
+   0,                         /* tp_as_mapping */
+   0,                         /* tp_hash  */
+   0,                         /* tp_call */
+   0,                         /* tp_str */
+   0,                         /* tp_getattro */
+   0,                         /* tp_setattro */
+   0,                         /* tp_as_buffer */
+   Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,        /* tp_flags */
+   "CapturedArrayObject objects",           /* tp_doc */
+   0,                         /* tp_traverse */
+   0,                         /* tp_clear */
+   0,                         /* tp_richcompare */
+   0,                         /* tp_weaklistoffset */
+   0,                         /* tp_iter */
+   0,                         /* tp_iternext */
+   0, //CaptureArrayObject_methods,             /* tp_methods */
+   0, //CapturedArrayObject_members,             /* tp_members */
+   0, //CapturedArray_getsetdef,                         /* tp_getset */
+   0,                         /* tp_base, can't set until numpy imported */
+   0,                         /* tp_dict */
+   0,                         /* tp_descr_get */
+   0,                         /* tp_descr_set */
+   0,                         /* tp_dictoffset */
+   0, //(initproc)CapturedArrayObject_init,      /* tp_init */
+   CapturedArrayObject_alloc,                         /* tp_alloc */
+   0, //CapturedArrayObject_new,                 /* tp_new */
+   0, /* tp_free */
+   0, /* tp_bases */
+   0, /* tp_mro */
+   0, /* tp_cache */
+   0, /* tp_subclasses */
+   0, /* tp_weaklist */
+   0, /* tp_del */
+   0, /* tp_version_tag */
+   0,
+   0,
+  };
+
+#if 0
+static PyMemberDef CapturedArrayObject_members[] =
+  {
+   // {"first", T_OBJECT_EX, offsetof(CapturedArray, first), 0,
+   //  "first name"},
+   // {"last", T_OBJECT_EX, offsetof(CapturedArray, last), 0,
+   //  "last name"},
+   // {"number", T_INT, offsetof(CapturedArray, number), 0,
+                                                     //  "noddy number"},
+   {NULL}  /* Sentinel */
+  };
+#endif
 
 /** 
  * Get API version number
@@ -100,14 +192,15 @@ static PyMethodDef pymcas_methods[] =
   };
 
 
-static PyModuleDef pymcas_module = {
-                                    PyModuleDef_HEAD_INIT,
-                                    "pymcascore",
-                                    "PyMCAS core functions",
-                                    -1,
-                                    pymcas_methods,
-                                    NULL, NULL, NULL, NULL
-};
+static PyModuleDef pymcas_module =
+  {
+   PyModuleDef_HEAD_INIT,
+   "pymcascore",
+   "PyMCAS core functions",
+   -1,
+   pymcas_methods,
+   NULL, NULL, NULL, NULL
+  };
 
                                      
 PyMODINIT_FUNC
@@ -120,12 +213,20 @@ PyInit_pymcascore(void)
   /* imports */
   import_array();
 
+  /* set base type and register CapturedArray type */
+  CapturedArrayType.tp_base = &PyArray_Type;
+  if (PyType_Ready(&CapturedArrayType) < 0)
+    return NULL;
+
   /* register module */
 #if PY_MAJOR_VERSION >= 3
   m = PyModule_Create(&pymcas_module);
 #else
 #error "Extension for Python 3 only."
 #endif
+
+  Py_INCREF(&CapturedArrayType);
+  PyModule_AddObject(m, "CapturedArray", (PyObject *)&CapturedArrayType);
 
   return m;
 }
@@ -315,6 +416,11 @@ static PyObject * pymcas_ndarray_from_bytes(PyObject * self,
   Py_INCREF(bytes_memory_view); /* increment reference count to hold data */
 
   Py_buffer * buffer = PyMemoryView_GET_BUFFER(bytes_memory_view);
+  if(! buffer) {
+    PyErr_SetString(PyExc_RuntimeError,"could not get buffer from <memoryview>");
+    return NULL;
+  }
+
   byte * ptr = (byte *) buffer->buf;
 
   if(global::debug_level > 1) {
