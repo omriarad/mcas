@@ -21,16 +21,16 @@
 
 #include "rdma-fabric.h"
 
-#if 1
-#define FABRIC_TRACE_FID(f) static_cast<void>(0)
-#else
+#if 0
 #include <iostream> /* cerr */
-#define FABRIC_TRACE_FID(f) ( std::cerr << __func__ << " " << (f) << std::endl )
+#include <typeinfo>
+#define FABRIC_TRACE_FID(f) ( std::cerr << __func__ << " " << typeid(*f).name() << " " << (f) << std::endl )
+#else
+#define FABRIC_TRACE_FID(f) static_cast<void>(0)
 #endif
 
 #include <gsl/pointers>
 #include <memory> /* shared_ptr, unique_ptr */
-#include <typeinfo>
 
 /**
  * Fabric/RDMA-based network component
@@ -39,11 +39,7 @@
 template <typename T>
   int fid_close(T *f)
   {
-#if 0
     FABRIC_TRACE_FID(f);
-#else
-	( std::cerr << __func__ << " " << typeid(T).name() << " " << (f) << std::endl  );
-#endif
     return ::fi_close(&f->fid);
   }
 
