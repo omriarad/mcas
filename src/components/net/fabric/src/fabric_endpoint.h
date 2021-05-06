@@ -25,6 +25,7 @@
 
 #include "rdma-fi_domain.h" /* fi_cq_attr, fi_cq_err_entry, fi_cq_data_entry */
 
+#include <gsl/pointers>
 #include <atomic>
 #include <cstdint> /* uint{64,64}_t */
 #include <map> /* multimap */
@@ -72,7 +73,7 @@ private:
   Fabric &_fabric;
   std::shared_ptr<::fi_info> _domain_info;
 	fabric_types::addr_ep_t _peer_addr;
-  std::shared_ptr<::fid_domain> _domain;
+  fid_unique_ptr<::fid_domain> _domain;
   std::mutex _m; /* protects _mr_addr_to_desc, _mr_desc_to_addr */
   /*
    * Map of [starts of] registered memory regions to mr_and_address objects.
@@ -87,7 +88,7 @@ private:
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_mr_reg fail
    */
-  ::fid_mr *make_fid_mr_reg_ptr(
+	gsl::not_null<fid_mr *> make_fid_mr_reg_ptr(
     const_byte_span buf
     , std::uint64_t access
     , std::uint64_t key
@@ -150,14 +151,6 @@ private:
    */
   std::shared_ptr<::fid_ep> make_fid_aep(::fi_info &info, void *context) const;
 
-  fid_mr *make_fid_mr_reg_ptr(
-    const void *buf
-    , std::size_t len
-    , std::uint64_t access
-    , std::uint64_t key
-    , std::uint64_t flags
-  ) const;
-
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_cq_open fail (make_fid_cq)
    */
@@ -171,6 +164,12 @@ private:
 		, std::uint64_t flags
 	);
 
+protected:
+  explicit fabric_endpoint(
+    Fabric &fabric
+    , event_producer &ev
+    , const ::fi_info &info
+  );
 public:
   /*
    * @throw fabric_bad_alloc : std::bad_alloc - out of memory
@@ -192,13 +191,9 @@ public:
     , common::string_view remote_addr_
     , std::uint16_t port
   );
-  explicit fabric_endpoint(
-    Fabric &fabric
-    , event_producer &ev
-    , const ::fi_info &info
-  );
 
   ~fabric_endpoint();
+
   const ::fi_info &ep_info() const { return *_ep_info; }
   ::fi_info &modifiable_ep_info() const { return *_ep_info; }
   Fabric_cq &rxcq() { return _rxcq; }

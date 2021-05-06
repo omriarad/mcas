@@ -190,8 +190,12 @@ Fabric::Fabric(unsigned debug_, const common::string_view json_configuration_)
 	 * not seem to be thread-safe, meaning that dl_open calls in other threads may
 	 * fail/segfault. Disable the cache monitor.
 	 */
-  : _env_mr_cache_monitor("FI_MR_CACHE_MONITOR", "disabled")
-  , _env_use_odp("FI_VERBS_USE_ODP", common::env_value<bool>("USE_ODP", true) ? "true" : "false")
+	:
+#if 1
+	_env_mr_cache_monitor("FI_MR_CACHE_MONITOR", "disabled")
+	,
+#endif
+	 _env_use_odp("FI_VERBS_USE_ODP", common::env_value<bool>("USE_ODP", true) ? "true" : "false")
   , _info(make_fi_info(json_configuration_, debug_))
   , _fabric(make_fid_fabric(*_info->fabric_attr, this))
   , _eq_attr{}
@@ -510,13 +514,13 @@ int Fabric::fd() const
   return _fd;
 }
 
-std::shared_ptr<::fid_domain> Fabric::make_fid_domain(::fi_info &info_, void *context_) const
+fid_unique_ptr<::fid_domain> Fabric::make_fid_domain(::fi_info &info_, void *context_) const
 try
 {
   ::fid_domain *f(nullptr);
   CHECK_FI_ERR(::fi_domain(&*_fabric, &info_, &f, context_));
   FABRIC_TRACE_FID(f);
-  return fid_ptr(f);
+  return fid_unique_ptr<::fid_domain>(f);
 }
 catch ( const fabric_runtime_error &e )
 {

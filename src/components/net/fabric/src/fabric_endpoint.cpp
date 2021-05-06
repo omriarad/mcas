@@ -48,6 +48,7 @@
 #include <sys/uio.h> /* iovec */
 
 #include <boost/io/ios_state.hpp>
+#include <gsl/pointers>
 
 #include <algorithm> /* min */
 #include <chrono> /* milliseconds */
@@ -58,12 +59,21 @@ struct mr_and_address
 {
   using byte_span = common::byte_span;
   using const_byte_span = common::const_byte_span;
-  mr_and_address(::fid_mr *mr_, const_byte_span contig_)
-    : mr(fid_ptr(mr_))
-    , v(common::make_byte_span(const_cast<void *>(::base(contig_)), ::size(contig_)))
-  {}
-  std::shared_ptr<::fid_mr> mr;
-  byte_span v;
+private:
+  std::shared_ptr<::fid_mr> _mr;
+  byte_span _v;
+public:
+  mr_and_address(gsl::not_null<::fid_mr *> mr_, const_byte_span contig_)
+    : _mr(fid_ptr(mr_))
+    , _v(common::make_byte_span(const_cast<void *>(::base(contig_)), ::size(contig_)))
+	{
+	}
+	~mr_and_address()
+	{
+	}
+	std::shared_ptr<::fid_mr> mr() { return _mr; }
+	::fid_mr *mr_unshared() const { return _mr.get(); }
+	byte_span v() const { return _v; }
 };
 
 namespace
@@ -143,7 +153,7 @@ fabric_endpoint::fabric_endpoint(
 #if CAN_USE_WAIT_SETS
   , _cq_attr{4096, 0U, Fabric_cq::fi_cq_format, FI_WAIT_SET, 0U, FI_CQ_COND_NONE, &*_wait_set}
 #else
-  , _cq_attr{4096, 0U, Fabric_cq::fi_cq_format, FI_WAIT_FD, 0U, FI_CQ_COND_NONE, nullptr}
+  , _cq_attr{4096, 0U, Fabric_cq::fi_cq_format, FI_WAIT_NONE, 0U, FI_CQ_COND_NONE, nullptr}
 #endif
   , _rxcq(make_fid_cq(_cq_attr, this), "rx")
   , _txcq(make_fid_cq(_cq_attr, this), "tx")
@@ -171,7 +181,7 @@ fabric_endpoint::fabric_endpoint(
   CHECK_FI_ERR(::fi_enable(&*_ep));
 }
 
-/* Note: the info is owned by the caller, and must be copied if it is to be saved. */
+/* Note: info_ is owned by the caller, and must be copied if it is to be saved. */
 fabric_endpoint::fabric_endpoint(
     Fabric &fabric_
     , event_producer &ev_
@@ -847,7 +857,7 @@ namespace
     {
       if ( i < limit )
       {
-        std::cerr << "Token " << common::pointer_cast<component::IFabric_memory_region>(&*j.second) << " mr " << j.second->mr << " " << j.second->v << "\n";
+        std::cerr << "Token " << common::pointer_cast<component::IFabric_memory_region>(&*j.second) << " mr " << j.second->mr_unshared() << " " << j.second->v() << "\n";
       }
       else
       {
@@ -871,8 +881,6 @@ auto fabric_endpoint::register_memory(const_byte_span contig_, std::uint64_t key
       , contig_
     );
 
-  assert(mra->mr);
-
   /* operations which access local memory will need the "mr." Record it here. */
   guard g{_m};
 
@@ -884,7 +892,7 @@ auto fabric_endpoint::register_memory(const_byte_span contig_, std::uint64_t key
    */
   if ( mr_trace )
   {
-    std::cerr << "Registered token " << common::pointer_cast<component::IFabric_memory_region>(&*it->second) << " mr " << it->second->mr << " " << it->second->v << "\n";
+    std::cerr << "Registered token " << common::pointer_cast<component::IFabric_memory_region>(&*it->second) << " mr " << it->second->mr_unshared() << " " << it->second->v() << "\n";
     print_registry(_mr_addr_to_mra);
   }
   return common::pointer_cast<component::IFabric_memory_region>(&*it->second);
@@ -897,8 +905,8 @@ void fabric_endpoint::deregister_memory(const memory_region_t mr_)
 
   guard g{_m};
 
-  auto lb = _mr_addr_to_mra.lower_bound(::data(mra->v));
-  auto ub = _mr_addr_to_mra.upper_bound(::data(mra->v));
+  auto lb = _mr_addr_to_mra.lower_bound(::data(mra->v()));
+  auto ub = _mr_addr_to_mra.upper_bound(::data(mra->v()));
 
   map_addr_to_mra::size_type scan_count = 0;
   auto it =
@@ -911,15 +919,15 @@ void fabric_endpoint::deregister_memory(const memory_region_t mr_)
   if ( it == ub )
   {
     std::ostringstream err;
-    err << __func__ << " token " << mra << " mr " << mra->mr << " (with range " << mra->v << ")"
+    err << __func__ << " token " << mra << " mr " << mra->mr_unshared() << " (with range " << mra->v() << ")"
       << " not found in " << scan_count << " of " << _mr_addr_to_mra.size() << " registry entries";
-    std::cerr << "Deregistered token " << mra << " mr " << mra->mr << " failed, not in \n";
+    std::cerr << "Deregistered token " << mra << " mr " << mra->mr_unshared() << " failed, not in \n";
     print_registry(_mr_addr_to_mra);
     throw std::logic_error(err.str());
   }
   if ( mr_trace )
   {
-    std::cerr << "Deregistered token (before) " << mra << " mr/sought " << mra->mr << " mr/found " << it->second->mr << " " << it->second->v << "\n";
+    std::cerr << "Deregistered token (before) " << mra << " mr/sought " << mra->mr_unshared() << " mr/found " << it->second->mr_unshared() << " " << it->second->v() << "\n";
     print_registry(_mr_addr_to_mra);
   }
   _mr_addr_to_mra.erase(it);
@@ -933,7 +941,7 @@ void fabric_endpoint::deregister_memory(const memory_region_t mr_)
 std::uint64_t fabric_endpoint::get_memory_remote_key(const memory_region_t mr_) const noexcept
 {
   /* recover the memory region */
-  auto mr = &*common::pointer_cast<mr_and_address>(mr_)->mr;
+  auto mr = &*common::pointer_cast<mr_and_address>(mr_)->mr();
   /* ask fabric for the key */
   return ::fi_mr_key(mr);
 }
@@ -941,7 +949,7 @@ std::uint64_t fabric_endpoint::get_memory_remote_key(const memory_region_t mr_) 
 void *fabric_endpoint::get_memory_descriptor(const memory_region_t mr_) const noexcept
 {
   /* recover the memory region */
-  auto mr = &*common::pointer_cast<mr_and_address>(mr_)->mr;
+  auto mr = &*common::pointer_cast<mr_and_address>(mr_)->mr();
   /* ask fabric for the descriptor */
   return ::fi_mr_desc(mr);
 }
@@ -963,7 +971,7 @@ void *fabric_endpoint::get_memory_descriptor(const memory_region_t mr_) const no
     std::find_if(
       map_addr_to_mra::reverse_iterator(ub)
       , _mr_addr_to_mra.rend()
-      , [&v] ( const map_addr_to_mra::value_type &m ) { return covers(m.second->v, v); }
+      , [&v] ( const map_addr_to_mra::value_type &m ) { return covers(m.second->v(), v); }
     );
 
   if ( it == _mr_addr_to_mra.rend() )
@@ -974,9 +982,9 @@ void *fabric_endpoint::get_memory_descriptor(const memory_region_t mr_) const no
   }
 
 #if 0
-  std::cerr << "covering_mr( " << v << ") found mr " << it->second->mr << " with range " << it->second->v << "\n";
+  std::cerr << "covering_mr( " << v << ") found mr " << it->second->mr_unshared() << " with range " << it->second->v() << "\n";
 #endif
-  return &*it->second->mr;
+  return &*it->second->mr();
 }
 
 /* If local keys are needed, one local key per buffer. */
@@ -1001,7 +1009,7 @@ std::vector<void *> fabric_endpoint::populated_desc(gsl::span<const ::iovec> buf
  * "Required key not available." The parameter name and the error disagree:
  * "requested" is not the same as "required."
  */
-fid_mr * fabric_endpoint::make_fid_mr_reg_ptr(
+gsl::not_null<fid_mr *> fabric_endpoint::make_fid_mr_reg_ptr(
   const_byte_span buf
   , uint64_t access
   , uint64_t key

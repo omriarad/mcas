@@ -19,6 +19,7 @@
 #include <common/moveable_value.h>
 #include <common/string_view.h>
 #include "event_producer.h"
+#include "fabric_ptr.h"
 
 #include "rdma-fabric.h" /* fid_t */
 #include "rdma-fi_domain.h" /* fi_eq_attr */
@@ -70,7 +71,9 @@ class Fabric
   : public component::IFabric
   , public event_producer
 {
+#if 1
   env_replace _env_mr_cache_monitor;
+#endif
   env_replace _env_use_odp;
   std::shared_ptr<::fi_info> _info;
   std::shared_ptr<::fid_fabric> _fabric;
@@ -191,7 +194,7 @@ public:
   /**
    * @throw fabric_runtime_error : std::runtime_error : ::fi_domain fail
    */
-  std::shared_ptr<::fid_domain> make_fid_domain(::fi_info &info, void *context) const;
+  fid_unique_ptr<::fid_domain> make_fid_domain(::fi_info &info, void *context) const;
   /**
    * @throw fabric_runtime_error : std::runtime_error : ::fi_passive_ep fail
    */

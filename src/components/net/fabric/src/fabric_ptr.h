@@ -28,7 +28,9 @@
 #define FABRIC_TRACE_FID(f) ( std::cerr << __func__ << " " << (f) << std::endl )
 #endif
 
+#include <gsl/pointers>
 #include <memory> /* shared_ptr, unique_ptr */
+#include <typeinfo>
 
 /**
  * Fabric/RDMA-based network component
@@ -37,7 +39,11 @@
 template <typename T>
   int fid_close(T *f)
   {
+#if 0
     FABRIC_TRACE_FID(f);
+#else
+	( std::cerr << __func__ << " " << typeid(T).name() << " " << (f) << std::endl  );
+#endif
     return ::fi_close(&f->fid);
   }
 
@@ -46,9 +52,15 @@ template <typename T>
  */
 
 template <typename T>
-  std::shared_ptr<T> fid_ptr(T *f)
+  std::shared_ptr<T> fid_ptr(gsl::not_null<T *> f)
   {
-    return std::shared_ptr<T>(f, fid_close<T>);
+    return std::shared_ptr<T>(f.get(), fid_close<T>);
+  }
+
+template <typename T>
+  std::shared_ptr<T> fid_ptr(T * f)
+  {
+    return fid_ptr(gsl::not_null<T *>(f));
   }
 
 template <typename T>
