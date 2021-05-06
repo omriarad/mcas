@@ -28,7 +28,7 @@ struct server_connection
 {
 private:
 	gsl::not_null<component::IFabric_server_factory *> _f;
-	common::moveable_ptr<component::IFabric_endpoint_unconnected_server> _ep;
+	std::unique_ptr<component::IFabric_endpoint_unconnected_server> _ep;
 	common::moveable_ptr<component::IFabric_server> _cnxn;
   DELETE_COPY(server_connection);
 public:

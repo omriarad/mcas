@@ -36,7 +36,6 @@ add_executable(fabric-test1 test1.cpp
   registration.cpp
   remote_memory_accessor.cpp
   remote_memory_client.cpp
-  remote_memory_client_for_shutdown.cpp
   remote_memory_client_grouped.cpp
   remote_memory_server.cpp
   remote_memory_server_grouped.cpp
@@ -67,7 +66,6 @@ add_executable(fabric-test2 test2.cpp
   registration.cpp
   remote_memory_accessor.cpp
   remote_memory_client.cpp
-  remote_memory_client_for_shutdown.cpp
   remote_memory_client_grouped.cpp
   remote_memory_server.cpp
   remote_memory_server_grouped.cpp
@@ -97,7 +95,6 @@ add_executable(fabric-test3 test3.cpp
   registration.cpp
   #remote_memory_accessor.cpp
   #remote_memory_client.cpp
-  #remote_memory_client_for_shutdown.cpp
   #remote_memory_server.cpp
   #remote_memory_subclient.cpp
   #remote_memory_subserver.cpp
@@ -106,3 +103,20 @@ add_executable(fabric-test3 test3.cpp
   wait_poll.cpp
 )
 target_link_libraries(fabric-test3 ${ASAN_LIB} ${GTEST_LIB} common numa fabric pthread dl)
+
+add_executable(fabric-testbw testbw.cpp
+  eyecatcher.cpp
+  mr_lock.cpp
+  patience.cpp
+  registered_memory.cpp
+  registration.cpp
+  remote_memory_accessor.cpp
+  remote_memory_client.cpp
+  remote_memory_server.cpp
+  #remote_memory_subclient.cpp
+  #remote_memory_subserver.cpp
+  server_connection_and_memory.cpp
+  server_connection.cpp
+  wait_poll.cpp
+)
+target_link_libraries(fabric-testbw ${ASAN_LIB} ${GTEST_LIB} common numa fabric pthread dl)

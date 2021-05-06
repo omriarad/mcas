@@ -66,7 +66,7 @@ unsigned wait_poll(
    * (does it perhaps return when a message begins to appear in the completion queue?)
    * but it should not take more than two trips through the loop to get the completion.
    *
-   * The socketss provider, though takes many more.
+   * The sockets provider, though takes many more.
    */
   if ( test_type_ == test_type::function )
   {

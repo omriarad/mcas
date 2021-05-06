@@ -14,6 +14,7 @@
 
 #include "eyecatcher.h"
 #include <api/fabric_itf.h> /* IFabric_server_factory, IFabric_server */
+#include <common/logging.h>
 #include <exception>
 #include <iostream> /* cerr */
 
@@ -30,8 +31,9 @@ namespace
 server_connection::server_connection(component::IFabric_server_factory &f_)
   : _f(&f_)
   , _ep(get_ep(_f))
-  , _cnxn(_f->open_connection(_ep))
+  , _cnxn(_f->open_connection(_ep.get()))
 {
+	PLOG("%s %p", __func__, static_cast<void *>(this));
 }
 
 server_connection::~server_connection()
@@ -47,4 +49,5 @@ server_connection::~server_connection()
       std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
     }
   }
+	PLOG("%s %p", __func__, static_cast<void *>(this));
 }

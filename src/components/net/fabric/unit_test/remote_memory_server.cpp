@@ -13,6 +13,7 @@
 #include "remote_memory_server.h"
 
 #include "eyecatcher.h"
+#include "quit_option.h"
 #include "registered_memory.h"
 #include "server_connection.h"
 #include "server_connection_and_memory.h"
@@ -36,122 +37,124 @@
 #include <vector>
 
 void remote_memory_server::listener(
-  component::IFabric_server_factory &ep_
-  , std::size_t memory_size_
-  , std::uint64_t remote_key_index_
+	component::IFabric_server_factory &ep_
+	, std::size_t memory_size_
+	, std::uint64_t remote_key_index_
 )
 {
-  auto quit = false;
-  for ( ; ! quit; ++remote_key_index_ )
-  {
-    server_connection sc(ep_);
-    EXPECT_EQ(sc.cnxn().max_message_size(), this->max_message_size());
-    /* register an RDMA memory region */
-    registered_memory rm{sc.cnxn(), memory_size_, remote_key_index_};
-    /* send the client address and key to memory */
-    send_memory_info(sc.cnxn(), rm);
-    /* wait for client indicate exit (by sending one byte to us) */
-    try
-    {
-      std::vector<::iovec> v;
-      ::iovec iv;
-      iv.iov_base = &rm[0];
-      iv.iov_len = 1;
-      v.emplace_back(iv);
-      sc.cnxn().post_recv(v, this);
-      ::wait_poll(
-        sc.cnxn()
-        , [&quit, &rm, this] (void *ctxt_, ::status_t stat_, std::uint64_t, std::size_t len_, void *) -> void
-          {
-            ASSERT_EQ(ctxt_, this);
-            ASSERT_EQ(stat_, S_OK);
-            ASSERT_EQ(len_, 1);
-            /* did client leave with the "quit byte" set to 'q'? */
-            quit |= rm[0] == 'q';
-          }
-      );
-    }
-    catch ( std::exception &e )
-    {
-      std::cerr << "remote_memory_server::" << __func__ << ": " << e.what() << "\n";
-      throw;
-    }
-  }
+	auto quit = false;
+	for ( ; ! quit; ++remote_key_index_ )
+	{
+		server_connection sc(ep_);
+		EXPECT_EQ(sc.cnxn().max_message_size(), this->max_message_size());
+		/* register an RDMA memory region */
+		registered_memory rm{sc.cnxn(), memory_size_, remote_key_index_};
+		/* wait for client indicate exit (by sending one byte to us) */
+		try
+		{
+			/* set a receive buffer. We will get one message, when the client is done with rm */
+			::iovec v[1] = { ::iovec{&rm[0], 1} };
+			sc.cnxn().post_recv(v, this);
+			/* send the client address and key to memory */
+			send_memory_info(sc.cnxn(), rm);
+			::wait_poll(
+				sc.cnxn()
+				, [&quit, &rm, this] (void *ctxt_, ::status_t stat_, std::uint64_t, std::size_t len_, void *) -> void
+					{
+						ASSERT_EQ(ctxt_, this);
+						ASSERT_EQ(stat_, S_OK);
+						ASSERT_EQ(len_, 1);
+						/* did client leave with the "quit byte" set to 'q'? */
+						quit |= rm[0] == char(quit_option::do_quit);
+					}
+				, get_test_type()
+			);
+		}
+		catch ( std::exception &e )
+		{
+			std::cerr << "remote_memory_server::" << __func__ << ": " << e.what() << "\n";
+			throw;
+		}
+	}
 }
 
 void remote_memory_server::listener_counted(
-  component::IFabric_server_factory &ep_
-  , std::size_t memory_size_
-  , std::uint64_t remote_key_index_
-  , unsigned cnxn_count_
+	component::IFabric_server_factory &ep_
+	, std::size_t memory_size_
+	, std::uint64_t remote_key_index_
+	, unsigned cnxn_count_
 )
 {
-  std::vector<std::shared_ptr<server_connection_and_memory>> scrm;
-  for ( auto i = 0U; i != cnxn_count_; ++i )
-  {
-    scrm.emplace_back(std::make_shared<server_connection_and_memory>(ep_, memory_size_, remote_key_index_ + i));
-  }
+	std::vector<std::shared_ptr<server_connection_and_memory>> scrm;
+	for ( auto i = 0U; i != cnxn_count_; ++i )
+	{
+		scrm.emplace_back(std::make_shared<server_connection_and_memory>(get_test_type(), ep_, memory_size_, remote_key_index_ + i));
+	}
 }
 
 remote_memory_server::remote_memory_server(
-  component::IFabric &fabric_
-  , const std::string &fabric_spec_
-  , std::uint16_t control_port_
-  , const char *
-  , std::size_t memory_size_
-  , std::uint64_t remote_key_base_
+	test_type test_type_
+	, component::IFabric &fabric_
+	, const std::string &fabric_spec_
+	, std::uint16_t control_port_
+	, const char *
+	, std::size_t memory_size_
+	, std::uint64_t remote_key_base_
 )
-  : _ep(fabric_.open_server_factory(fabric_spec_, control_port_))
-  , _th(
-      std::async(
-        std::launch::async
-        , &remote_memory_server::listener
-        , this
-        , std::ref(*_ep)
-        , memory_size_
-        , remote_key_base_
-      )
-    )
+	: remote_memory_accessor(test_type_)
+	, _ep(fabric_.open_server_factory(fabric_spec_, control_port_))
+	, _th(
+			std::async(
+				std::launch::async
+				, &remote_memory_server::listener
+				, this
+				, std::ref(*_ep)
+				, memory_size_
+				, remote_key_base_
+			)
+		)
 {
 }
 
 remote_memory_server::remote_memory_server(
-component::IFabric &fabric_
-  , const std::string &fabric_spec_
-  , std::uint16_t control_port_
-  , const char *
-  , std::size_t memory_size_
-  , std::uint64_t remote_key_base_
-  , unsigned cnxn_limit_
+	test_type test_type_
+	, component::IFabric &fabric_
+	, const std::string &fabric_spec_
+	, std::uint16_t control_port_
+	, const char *
+	, std::size_t memory_size_
+	, std::uint64_t remote_key_base_
+	, unsigned cnxn_limit_
 )
-  : _ep(fabric_.open_server_factory(fabric_spec_, control_port_))
-  , _th(
-      std::async(
-        std::launch::async
-        , &remote_memory_server::listener_counted
-        , this
-        , std::ref(*_ep)
-        , memory_size_
-        , remote_key_base_
-        , cnxn_limit_
-      )
-    )
+	: remote_memory_accessor(test_type_)
+	, _ep(fabric_.open_server_factory(fabric_spec_, control_port_))
+	, _th(
+			std::async(
+				std::launch::async
+				, &remote_memory_server::listener_counted
+				, this
+				, std::ref(*_ep)
+				, memory_size_
+				, remote_key_base_
+				, cnxn_limit_
+			)
+		)
 {
 }
 
 remote_memory_server::~remote_memory_server()
 {
-  try
-  {
-    _th.get();
-  }
-  catch ( std::exception &e )
-  {
-    std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
-  }
+	try
+	{
+		_th.get();
+	}
+	catch ( std::exception &e )
+	{
+		std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+	}
 }
 
 std::size_t remote_memory_server::max_message_size() const
 {
-  return _ep->max_message_size();
+	return _ep->max_message_size();
 }

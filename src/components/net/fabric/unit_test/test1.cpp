@@ -38,7 +38,6 @@
 #include "remote_memory_client_grouped.h"
 #include "remote_memory_subclient.h"
 #include "remote_memory_client.h"
-#include "remote_memory_client_for_shutdown.h"
 
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -221,7 +220,7 @@ void write_read_sequential(const std::string &fabric_spec_, const char *const re
         /* In case the provider actually uses the remote keys which we provide, make them unique. */
         auto remote_key_index = iter1;
         /* Feed the client a good JSON spec */
-        remote_memory_client client(*fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
+        remote_memory_client client(test_type::function, *fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
 
         /* expect that all max messages are greater than 0, and the same */
         EXPECT_LT(0U, client.max_message_size());
@@ -251,7 +250,9 @@ void write_read_sequential(const std::string &fabric_spec_, const char *const re
        */
       auto remote_key_index = 0U;
       /* A special client to tell the server factory to shut down. Placed after other clients because the server apparently cannot abide concurrent clients. */
-      remote_memory_client_for_shutdown client_shutdown(*fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
+      remote_memory_client client_shutdown(test_type::function, *fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index
+        , quit_option::do_quit
+      );
       EXPECT_EQ(client_shutdown.max_message_size(), msg_max);
     }
     else
@@ -259,7 +260,7 @@ void write_read_sequential(const std::string &fabric_spec_, const char *const re
       std::cerr << "SERVER begin " << iter0 << " port " << control_port << std::endl;
       {
         auto remote_key_base = 0U;
-        remote_memory_server server(*fabric, empty_object_json.str(), control_port, "", memory_size, remote_key_base);
+        remote_memory_server server(test_type::function, *fabric, empty_object_json.str(), control_port, "", memory_size, remote_key_base);
         EXPECT_LT(0U, server.max_message_size());
       }
       std::cerr << "SERVER end " << iter0 << std::endl;
@@ -823,7 +824,7 @@ TEST_F(Fabric_test, WriteReadParallel)
       {
         auto expected_client_count = count_inner;
         auto remote_key_base = 0U;
-        remote_memory_server server(*fabric, empty_object_json.str(), control_port, "", memory_size, remote_key_base, expected_client_count);
+        remote_memory_server server(test_type::function, *fabric, empty_object_json.str(), control_port, "", memory_size, remote_key_base, expected_client_count);
         EXPECT_LT(0U, server.max_message_size());
       }
       std::cerr << "SERVER end " << iter0 << std::endl;
@@ -845,7 +846,7 @@ TEST_F(Fabric_test, WriteReadParallel)
           /* Ordinary clients which test RDMA to server memory.
            * Should be able to control them via pointers or (using move semantics) in a vector of objects.
            */
-          vv.emplace_back(*fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
+          vv.emplace_back(test_type::function, *fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
           /* expect that all max messages are greater than 0, and the same */
           EXPECT_LT(0U, vv.back().max_message_size());
           EXPECT_EQ(vv.front().max_message_size(), vv.back().max_message_size());
@@ -894,7 +895,7 @@ TEST_F(Fabric_test, GroupedClients)
       std::cerr << "SERVER begin " << iter0 << std::endl;
       {
         auto remote_key_base = 0U;
-        remote_memory_server server(*fabric, empty_object_json.str(), control_port, "", memory_size, remote_key_base);
+        remote_memory_server server(test_type::function, *fabric, empty_object_json.str(), control_port, "", memory_size, remote_key_base);
         EXPECT_LT(0U, server.max_message_size());
       }
       std::cerr << "SERVER end " << iter0 << std::endl;
@@ -910,7 +911,7 @@ TEST_F(Fabric_test, GroupedClients)
         /* In case the provider actually uses the remote keys which we provide, make them unique. */
         auto remote_key_index = iter1 * 3U;
 
-        remote_memory_client_grouped client(*fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
+        remote_memory_client_grouped client(test_type::function, *fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
 
         /* expect that all max messages are greater than 0, and the same */
         EXPECT_LT(0U, client.max_message_size());
@@ -943,7 +944,9 @@ TEST_F(Fabric_test, GroupedClients)
        */
       auto remote_key_index = 0U;
       /* A special client to tell the server to shut down. Placed after other clients because the server apparently cannot abide concurrent clients. */
-      remote_memory_client_for_shutdown client_shutdown(*fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
+      remote_memory_client client_shutdown(test_type::function, *fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index
+        , quit_option::do_quit
+      );
       EXPECT_EQ(client_shutdown.max_message_size(), msg_max);
     }
   }
@@ -973,7 +976,7 @@ TEST_F(Fabric_test, GroupedServer)
       std::cerr << "SERVER begin " << iter0 << std::endl;
       {
         auto remote_key_base = 0U;
-        remote_memory_server_grouped server(*fabric, empty_object_json.str(), control_port, memory_size, remote_key_base);
+        remote_memory_server_grouped server(test_type::function, *fabric, empty_object_json.str(), control_port, memory_size, remote_key_base);
         /* The server needs one permanent communicator, to handle the client
          * "disconnect" message. It does not need any other communicators,
          * but if it did, then the server (created by remote_memory_server_grouped
@@ -993,7 +996,7 @@ TEST_F(Fabric_test, GroupedServer)
         auto remote_key_index = iter1;
 
         std::cerr << "CLIENT begin " << iter0 << "." << iter1 << " port " << control_port << std::endl;
-        remote_memory_client client(*fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
+        remote_memory_client client(test_type::function, *fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
 
         std::string msg = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
         /* ought to split send from completions so that we can test the separation of comms */
@@ -1009,7 +1012,9 @@ TEST_F(Fabric_test, GroupedServer)
        */
       auto remote_key_index = 0U;
       /* A special client to tell the server to shut down. Placed after other clients because the server apparently cannot abide concurrent clients. */
-      remote_memory_client_for_shutdown client_shutdown(*fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
+      remote_memory_client client_shutdown(test_type::function, *fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index
+        , quit_option::do_quit
+      );
     }
   }
 }

@@ -35,16 +35,19 @@ struct remote_memory_client_grouped
 {
 private:
   std::unique_ptr<component::IFabric_endpoint_unconnected_client> _ep;
-  std::shared_ptr<component::IFabric_client_grouped> _cnxn;
   std::size_t _memory_size;
   std::shared_ptr<registered_memory> _rm_out;
+  ::iovec _v[1];
+  std::shared_ptr<component::IFabric_client_grouped> _cnxn;
   std::uint64_t _vaddr;
   std::uint64_t _key;
   char _quit_flag;
   std::uint64_t _remote_key_index_for_startup_and_shutdown;
   registered_memory &rm_out() const { return *_rm_out; }
 public:
-  remote_memory_client_grouped(component::IFabric &fabric
+  remote_memory_client_grouped(
+	test_type t
+	, component::IFabric &fabric
     , const std::string &fabric_spec
     , const std::string ip_address
     , std::uint16_t port

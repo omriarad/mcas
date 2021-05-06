@@ -53,7 +53,8 @@ private:
   );
 public:
   remote_memory_server(
-    component::IFabric &fabric
+		test_type t
+		, component::IFabric &fabric
     , const std::string &fabric_spec
     , std::uint16_t control_port
     , const char *
@@ -61,7 +62,8 @@ public:
     , std::uint64_t remote_key_base
   );
   remote_memory_server(
-    component::IFabric &fabric
+		test_type t
+		, component::IFabric &fabric
     , const std::string &fabric_spec
     , std::uint16_t control_port
     , const char *

@@ -38,7 +38,8 @@ void remote_memory_accessor::send_memory_info(component::IFabric_endpoint_connec
   std::uint64_t vaddr = reinterpret_cast<std::uint64_t>(&rm_[0]);
   std::uint64_t key = rm_.key();
   {
-    boost::io::ios_flags_saver sv(std::cerr);
+    std::cerr << "Server: memory addr " << reinterpret_cast<void*>(vaddr) << std::hex << " key " << key << "\n";
+    boost::io::ios_base_all_saver sv(std::cerr);
     std::cerr << "Server: memory addr " << reinterpret_cast<void*>(vaddr) << std::hex << " key " << key << "\n";
   }
   char msg[(sizeof vaddr) + (sizeof key)];
@@ -62,6 +63,7 @@ void remote_memory_accessor::send_msg(component::IFabric_endpoint_connected &cnx
           EXPECT_EQ(ctxt_, this);
           EXPECT_EQ(stat_, S_OK);
         }
+			, get_test_type()
     );
   }
   catch ( const std::exception &e )

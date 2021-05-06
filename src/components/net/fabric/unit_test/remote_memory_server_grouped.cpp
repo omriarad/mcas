@@ -13,6 +13,7 @@
 #include "remote_memory_server_grouped.h"
 
 #include "eyecatcher.h"
+#include "quit_option.h"
 #include "registered_memory.h"
 #include "server_grouped_connection.h"
 #include "wait_poll.h"
@@ -54,11 +55,7 @@ void remote_memory_server_grouped::listener(
     /* wait for client indicate exit (by sending one byte to us) */
     try
     {
-      std::vector<::iovec> v;
-      ::iovec iv;
-      iv.iov_base = &rm[0];
-      iv.iov_len = 1;
-      v.emplace_back(iv);
+      ::iovec v[1] = { ::iovec{&rm[0], 1} };
       cnxn.post_recv(v, this);
       ::wait_poll(
         cnxn
@@ -68,8 +65,9 @@ void remote_memory_server_grouped::listener(
             ASSERT_EQ(stat_, S_OK);
             ASSERT_EQ(len_, 1);
             /* did client leave with the "quit byte" set to 'q'? */
-            quit |= rm[0] == 'q';
+            quit |= rm[0] == char(quit_option::do_quit);
           }
+				, get_test_type()
       );
     }
     catch ( std::exception &e )
@@ -81,13 +79,15 @@ void remote_memory_server_grouped::listener(
 }
 
 remote_memory_server_grouped::remote_memory_server_grouped(
-  component::IFabric &fabric_
+	test_type test_type_
+	, component::IFabric &fabric_
   , const std::string &fabric_spec_
   , std::uint16_t control_port_
   , std::size_t memory_size_
   , std::uint64_t remote_key_base_
 )
-  : _ep(fabric_.open_server_grouped_factory(fabric_spec_, control_port_))
+	: remote_memory_accessor(test_type_)
+	, _ep(fabric_.open_server_grouped_factory(fabric_spec_, control_port_))
   , _th(
     std::async(
       std::launch::async

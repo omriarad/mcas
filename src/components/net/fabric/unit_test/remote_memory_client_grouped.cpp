@@ -29,7 +29,8 @@
 #include <vector>
 
 remote_memory_client_grouped::remote_memory_client_grouped(
-  component::IFabric &fabric_
+	test_type test_type_
+	, component::IFabric &fabric_
   , const std::string &fabric_spec_
   , const std::string ip_address_
   , std::uint16_t port_
@@ -37,25 +38,20 @@ remote_memory_client_grouped::remote_memory_client_grouped(
   , std::uint64_t remote_key_base_
 )
 try
-  : _ep(fabric_.make_endpoint(fabric_spec_, ip_address_, port_))
-  , _cnxn(open_connection_grouped_patiently(_ep.get()))
+  : remote_memory_accessor(test_type_)
+  , _ep(fabric_.make_endpoint(fabric_spec_, ip_address_, port_))
   , _memory_size(memory_size_)
   , _rm_out{std::make_shared<registered_memory>(*_cnxn, memory_size_, remote_key_base_ * 2U)}
+  , _v{::iovec{&rm_out()[0], (sizeof _vaddr) + (sizeof _key)}}
+  , _cnxn((_ep->post_recv(_v, this), open_connection_grouped_patiently(_ep.get())))
   , _vaddr{}
   , _key{}
   , _quit_flag('n')
   , _remote_key_index_for_startup_and_shutdown{remote_key_base_ * 2U + 1}
 {
-  std::vector<iovec> v;
-  iovec iv;
-  iv.iov_base = &rm_out()[0];
-  iv.iov_len = (sizeof _vaddr) + (sizeof _key);
-  v.emplace_back(iv);
-
   remote_memory_subclient rms(*this, memory_size_, _remote_key_index_for_startup_and_shutdown);
   auto &cnxn = rms.cnxn();
 
-  cnxn.post_recv(v, this);
   ::wait_poll(
     cnxn
     , [this] (void *ctxt_, ::status_t stat_, std::uint64_t, std::size_t len_, void *) -> void
@@ -66,8 +62,10 @@ try
         std::memcpy(&_vaddr, &rm_out()[0], sizeof _vaddr);
         std::memcpy(&_key, &rm_out()[sizeof _vaddr], sizeof _key);
       }
+			, get_test_type()
   );
-  boost::io::ios_flags_saver sv(std::cerr);
+  std::cerr << "Client: remote memory addr " << reinterpret_cast<void*>(_vaddr) << " key " << std::hex << _key << std::endl;
+  boost::io::ios_base_all_saver sv(std::cerr);
   std::cerr << "Client: remote memory addr " << reinterpret_cast<void*>(_vaddr) << " key " << std::hex << _key << std::endl;
 }
 catch ( std::exception &e )

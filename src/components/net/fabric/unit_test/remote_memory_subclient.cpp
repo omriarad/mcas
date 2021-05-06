@@ -73,6 +73,7 @@ try
       {
         check_complete_static(this, rmc_, stat_, len_);
       }
+			, _parent.get_test_type()
   );
 }
 catch ( std::exception &e )
@@ -96,6 +97,7 @@ try
       {
         check_complete_static(this, rmc_, stat_, len_);
       }
+			, _parent.get_test_type()
   );
   std::string remote_msg(&rm_in()[0], &rm_in()[0] + msg_.size());
   EXPECT_EQ(msg_, remote_msg);

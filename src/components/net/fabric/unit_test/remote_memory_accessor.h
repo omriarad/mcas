@@ -13,6 +13,7 @@
 #ifndef _TEST_REMOTE_MEMORY_ACCESSOR_H_
 #define _TEST_REMOTE_MEMORY_ACCESSOR_H_
 
+#include "wait_poll.h"
 #include <api/fabric_itf.h> /* fi_context2 */
 
 #include <cstddef> /* size_t */
@@ -27,9 +28,14 @@ struct registered_memory;
 struct remote_memory_accessor
 	: fi_context2
 {
+  test_type _test_type;
 protected:
+	remote_memory_accessor(test_type test_type_)
+		: _test_type(test_type_)
+	{}
   void send_memory_info(component::IFabric_endpoint_connected &cnxn, registered_memory &rm);
 public:
+  test_type get_test_type() const noexcept { return _test_type; }
   /* using rm as a buffer, send message */
   void send_msg(component::IFabric_endpoint_connected &cnxn, registered_memory &rm, const void *msg, std::size_t len);
 };

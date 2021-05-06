@@ -31,7 +31,8 @@ struct server_connection_and_memory
   , private boost::noncopyable
 {
   server_connection_and_memory(
-    component::IFabric_server_factory &ep
+		test_type t
+		, component::IFabric_server_factory &ep
     , std::size_t memory_size
     , std::uint64_t remote_key
   );

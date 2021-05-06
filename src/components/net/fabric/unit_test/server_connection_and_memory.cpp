@@ -25,12 +25,14 @@
 #include <vector>
 
 server_connection_and_memory::server_connection_and_memory(
-  component::IFabric_server_factory &ep_
+	test_type test_type_
+	, component::IFabric_server_factory &ep_
   , std::size_t memory_size_
   , std::uint64_t remote_key_
 )
-  : server_connection(ep_)
-  , registered_memory(cnxn(), memory_size_, remote_key_)
+	: server_connection(ep_)
+	, registered_memory(cnxn(), memory_size_, remote_key_)
+	, remote_memory_accessor(test_type_)
 {
   /* send the address, and the key to memory */
   send_memory_info(cnxn(), *this);
@@ -54,6 +56,7 @@ server_connection_and_memory::~server_connection_and_memory()
           ASSERT_EQ(stat_, S_OK);
           ASSERT_EQ(len_, 1);
         }
+			, get_test_type()
     );
   }
   catch ( std::exception &e )

@@ -37,7 +37,10 @@ unsigned wait_poll(
     , std::size_t len
     , void *error_data
   )> cb
-  , test_type test_type_ = test_type::function
+  , test_type test_type_
+#if 0
+			 = test_type::function
+#endif
 );
 
 #endif

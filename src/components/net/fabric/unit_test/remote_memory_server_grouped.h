@@ -42,7 +42,8 @@ private:
 
 public:
   remote_memory_server_grouped(
-    component::IFabric &fabric
+		test_type t
+		, component::IFabric &fabric
     , const std::string &fabric_spec
     , std::uint16_t control_port
     , std::size_t memory_size
