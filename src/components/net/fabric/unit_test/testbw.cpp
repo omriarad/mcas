@@ -180,11 +180,11 @@ void write_read_sequential_client(component::IFabric & fabric_, const unsigned i
 	/* Cannot write the whole memory because 
 	 *  (1) registered_memory writes to a small offset to force bad alignment in local memory (for testing) and
 	 *  (2) remote memory also have a small offset for an eyecatcher.
-	 * Neither of these are essential. If we were simple wrinting a performance test, wuold get rid of both.
+	 * Neither of these are essential. If we were simply writing a performance test, wuold get rid of both.
 	 */
-	size_t max_size = memory_size-std::max(remote_memory_offset, std::size_t(100));
+	constexpr size_t max_size = memory_size-std::max(remote_memory_offset, std::size_t(100));
 	constexpr size_t same_size_as_fabtest = 1 << 23;
-	assert(same_size_as_fabtest <= max_size);
+	static_assert(same_size_as_fabtest <= max_size, "same_size_as_fabtest will not fit");
 	std::string msg(same_size_as_fabtest, 'H');
 	/* allow time for the server to listen before the client restarts.
 	 * For an unknown reason, client "connect" puts the port in "ESTABSLISHED"
