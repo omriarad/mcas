@@ -17,7 +17,7 @@ namespace mcas
 {
 Fabric_connection_base::Fabric_connection_base(unsigned debug_level_,
                                                gsl::not_null<component::IFabric_server_factory *> factory,
-                                               std::unique_ptr<component::IFabric_endpoint_unconnected_server> && fabric_preconnection)
+                                               std::unique_ptr<Preconnection> && fabric_preconnection)
   : common::log_source(debug_level_),
     _preconnection(std::move(fabric_preconnection)),
     _bm(debug_level_, _preconnection.get()),

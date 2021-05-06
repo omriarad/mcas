@@ -61,6 +61,7 @@ class Fabric_connection_base : protected common::log_source {
   friend class Connection;
   friend class Shard;
   using memory_region_t = component::IFabric_memory_region *;
+  using Preconnection = component::IFabric_endpoint_unconnected_server;
 
  protected:
   using buffer_t = Buffer_manager<component::IFabric_memory_control>::buffer_internal;
@@ -84,7 +85,7 @@ class Fabric_connection_base : protected common::log_source {
   };
 
  private:
-  std::unique_ptr<component::IFabric_endpoint_unconnected_server> _preconnection;
+  std::unique_ptr<Preconnection> _preconnection;
   Buffer_manager<component::IFabric_memory_control> _bm;
 
   /* xx_buffer_outstanding is the signal for completion,
@@ -121,7 +122,7 @@ private:
   explicit Fabric_connection_base( //
     unsigned                           debug_level_,
     gsl::not_null<component::IFabric_server_factory *>factory,
-    std::unique_ptr<component::IFabric_endpoint_unconnected_server> && preconnection);
+    std::unique_ptr<Preconnection> && preconnection);
 
   Fabric_connection_base(const Fabric_connection_base &) = delete;
   Fabric_connection_base &operator=(const Fabric_connection_base &) = delete;
