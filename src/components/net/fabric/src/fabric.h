@@ -71,9 +71,6 @@ class Fabric
   : public component::IFabric
   , public event_producer
 {
-#if 1
-  env_replace _env_mr_cache_monitor;
-#endif
   env_replace _env_use_odp;
   std::shared_ptr<::fi_info> _info;
   std::shared_ptr<::fid_fabric> _fabric;
