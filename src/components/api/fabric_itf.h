@@ -436,7 +436,7 @@ class IFabric_endpoint_unconnected
 
 /**
  * Fabric/RDMA-based network component
- *  an acrive bit not connected endpoint
+ *  an active bit not connected endpoint
  */
 class IFabric_endpoint_unconnected_client : public IFabric_endpoint_unconnected {
  public:
@@ -676,6 +676,10 @@ class IFabric_server_factory : public IFabric_passive_endpoint {
    * thread and integrated into the processing loop.  This method is
    * normally invoked until NULL is returned.
    *
+   * Note: The caller must delete IFabric_endpoint_unconnected_server.
+   * The lifetime of IFabric_endpoint_unconnected_server must span the lifetime of IFabric_server.
+   * IFabric_server begins with open_connection and ends with close_connection.
+   *
    * @return New connection, or NULL if no new connection.
    *
    * @throw std::system_error, e.g. for locking
@@ -726,6 +730,9 @@ class IFabric_server_grouped_factory : public IFabric_passive_endpoint {
    * thread an integrated into the processing loop.  This method is
    * normally invoked until NULL is returned.
    *
+   * Note: The caller must delete IFabric_endpoint_unconnected_server.
+   * The lifetime of IFabric_endpoint_unconnected_server must span the lifetime of IFabric_server_grouped.
+   * IFabric_server_grouped begins with open_connection and ends with close_connection.
    *
    * @return New connection, or NULL if no new connection.
    *
