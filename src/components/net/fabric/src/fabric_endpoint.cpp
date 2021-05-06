@@ -191,7 +191,7 @@ fabric_endpoint::fabric_endpoint(
   )
   : fabric_endpoint(fabric_, ev_
 	/* Ask the server (over TCP) what address should be used for the fabric. Remember that address */
-	, set_peer(std::make_unique<Fd_control>(remote_address_, _fabric.choose_port(port_)), info_)
+	, set_peer(std::make_unique<Fd_control>(remote_address_, fabric_.choose_port(port_)), info_)
 	)
 {}
 
