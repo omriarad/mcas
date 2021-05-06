@@ -179,12 +179,21 @@ std::ostream &operator<<(std::ostream &o_, const env_replace &e_)
 
 Fabric::Fabric(const common::string_view json_configuration_)
 	/* libfabric 1.9.0 adds a "mr_cache_monitor" which hooks into various dl calls
-	 * concerning memory allocation, including dl_open. The hooking mechanism does
-	 * not seem to be thread-safe, meaning that dl_open calls in other threads may
-	 * fail/segfault. Disable the cache monitor.
+	 * concerning memory allocation, including dl_open. The hooking mechanism,
+	 * "memhooks", does not seem to be thread-safe, meaning that dl_open calls in
+	 * other threads may fail/segfault.
+	 *
+	 * But some operations are very slow with the monitor disabled. As speed is more
+	 * important than safety, allow the cache monitor to work.
+	 *
+	 * As of 1.9.0, the fi_mr man page says "Userfaultfd is the default if available
+	 * on the system." This is a thread-safe mechanism.
+	 * The 1.9.1 code (commit f182830) deviated from the man page: "memhooks" and not
+	 * "userfaultd" is the default if both are available.
+	 * The libfabric intent seems to be to restore "userfaultd" as the default when
+	 * failures are fixed.
 	 */
-  : _env_mr_cache_monitor("FI_MR_CACHE_MONITOR", "disabled")
-  , _env_use_odp("FI_VERBS_USE_ODP", common::env_value<bool>("USE_ODP", true) ? "true" : "false")
+  : _env_use_odp("FI_VERBS_USE_ODP", common::env_value<bool>("USE_ODP", true) ? "true" : "false")
   , _info(make_fi_info(json_configuration_))
   , _fabric(make_fid_fabric(*_info->fabric_attr, this))
   , _eq_attr{}
