@@ -16,7 +16,7 @@ class hstore_ado0_sock(config_ado0):
 		config_ado0.__init__(self, shard_proto_dax_ado(addr, h, dax_ctor()))
 		self.merge(sockets())
 
-from sys import argv
+from sys import argv, stderr
 
 # If the port number is specified
 if len(argv) == 5:
@@ -24,4 +24,4 @@ if len(argv) == 5:
 elif len(argv) == 4:
 	print(hstore_ado0_sock(argv[1], argv[2], argv[3]).json())
 else:
-	print("Usage: %s: {hstore|hstore-cc} {devdax|fadax} address [port]" % argv[0])
+	print("Usage: %s: {hstore|hstore-cc} {devdax|fadax} address [port]" % argv[0], file=stderr)

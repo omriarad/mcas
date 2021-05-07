@@ -16,7 +16,7 @@ class hstore_sock_0(config_0):
 		config_0.__init__(self, shard_proto_dax(addr, h, dax_ctor()))
 		self.merge(sockets())
 
-from sys import argv
+from sys import arg, stderr
 
 # If, as for testing dax region conflicts, the port number is specified
 if len(argv) == 5:
@@ -24,4 +24,4 @@ if len(argv) == 5:
 elif len(argv) == 4:
 	print(hstore_sock_0(argv[1], argv[2], argv[3]).json())
 else:
-	print("Usage: %s: {hstore|hstore-cc} {devdax|fadax} address [port]" % argv[0])
+	print("Usage: %s: {hstore|hstore-cc} {devdax|fadax} address [port]" % argv[0], file=stderr)
