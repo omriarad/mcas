@@ -23,6 +23,15 @@ option(PROFILE "profile the code" ON)
 
 set(DM_REGION_LOG_GRAIN_SIZE 25 CACHE STRING "log base 2 of the device_manager allocation granularity")
 
+if(NOT CMAKE_BUILD_TYPE)
+  if(${CMAKE_BINARY_DIR} MATCHES "release$")
+    set(CMAKE_BUILD_TYPE "Release")
+  elseif(${CMAKE_BINARY_DIR} MATCHES "debug$")
+    set(CMAKE_BUILD_TYPE "Debug")
+  endif()
+  message("BUILD type is ${CMAKE_BUILD_TYPE}")
+endif()
+
 if(CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR AND FORCE_OTT_BUILD)
   message(FATAL_ERROR "Cannot use in-source build ${CMAKE_BINARY_DIR} ${CMAKE_SOURCE_DIR}. You should delete any CMakeCache.txt and CMakeFiles and then try out-of-tree build")
 endif(CMAKE_BINARY_DIR STREQUAL CMAKE_SOURCE_DIR AND FORCE_OTT_BUILD)
