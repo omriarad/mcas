@@ -22,7 +22,6 @@
 #include "fabric_bad_alloc.h"
 #include "fabric_util.h" /* make_fi_info */
 
-#include <cassert>
 #include <cstring> /* strdup */
 #include <new> /* bad_alloc */
 

@@ -24,6 +24,7 @@
 #include "pending_cnxns.h"
 #include "open_cnxns.h"
 
+#include <gsl/pointers>
 #include <cstdint> /* uint16_t */
 #include <future>
 #include <memory> /* shared_ptr */
@@ -46,7 +47,7 @@ class Fabric_server_generic_factory
 {
   ::fi_info &_info;
   Fabric &_fabric;
-  std::shared_ptr<::fid_pep> _pep;
+  gsl::not_null<std::shared_ptr<::fid_pep>> _pep;
   event_registration _event_registration;
 
   /* pending connections: inserts by polling thread, removes by user thread */

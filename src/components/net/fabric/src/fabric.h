@@ -91,7 +91,7 @@ class Fabric
    *   FI_AV_COMPLETE (async AV)
    *   FI_JOIN_COMPLETE (multicast join)
    */
-  using eq_dispatch_t = std::map<::fid_t, event_consumer *>;
+  using eq_dispatch_t = std::map<::fid_t, gsl::not_null<event_consumer *>>;
   /* Need to add active endpoint in passive endpoint callback, so use separate maps and separate locks */
   std::mutex _m_eq_dispatch_pep;
   eq_dispatch_t _eq_dispatch_pep;

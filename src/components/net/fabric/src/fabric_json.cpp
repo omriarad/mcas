@@ -666,10 +666,8 @@ namespace
   }
 }
 
-#include <cassert>
-std::shared_ptr<fi_info> parse_info(const common::string_view s_, std::shared_ptr<fi_info> info_)
+std::shared_ptr<fi_info> parse_info(const common::string_view s_, gsl::not_null<std::shared_ptr<fi_info>> info_)
 {
-  assert(info_);
   rapidjson::Document jdoc;
   jdoc.Parse(s_.data());
   if ( jdoc.HasParseError() )

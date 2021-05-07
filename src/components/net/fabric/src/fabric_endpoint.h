@@ -110,7 +110,7 @@ private:
   Fabric_cq _txcq;
 
   std::shared_ptr<::fi_info> _ep_info;
-  std::shared_ptr<::fid_ep> _ep;
+  gsl::not_null<std::shared_ptr<::fid_ep>> _ep;
 
   /* Events tagged for _ep, demultiplexed from the shared event queue to this pipe.
    * Perhaps we should provide a separate event queue for every connection, but not

@@ -16,6 +16,7 @@
 #define _FABRIC_JSON_H_
 
 #include <common/string_view.h>
+#include <gsl/pointers>
 #include <memory>
 #include <string>
 
@@ -24,7 +25,7 @@ struct fi_info;
 /**
  * @throw std::domain_error : json file parse-detected error
  */
-std::shared_ptr<fi_info> parse_info(common::string_view s, std::shared_ptr<fi_info> info);
+std::shared_ptr<fi_info> parse_info(common::string_view s, gsl::not_null<std::shared_ptr<fi_info>> info);
 /**
  * @throw std::bad_alloc : fabric_bad_alloc - libfabric out of memory
  * @throw std::domain_error : json file parse-detected error
