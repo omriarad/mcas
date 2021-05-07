@@ -72,19 +72,13 @@ then :
 fi
 
 # default assumption: $FSDAX is not mounted. Expect disk performance (15%)
-FSDAX_SCALE=15
+FSDAX_FILE_SCALE=15
 
 if findmnt "$FSDAX_DIR" > /dev/null
 then :
   # found a mount. Probably pmem
   # default: goal is 25% speed
-  FSDAX_SCALE=25
-  
-  # if parameter say release or the directory name includes release, expect full speed
-  if [[ "$1" == release || "$DIR" == */release/* ]]
-  then :
-       FSDAX_SCALE=100
-  fi
+  FSDAX_FILE_SCALE=100
 fi
 
 
@@ -99,11 +93,12 @@ fi
 
 if has_fsdax
 then :
+  FSDAX_CPU_SCALE=90
   if test -d "$FSDAX_DIR"
   then :
     rm -Rf "$FSDAX_DIR/*"
     # scale goal by build expectation (relaase vs debug), backing file expectation (disk vs pmem), and fsdax expectation (currently 100%)
-    DAXTYPE=fsdax SCALE="$BUILD_SCALE $FSDAX_SCALE 100" USE_ODP=1 run_hstore true $1
+    DAXTYPE=fsdax SCALE="$BUILD_SCALE $FSDAX_FILE_SCALE $FSDAX_CPU_SCALE" USE_ODP=1 run_hstore true $1
   else :
     echo "$FSDAX_DIR not present. Skipping fsdax"
   fi
