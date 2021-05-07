@@ -53,7 +53,7 @@ namespace config
 static constexpr const char *debug_level = "debug_level";
 
 static constexpr const char *shards = "shards";
-static constexpr const char *port = "port"; /* among other uses, Zyre cluster attribute */
+static constexpr const char *port = "port"; /* among other uses, a Zyre cluster attribute */
 static constexpr const char *net_providers = "net_providers";
 static constexpr const char *dax_config = "dax_config";
 static constexpr const char *resources = "resources";
