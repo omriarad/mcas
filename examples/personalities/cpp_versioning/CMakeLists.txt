@@ -13,15 +13,15 @@ set(PLUGIN_SOURCES ./src/example_versioning_plugin.cpp ${CMAKE_CURRENT_BINARY_DI
 set(TEST_SOURCES ./src/example_versioning_test.cpp)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/GSL/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/flatbuffers/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libccpm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/common)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/lib/GSL/include)
+include_directories($ENV{MCAS_HOME}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/flatbuffers/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libccpm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/common)
+include_directories($ENV{MCAS_HOME}/src/lib/libadoproto/include)
 
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # flatbuffers
 

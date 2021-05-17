@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.5.1 FATAL_ERROR)
 project(nupm CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
-include(${CMAKE_SOURCE_DIR}/mk/avoid_boost_type_to_string_bug.cmake)
+include($ENV{MCAS_HOME}/mk/avoid_boost_type_to_string_bug.cmake)
 
 add_compile_options(-pedantic -Wall -Wextra -Werror -Wcast-align -Wcast-qual -Wconversion -Wformat=2 -Wredundant-decls -Wshadow -Wtype-limits -Wunused-parameter -Wwrite-strings)
 add_definitions(-DDM_REGION_LOG_GRAIN_SIZE=${DM_REGION_LOG_GRAIN_SIZE})
@@ -14,12 +14,12 @@ include(../../../mk/clang-dev-tools.cmake)
 find_library(LIB_NDCTL libndctl.so HINTS ${CMAKE_INSTALL_PREFIX}/lib)
 
 include_directories(./include/nupm)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/common)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/common)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem)
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
 include_directories("../common/include")
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/cityhash/cityhash/src)
+include_directories($ENV{MCAS_HOME}/src/lib/cityhash/cityhash/src)
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # daxctl
 
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # tbb tbbmalloc

@@ -16,11 +16,11 @@ add_compile_options(-Wno-conversion) # allow truncating conversions
 
 #add_compile_options("-O0")
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libbase64/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libbase64/include)
+include_directories($ENV{MCAS_HOME}/src/components)
 
-link_directories(${CMAKE_BINARY_DIR}/src/lib/libbase64)
+link_directories($ENV{MCAS_BINARY_DIR}/src/lib/libbase64)
 link_directories(${CMAKE_PREFIX_INSTALL}/lib)
 link_directories(${CMAKE_PREFIX_INSTALL}/lib64)
 

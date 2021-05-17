@@ -5,10 +5,10 @@ project (mcas-module-test CXX)
 # Drop to 14 to avoid boost bug (surfaced by g++ 7.1 std=c++1z, fixed in boost 1.66) icl/type_traits/type_to_string.hpp partial specialization
 set(CMAKE_CXX_STANDARD 14)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libadoproto/include)
 include_directories(${CMAKE_INSTALL_PREFIX}/include)
 
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)
@@ -30,9 +30,9 @@ add_executable(mcas-mod-server mcas_server.cpp)
 
 
 #find_library(COMANCHE_DIST NAMES comanche-core common
-# HINTS ${CMAKE_SOURCE_DIR}/comanche-dist/lib)
+# HINTS $ENV{MCAS_HOME}/comanche-dist/lib)
 #find_library(COMANCHE_DIST NAMES common
-# HINTS ${CMAKE_SOURCE_DIR}/comanche-dist/lib)
+# HINTS $ENV{MCAS_HOME}/comanche-dist/lib)
 
 
 target_link_libraries(${PROJECT_NAME} boost_program_options

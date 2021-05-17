@@ -4,7 +4,7 @@ project(personality-python CXX)
 
 add_subdirectory(pymcas)
 
-include(${CMAKE_SOURCE_DIR}/mk/avoid_boost_type_to_string_bug.cmake)
+include($ENV{MCAS_HOME}/mk/avoid_boost_type_to_string_bug.cmake)
 
 find_program(PYTHON NAMES "python3.9" "python3.8" "python3.7" "python3.6")
 find_program(FLATC NAMES flatc PATHS "${CMAKE_INSTALL_PREFIX}/bin" NO_DEFAULT_PATH)
@@ -14,10 +14,10 @@ if (NOT FLATC)
 endif()
 
 if (NOT PYTHON)
-  message(FATAL_ERROR ": Python not found")  
+  message(FATAL_ERROR ": Python not found")
 endif()
 
-get_filename_component(PYTHON_VER ${PYTHON} NAME)                                                                                
+get_filename_component(PYTHON_VER ${PYTHON} NAME)
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR})
 
 # get python locations
@@ -38,14 +38,14 @@ set(CLIENT_SOURCES ${GENERATED} )
 set(TEST_SOURCES ./src/pp_test.cpp)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/flatbuffers/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libccpm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/common)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/flatbuffers/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libccpm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/common)
+include_directories($ENV{MCAS_HOME}/src/lib/libadoproto/include)
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # EASTL
 include_directories(${PYTHON_INCLUDE_DIR})
 
@@ -54,13 +54,13 @@ execute_process ( COMMAND ${PYTHON} -c "import numpy; print(numpy.__path__[0])" 
 message("-- Numpy     site : ${NUMPY_SITE_PACKAGE}")
 
 include_directories(${NUMPY_SITE_PACKAGE}/core/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/python/mcas-python-api/src/)
-  
-link_directories(${CMAKE_BINARY_DIR}/src/lib/flatbuffers/)
+include_directories($ENV{MCAS_HOME}/src/python/mcas-python-api/src/)
+
+link_directories($ENV{MCAS_BINARY_DIR}/src/lib/flatbuffers/)
 link_directories(${PYTHON_LIB_DIR})
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)
-  
+
 add_custom_command(
   OUTPUT ${GENERATED}
   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/pp.fbs
@@ -79,7 +79,7 @@ target_link_libraries(${PROJECT_NAME} common pthread numa dl rt flatbuffers ${PY
 
 set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH
-  ${CMAKE_BINARY_DIR}/src/lib/flatbuffers/:${CMAKE_INSTALL_PREFIX}/lib:${PYTHON_LIB_DIR})
+  $ENV{MCAS_BINARY_DIR}/src/lib/flatbuffers/:${CMAKE_INSTALL_PREFIX}/lib:${PYTHON_LIB_DIR})
 
 #configure_file(pp-ccpm.conf.in ${CMAKE_CURRENT_BINARY_DIR}/pp-ccpm.conf)
 #configure_file(src/pp_ccpm_test.sh.in ${CMAKE_CURRENT_BINARY_DIR}/pp_ccpm_test.sh)

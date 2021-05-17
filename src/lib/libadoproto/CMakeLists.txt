@@ -9,12 +9,12 @@ add_compile_options(-g -pedantic -Wall -Werror -Wextra -Wcast-align -Wcast-qual 
 # use this to disable optimizations, e.g. for debugging or profiling
 add_compile_options("$<$<CONFIG:Debug>:-O0>")
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/GSL/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/flatbuffers/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/lib/GSL/include)
+include_directories($ENV{MCAS_HOME}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/flatbuffers/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libadoproto/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/generated/)
 
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # flatbuffers

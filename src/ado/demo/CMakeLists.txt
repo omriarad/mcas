@@ -14,12 +14,12 @@ add_compile_options(-O2 -fPIC)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/GSL/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/src)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libadoproto/include)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/lib/GSL/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/src)
+include_directories($ENV{MCAS_HOME}/src/components)
 
 target_link_libraries(${PROJECT_NAME} common pthread numa dl rt)
 

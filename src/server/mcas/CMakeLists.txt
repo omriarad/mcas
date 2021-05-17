@@ -13,13 +13,13 @@ endif(FEATURE_POOL_ACL)
 
 include(../../../mk/clang-dev-tools.cmake)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include/)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include/)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include/)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include/)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libthreadipc/include/)
-include_directories(${CMAKE_SOURCE_DIR}/src/components/)
-include_directories(${CMAKE_SOURCE_DIR}/src/kernel/modules/xpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include/)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include/)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include/)
+include_directories($ENV{MCAS_HOME}/src/lib/libadoproto/include/)
+include_directories($ENV{MCAS_HOME}/src/lib/libthreadipc/include/)
+include_directories($ENV{MCAS_HOME}/src/components/)
+include_directories($ENV{MCAS_HOME}/src/kernel/modules/xpmem/include)
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # rapidjson
 
 

@@ -8,7 +8,7 @@ else()
   set(GTEST_LIB gtestd)
 endif()
 
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
+include_directories($ENV{MCAS_HOME}/src/components)
 include_directories(${CMAKE_INSTALL_PREFIX}/include)
 
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)

@@ -2,17 +2,17 @@ cmake_minimum_required (VERSION 3.5.1 FATAL_ERROR)
 
 project(libthreadipc-test CXX)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libccpm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libthreadipc/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libccpm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libthreadipc/include)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # daxctl, tbb
 include_directories(../src)
 
-link_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/)
-link_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/)
-link_directories(${CMAKE_SOURCE_DIR}/src/lib/libthreadipc/)
+link_directories($ENV{MCAS_HOME}/src/lib/libnupm/)
+link_directories($ENV{MCAS_HOME}/src/lib/libpmem/)
+link_directories($ENV{MCAS_HOME}/src/lib/libthreadipc/)
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # ndctl
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 link_directories(${CMAKE_INSTALL_PREFIX}/lib64)

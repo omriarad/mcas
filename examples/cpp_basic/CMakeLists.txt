@@ -4,9 +4,9 @@ project(example-cpp-basic CXX)
 
 add_definitions(${GCC_COVERAGE_COMPILE_FLAGS} -DCONFIG_DEBUG)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/GSL/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/lib/GSL/include)
+include_directories($ENV{MCAS_HOME}/src/components)
 
 add_executable(example-cpp-basic cpp_basic.cpp)
 target_link_libraries(example-cpp-basic common numa pthread boost_program_options dl)

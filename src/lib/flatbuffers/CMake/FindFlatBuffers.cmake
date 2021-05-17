@@ -52,7 +52,7 @@ if(FLATBUFFERS_FOUND)
   endfunction()
 
   set(FLATBUFFERS_INCLUDE_DIRS ${FLATBUFFERS_INCLUDE_DIR})
-  include_directories(${CMAKE_BINARY_DIR})
+  include_directories($ENV{MCAS_BINARY_DIR})
 else()
   set(FLATBUFFERS_INCLUDE_DIR)
 endif()

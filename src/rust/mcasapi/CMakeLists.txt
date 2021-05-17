@@ -11,8 +11,8 @@ find_program(BINDGEN bindgen)
 
 # wrapper generation
 add_custom_target(mcasapi_wrapper.rs
-  COMMAND ${BINDGEN} --no-layout-tests ${CMAKE_SOURCE_DIR}/src/lib/libmcasapi/src/mcas_api_wrapper.h -o ${CMAKE_CURRENT_SOURCE_DIR}/src/mcasapi_wrapper.rs
-  DEPENDS ${CMAKE_SOURCE_DIR}/src/lib/libmcasapi/src/mcas_api_wrapper.h
+  COMMAND ${BINDGEN} --no-layout-tests $ENV{MCAS_HOME}/src/lib/libmcasapi/src/mcas_api_wrapper.h -o ${CMAKE_CURRENT_SOURCE_DIR}/src/mcasapi_wrapper.rs
+  DEPENDS $ENV{MCAS_HOME}/src/lib/libmcasapi/src/mcas_api_wrapper.h
   BYPRODUCTS ${CMAKE_CURRENT_SOURCE_DIR}/src/mcasapi_wrapper.rs
   )
 

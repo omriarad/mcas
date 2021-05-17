@@ -4,9 +4,9 @@ project(store-tests CXX)
 
 include_directories(../../)
 include_directories(../../../)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/GSL/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/lib/GSL/include)
+include_directories($ENV{MCAS_HOME}/src/components)
 
 add_definitions(-DCONFIG_DEBUG)
 add_definitions(-DDM_REGION_LOG_GRAIN_SIZE=${DM_REGION_LOG_GRAIN_SIZE})

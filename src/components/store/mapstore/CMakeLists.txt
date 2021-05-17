@@ -10,12 +10,12 @@ add_definitions(-DDM_REGION_LOG_GRAIN_SIZE=${DM_REGION_LOG_GRAIN_SIZE})
 
 add_subdirectory(./unit_test)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/GSL/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
-include_directories(${CMAKE_SOURCE_DIR}/src/mm)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/cityhash/cityhash/src)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/lib/GSL/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/components)
+include_directories($ENV{MCAS_HOME}/src/mm)
+include_directories($ENV{MCAS_HOME}/src/lib/cityhash/cityhash/src)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})

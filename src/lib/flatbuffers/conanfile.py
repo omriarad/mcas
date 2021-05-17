@@ -24,7 +24,7 @@ class FlatbuffersConan(ConanFile):
         """Inject Conan setup in cmake file to solve exteral dependencies.
         """
         conan_magic_lines = '''project(FlatBuffers)
-        include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
+        include($ENV{MCAS_BINARY_DIR}/conanbuildinfo.cmake)
         conan_basic_setup()
         '''
         tools.replace_in_file("CMakeLists.txt", "project(FlatBuffers)", conan_magic_lines)

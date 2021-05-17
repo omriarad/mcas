@@ -7,11 +7,11 @@ project(mm-plugin-rcalb C CXX)
 add_definitions(-DCONFIG_DEBUG)
 add_compile_options("-fvisibility=hidden")
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libmm/src)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/libmm/src)
 include_directories(${CMAKE_INSTALL_PREFIX}/include)
-  
+
 file(GLOB SOURCES src/*.cpp)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})

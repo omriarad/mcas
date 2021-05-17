@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.5.1 FATAL_ERROR)
 
 project(personality-cpp-symtab CXX)
 
-include(${CMAKE_SOURCE_DIR}/mk/avoid_boost_type_to_string_bug.cmake)
+include($ENV{MCAS_HOME}/mk/avoid_boost_type_to_string_bug.cmake)
 
 find_program(FLATC NAMES flatc PATHS "${CMAKE_INSTALL_PREFIX}/bin" NO_DEFAULT_PATH)
 
@@ -15,15 +15,15 @@ set(PLUGIN_SOURCES ./src/cpp_symtab_plugin.cpp ${CMAKE_CURRENT_BINARY_DIR}/gener
 set(TEST_SOURCES ./src/cpp_symtab_test.cpp ${CMAKE_CURRENT_BINARY_DIR}/generated/cpp_symtab_proto.h)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/flatbuffers/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libccpm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/common)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnop/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/flatbuffers/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libccpm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/common)
+include_directories($ENV{MCAS_HOME}/src/lib/libnop/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libadoproto/include)
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # EASTL
 
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # flatbuffers

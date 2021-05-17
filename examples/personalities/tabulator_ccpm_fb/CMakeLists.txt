@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.5.1 FATAL_ERROR)
 
 project(personality-tabulator-ccpm CXX)
 
-include(${CMAKE_SOURCE_DIR}/mk/avoid_boost_type_to_string_bug.cmake)
+include($ENV{MCAS_HOME}/mk/avoid_boost_type_to_string_bug.cmake)
 
 find_program(FLATC NAMES flatc PATHS "${CMAKE_INSTALL_PREFIX}/bin" NO_DEFAULT_PATH)
 
@@ -18,19 +18,19 @@ set(CLIENT_SOURCES ${GENERATED} )
 set(TEST_SOURCES ./src/tabulator_test.cpp)
 
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/generated)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/flatbuffers/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libccpm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/common)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/flatbuffers/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libccpm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/common)
+include_directories($ENV{MCAS_HOME}/src/lib/libadoproto/include)
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # EASTL
 
 #link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # flatbuffers
 # don't use install directory
-link_directories(${CMAKE_BINARY_DIR}/src/lib/flatbuffers/)
+link_directories($ENV{MCAS_BINARY_DIR}/src/lib/flatbuffers/)
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 
 add_custom_command(
@@ -47,7 +47,7 @@ add_compile_options(-g -Wall -Wextra -Wcast-align -Wcast-qual -Wconversion -Wred
 add_library(${PROJECT_NAME} SHARED ${PLUGIN_SOURCES})
 target_link_libraries(${PROJECT_NAME} common pthread numa dl rt flatbuffers pmem ccpm tbb tbbmalloc )
 set_target_properties(${PROJECT_NAME} PROPERTIES LINKER_LANGUAGE CXX)
-set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH ${CMAKE_BINARY_DIR}/src/lib/flatbuffers/) #:${CMAKE_INSTALL_PREFIX}/lib)
+set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH $ENV{MCAS_BINARY_DIR}/src/lib/flatbuffers/) #:${CMAKE_INSTALL_PREFIX}/lib)
 
 configure_file(tabulator-ccpm.conf.in ${CMAKE_CURRENT_BINARY_DIR}/tabulator-ccpm.conf)
 configure_file(src/tabulator_ccpm_test.sh.in ${CMAKE_CURRENT_BINARY_DIR}/tabulator_ccpm_test.sh)

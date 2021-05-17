@@ -4,7 +4,7 @@ project(component-adoproxy CXX)
 
 add_definitions(-DCONFIG_DEBUG)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
+include_directories($ENV{MCAS_HOME}/src/components)
 include_directories(../../../lib/common/include)
 include_directories(../../../lib/libadoproto/include)
 include_directories(../../)

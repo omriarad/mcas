@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 3.5.1 FATAL_ERROR)
 
 project (eastl-example)
 
-include(${CMAKE_SOURCE_DIR}/mk/avoid_boost_type_to_string_bug.cmake)
+include($ENV{MCAS_HOME}/mk/avoid_boost_type_to_string_bug.cmake)
 
 include_directories(${CMAKE_INSTALL_PREFIX}/include)
 

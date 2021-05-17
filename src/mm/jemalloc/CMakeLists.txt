@@ -8,9 +8,9 @@ add_subdirectory(jemalloc-source)
 
 add_compile_options(-DCONFIG_DEBUG -pedantic -Wall -Wextra -Werror -Wcast-align -Wcast-qual -Wconversion -Wformat=2 -Wredundant-decls -Wshadow -Wtype-limits -Wunused-parameter -Wwrite-strings)
 
-include_directories(${CMAKE_BINARY_DIR}/src/mm/jemalloc-dist/include)
+include_directories($ENV{MCAS_BINARY_DIR}/src/mm/jemalloc-dist/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/jemalloc-source/build/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
 include_directories(${CMAKE_INSTALL_PREFIX}/include)
 
 link_directories(${CMAKE_CURRENT_BINARY_DIR}/jemalloc-source/build/lib)

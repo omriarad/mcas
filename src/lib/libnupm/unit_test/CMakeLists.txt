@@ -4,13 +4,13 @@ project(libnupm-test CXX)
 
 set(CMAKE_CXX_STANDARD 14)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libccpm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libccpm/include)
 include_directories(../src)
 
-link_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/)
-link_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/)
+link_directories($ENV{MCAS_HOME}/src/lib/libnupm/)
+link_directories($ENV{MCAS_HOME}/src/lib/libpmem/)
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # ndctl
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 link_directories(${CMAKE_INSTALL_PREFIX}/lib64)

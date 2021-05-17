@@ -4,7 +4,7 @@ project(component-adoplugin-testing CXX)
 
 enable_language(CXX C ASM)
 
-include(${CMAKE_SOURCE_DIR}/mk/avoid_boost_type_to_string_bug.cmake)
+include($ENV{MCAS_HOME}/mk/avoid_boost_type_to_string_bug.cmake)
 
 add_compile_options(-pedantic -Wall -Wextra -Werror -Wcast-align -Wcast-qual -Wconversion -Weffc++ -Wformat=2 -Wold-style-cast -Wredundant-decls -Wshadow -Wtype-limits -Wunused-parameter -Wwrite-strings)
 
@@ -14,15 +14,15 @@ add_definitions(-DCONFIG_DEBUG)
 add_compile_options(${FLAG_DUMP_CLASS})
 add_compile_options(-O2 -fPIC)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libccpm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/EASTL/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/EASTL/test/packages/EABase)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include/)
-include_directories(${CMAKE_SOURCE_DIR}/src/components/)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/src)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libccpm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libadoproto/include)
+include_directories($ENV{MCAS_HOME}/src/lib/EASTL/include)
+include_directories($ENV{MCAS_HOME}/src/lib/EASTL/test/packages/EABase)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include/)
+include_directories($ENV{MCAS_HOME}/src/components/)
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/src)
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # EASTL
 
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # pmem tbb tbbmalloc

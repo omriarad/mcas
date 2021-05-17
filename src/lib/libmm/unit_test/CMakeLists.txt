@@ -2,8 +2,8 @@ cmake_minimum_required (VERSION 3.5.1 FATAL_ERROR)
 
 project(libmm-unit-test CXX)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/mm)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/mm)
 include_directories(${CMAKE_INSTALL_PREFIX}/include)
 
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)

@@ -66,6 +66,7 @@ else()
 endif()
 
 set(ENV{MCAS_HOME} ${CMAKE_CURRENT_SOURCE_DIR})
+set(ENV{MCAS_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 
 include(CheckIncludeFiles)
 find_package(PkgConfig)
@@ -94,7 +95,7 @@ endif()
 # run 'make bootstrap' to  make comanche deps and core
 # then run 'make' to build components/tests
 add_custom_target(bootstrap
-  bash ${CMAKE_SOURCE_DIR}/mk/bootstrap.sh ${CMAKE_SOURCE_DIR}
+  bash $ENV{MCAS_HOME}/mk/bootstrap.sh ${CMAKE_SOURCE_DIR}
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
   )
 

@@ -9,7 +9,7 @@ add_definitions(-DDM_REGION_LOG_GRAIN_SIZE=${DM_REGION_LOG_GRAIN_SIZE})
 
 include(../../../mk/clang-dev-tools.cmake)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
+include_directories($ENV{MCAS_HOME}/src/components)
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
 include_directories("../common/include")
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # daxctl

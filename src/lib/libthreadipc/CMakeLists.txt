@@ -10,8 +10,8 @@ add_compile_options(-g -pedantic -Wall -Wextra -Werror -Wcast-align -Wcast-qual 
 add_definitions(-DCONFIG_DEBUG)
 
 include_directories(./include)
-include_directories(${CMAKE_SOURCE_DIR}/src/components)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/components)
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # daxctl, tbb
 

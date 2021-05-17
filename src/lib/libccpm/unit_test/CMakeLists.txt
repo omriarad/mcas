@@ -10,16 +10,16 @@ set(PROFILER "profiler")
 add_definitions(-DHAS_PROFILER=1)
 endif()
 
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libccpm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/EASTL/include) # test6
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/EASTL/include) # immutable_allocator
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/EASTL/test/packages/EABase/include/Common) # test5
+include_directories($ENV{MCAS_HOME}/src/lib/libnupm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libpmem/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libccpm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/EASTL/include) # test6
+include_directories($ENV{MCAS_HOME}/src/lib/EASTL/include) # immutable_allocator
+include_directories($ENV{MCAS_HOME}/src/lib/EASTL/test/packages/EABase/include/Common) # test5
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # gtest
 
-link_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/)
-link_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/)
+link_directories($ENV{MCAS_HOME}/src/lib/libnupm/)
+link_directories($ENV{MCAS_HOME}/src/lib/libpmem/)
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # ndctl
 link_directories(${CMAKE_INSTALL_PREFIX}/lib)
 link_directories(${CMAKE_INSTALL_PREFIX}/lib64) # gtest

@@ -3,7 +3,7 @@ cmake_minimum_required (VERSION 3.5.1 FATAL_ERROR)
 project(ccpm CXX C)
 
 set(CMAKE_CXX_STANDARD 17)
-include(${CMAKE_SOURCE_DIR}/mk/avoid_boost_type_to_string_bug.cmake)
+include($ENV{MCAS_HOME}/mk/avoid_boost_type_to_string_bug.cmake)
 
 add_compile_options(-g -pedantic -Wall -Werror -Wextra -Wcast-align -Wcast-qual -Wconversion -Weffc++ -Wold-style-cast -Wredundant-decls -Wshadow -Wtype-limits -Wunused-parameter -Wwrite-strings -Wformat=2)
 add_compile_options("$<$<CONFIG:Debug>:-O0>")
@@ -13,11 +13,11 @@ include(../../../mk/clang-dev-tools.cmake)
 # find_library(LIB_JEMALLOC libjemalloc.so HINTS ${CMAKE_INSTALL_PREFIX}/lib)
 #find_library(LIB_NDCTL libndctl.so HINTS ${CMAKE_INSTALL_PREFIX}/lib)
 
-include_directories(${CMAKE_SOURCE_DIR}/src/components) # immutable_allocator
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/libccpm/include)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/GSL/include/)
-include_directories(${CMAKE_SOURCE_DIR}/src/lib/EASTL/include) # immutable_allocator
+include_directories($ENV{MCAS_HOME}/src/components) # immutable_allocator
+include_directories($ENV{MCAS_HOME}/src/lib/common/include)
+include_directories($ENV{MCAS_HOME}/src/lib/libccpm/include)
+include_directories($ENV{MCAS_HOME}/src/lib/GSL/include/)
+include_directories($ENV{MCAS_HOME}/src/lib/EASTL/include) # immutable_allocator
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fopenmp")
 set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
