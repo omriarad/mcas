@@ -26,6 +26,5 @@ RUN cmake -DBUILD_KERNEL_SUPPORT=OFF \
 -DCMAKE_INSTALL_PREFIX:PATH=/home/mcasuser/mcas/ ..
 RUN make bootstrap
 RUN make -j install
-
 WORKDIR /home/mcasuser
 CMD ["/bin/bash"]
