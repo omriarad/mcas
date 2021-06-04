@@ -6,7 +6,7 @@ USER mcasuser
 WORKDIR /home/mcasuser
 RUN mkdir -p ~/mcas/src
 WORKDIR /home/mcasuser/mcas/src
-RUN git clone -b MCAS-85 https://github.com/IBM/mcas.git
+RUN git clone https://github.com/IBM/mcas.git
 WORKDIR /home/mcasuser/mcas/src/mcas
 RUN git submodule update --init --recursive
 RUN cp /home/mcasuser/mcas/src/mcas/src/python/pymm/sample.py /home/mcasuser
