@@ -667,9 +667,9 @@ try
   TM_ROOT()
   const auto session = static_cast<session_type *>(locate_session(pool));
   if(!session) return E_FAIL;
-	/* 0 probably mans that alignemtn is a don't care, which is the same as alignment 1 */
+	/* 0 probably means that alignment is a don't care, which is the same as alignment 1 */
 	if ( alignment == 0 ) { alignment = 1; }
-#if 0 /* According to mapstore, non-2^n alignments are handled by the allocator, not the store component */
+#if 0 /* As with to mapstore, allocator (not hstore) deals with non-2^n alignments */
 	if ( ( alignment & (alignment - 1) ) != 0  ) { return E_BAD_ALIGNMENT; }
 #endif
   auto r = session->lock(AK_INSTANCE TM_REF key, type, out_value, out_value_len, alignment);
