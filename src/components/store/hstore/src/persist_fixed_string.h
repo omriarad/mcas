@@ -340,11 +340,11 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 		 * forward_as_tuple, and the string is an element of a tuple, and std::tuple
 		 * (unlike pair) does not support piecewise_construct.
 		 */
-#if 201703L <= __cplusplus
+#if 0 && 201703L <= __cplusplus /* this may work, some day */
 		template <typename Tuple>
 			persist_fixed_string(
 				Tuple &&t
-			)
+			);
 			: persist_fixed_string(std::make_from_tuple<persist_fixed_string<T, SmallLimit, Allocator>>(std::move(t)))
 		{}
 #else
