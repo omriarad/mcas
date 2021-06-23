@@ -25,14 +25,6 @@ The key attributes of the solution are:
 * [More documentation](./info/index.md)
 
 
-## Run dependencies for your OS 
-
-``` bash
-cd deps
-./install-<Your-OS-Version>.sh
-cd ../
-``` 
-
 ## How to Build
 
 Check out source (for example public version):
@@ -47,9 +39,18 @@ cd mcas
 git submodule update --init --recursive
 ```
 
+
+## Run dependencies for your OS 
+
+``` bash
+cd deps
+./install-<Your-OS-Version>.sh
+cd ../
+``` 
+
 ### Configure
 
-Create build directory at root level.  We normally use `mcas/build` (The deadult build is in debug mode)
+Create build directory at root level.  We normally use `mcas/build` (The default build is in debug mode)
 
 ```bash
 mkdir build
@@ -88,8 +89,7 @@ make bootstrap
 
 ### Normal build
 ```bash
-make -j
-make install 
+make -j install 
 ```
 
 
