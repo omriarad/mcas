@@ -81,11 +81,7 @@ std::vector<common::memory_mapped> nupm::range_use::address_coverage_check(std::
 
 nupm::range_use::range_use(dax_manager *dm_, std::vector<common::memory_mapped> &&iovm_)
   : _dm(dm_)
-#if 1
-  , _iovm(address_coverage_check(std::move(iovm_))) // std::vector<common::memory_mapped>())
-#else
-  , _iovm()
-#endif
+  , _iovm(address_coverage_check(std::move(iovm_)))
 {
 	grow(std::move(iovm_));
 }

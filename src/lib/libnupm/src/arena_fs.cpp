@@ -16,8 +16,11 @@
 #include "filesystem.h"
 
 #include <nupm/dax_manager.h>
-#include <common/fd_open.h>
 #include <common/memory_mapped.h>
+#if __cplusplus__ < 201703
+#else
+#include <common/to_string.h>
+#endif
 #include <common/utils.h>
 
 #include <fcntl.h> /* ::open, ::posix_fallocate */
@@ -205,7 +208,15 @@ auto arena_fs::region_create(
 	if ( e != 0 )
 	{
 		PLOG("%s::%s posix_fallocate: %zu: %s", _cname, __func__, size, strerror(e));
-		return region_descriptor();
+#if __cplusplus__ < 201703
+		{
+			std::ostringstream s;
+			s << _cname << ":" <<__func__ << " " << size << " " << strerror(e);
+			throw std::runtime_error(s.str());
+		}
+#else
+		throw std::runtime_error(common::to_string(_cname, ":", __func__, " ", size, " ", strerror(e)));
+#endif
 	}
 	CPLOG(1, "%s posix_fallocate %i to %zu", __func__, fd.fd(), size);
 

@@ -27,6 +27,11 @@
 #include <string>
 #include <vector>
 
+namespace common
+{
+	struct fd_locked;
+}
+
 namespace nupm
 {
 struct dax_manager;

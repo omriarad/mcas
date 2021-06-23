@@ -27,7 +27,6 @@
 #include "space_opened.h"
 #include "space_registered.h"
 #include <common/byte_span.h>
-#include <common/fd_open.h>
 #include <common/logging.h>
 #include <common/memory_mapped.h>
 #include <common/moveable_ptr.h>
@@ -53,6 +52,11 @@
  * {create,open,erase}region functions use region to mean something else.
  */
 struct arena;
+
+namespace common
+{
+	struct fd_locked;
+}
 
 namespace nupm
 {

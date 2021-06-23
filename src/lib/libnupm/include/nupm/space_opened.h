@@ -37,22 +37,27 @@ namespace nupm
 {
 struct dax_manager;
 
+/*
+ * Keep track of address range usage.
+ *
+ * Within an address space, only one user should map an address range.
+ *
+ * Different address spaces should normally have different instances of
+ * _dm (the dax mananger), but apparently there is some sharing in pymm.
+ * Therefore, under pymm, address overlap should not be an error.
+ */
 struct range_use
 {
 private:
   common::moveable_ptr<dax_manager> _dm;
-  /* Note: arena_fs used multiple ranges */
+  /* Note: arena_fs uses multiple ranges */
   std::vector<common::memory_mapped> _iovm;
 
   std::vector<common::memory_mapped> address_coverage_check(std::vector<common::memory_mapped> &&iovm);
   using byte = common::byte;
   using byte_span = common::byte_span;
 public:
-#if 0
-  const auto & operator[](std::size_t i) const { return _iovm.at(i).iov(); }
-#else
   byte_span operator[](std::size_t i) const { const auto &iov = _iovm.at(i).iov(); return common::make_byte_span(::base(iov), ::size(iov)); }
-#endif
   range_use(dax_manager *dm_, std::vector<common::memory_mapped> &&);
   range_use(const range_use &) = delete;
   range_use &operator=(const range_use &) = delete;
@@ -69,7 +74,6 @@ struct space_opened : private common::log_source
 private:
   using byte_span = common::byte_span;
   common::fd_locked _fd_locked;
-  /* Note: arena_fs may someday use multiple ranges */
   range_use _range;
 
   /* owns the file mapping */
