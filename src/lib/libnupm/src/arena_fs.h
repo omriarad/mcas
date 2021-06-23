@@ -19,13 +19,13 @@
 #include "filesystem.h"
 
 #include <common/byte_span.h>
-#include <common/fd_locked.h>
 #include <common/logging.h>
 
 #include <string>
 
 namespace common
 {
+	struct fd_locked;
 	struct memory_mapped;
 }
 
