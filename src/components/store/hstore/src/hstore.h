@@ -41,7 +41,7 @@
 
 #include "region.h"
 
-#include "hstore_open_pool.h"
+#include "open_pool.h"
 #include "persist_fixed_string.h"
 #include "pstr_equal.h"
 #include "pstr_hash.h"

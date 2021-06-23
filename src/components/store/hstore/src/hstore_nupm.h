@@ -19,7 +19,7 @@
 
 #include "alloc_key.h" /* AK_FORMAL */
 #include "hstore_nupm_types.h"
-#include "hstore_open_pool.h"
+#include "open_pool.h"
 #include "persister_nupm.h"
 
 #include <common/string_view.h>

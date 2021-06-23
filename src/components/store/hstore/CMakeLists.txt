@@ -47,7 +47,6 @@ set(SOURCES
 	src/hstore_kv_types.cpp
 	src/hstore_nupm.cpp
 	src/hstore_nupm_types.cpp
-	src/hstore_open_pool.cpp
 	src/is_locked.cpp
 	src/key_not_found.cpp
 	src/lock_impl.cpp
@@ -56,6 +55,7 @@ set(SOURCES
 	src/mod_control.cpp
 	src/monitor_emplace.cpp
 	src/monitor_pin.cpp
+	src/open_pool.cpp
 	src/persist_fixed_string.cpp
 	src/persist_atomic.cpp
 	src/persist_atomic_controller.cpp
