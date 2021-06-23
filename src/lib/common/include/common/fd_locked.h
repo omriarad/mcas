@@ -18,6 +18,10 @@
 
 namespace common
 {
+	/*
+	 * An open file which is locked exclusive (by ::lockf(F_TLOCK)
+	 * to prevent accidental use by multiple processes.
+	 */
   struct fd_locked
     : public Fd_open
   {
