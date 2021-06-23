@@ -50,7 +50,7 @@ cd ../
 
 ### Configure
 
-Create build directory at root level.  We normally use `mcas/build` (The deadult build is in debug mode)
+Create build directory at root level.  We normally use `mcas/build` (The default build is in debug mode)
 
 ```bash
 mkdir build
