@@ -7,7 +7,7 @@ import dax
 
 class hstore_0(config_0):
 	def __init__(self, hstoretype, daxtype, ipaddr, port=None, count=1):
-		store_ctor = getattr(stores, hstoretype.replace('-', '_')) # hstore or hstore-cc
+		store_ctor = getattr(stores, hstoretype.replace('-', '_')) # hstore, hstore-cc, hstore-mc, hstore-mr
 		h = store_ctor()
 		#if port is not None:
 		#    h.merge({"port": port})

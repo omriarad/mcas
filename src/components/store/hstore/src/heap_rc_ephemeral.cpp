@@ -25,7 +25,7 @@ heap_rc_ephemeral::heap_rc_ephemeral(
 )
 	: heap_ephemeral(debug_level_)
 	, _heap(debug_level_)
-	, _primary_region(id_, backing_file_, {})
+	, _managed_regions(id_, backing_file_, {})
 	, _allocated(0)
 	, _capacity(0)
 	, _reconstituted()
@@ -34,11 +34,11 @@ heap_rc_ephemeral::heap_rc_ephemeral(
 	, _hist_free()
 {}
 
-void heap_rc_ephemeral::add_managed_region(const byte_span &r_full, const byte_span &r_heap, const unsigned numa_node)
+void heap_rc_ephemeral::add_managed_region(const byte_span r_full, const byte_span r_heap, const unsigned numa_node)
 {
 	_heap.add_managed_region(::base(r_heap), ::size(r_heap), int(numa_node));
 	CPLOG(2, "%s : %p.%zx", __func__, ::base(r_heap), ::size(r_heap));
-	_primary_region.address_map_push_back(r_full);
+	_managed_regions.address_map_push_back(r_full);
 	_capacity += ::size(r_heap);
 }
 

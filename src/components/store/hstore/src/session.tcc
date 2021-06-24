@@ -22,9 +22,6 @@
 #include "monitor_emplace.h"
 #include "monitor_pin.h"
 #include <common/perf/tm.h>
-#if 0
-#include <common/to_string.h>
-#endif
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
@@ -50,7 +47,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 	template <typename OID, typename Persist>
 		session<Handle, Allocator, Table, LockType>::session(
 			OID
-#if USE_CC_HEAP == 2
+#if HEAP_OID
 				heap_oid_
 #endif
 			, Handle &&pop_
@@ -60,13 +57,13 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		: session_base<Handle>(std::move(pop_), debug_level_)
 		, _heap(
 			Allocator(
-#if USE_CC_HEAP == 2
+#if HEAP_OID
 				*new
 					(pmemobj_direct(heap_oid_))
 					heap_co(heap_oid_)
-#elif USE_CC_HEAP == 3 || USE_CC_HEAP == 4
+#else
 				this->pool() /* not used */
-#endif /* USE_CC_HEAP */
+#endif
 			)
 		)
 		, _pin_seq(undo_redo_pin_data(_heap) || undo_redo_pin_key(_heap))
@@ -100,19 +97,9 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	session<Handle, Allocator, Table, LockType>::~session()
 	{
-#if USE_CC_HEAP == 3 || USE_CC_HEAP == 4
+#if ! HEAP_OID
 		this->pool()->quiesce();
 #endif
-	}
-
-template <typename Handle, typename Allocator, typename Table, typename LockType>
-	bool session<Handle, Allocator, Table, LockType>::try_lock(typename std::tuple_element<0, mapped_type>::type &d, lock_type type)
-	{
-		return
-			type == component::IKVStore::STORE_LOCK_READ
-			? d.try_lock_shared()
-			: d.try_lock_exclusive()
-			;
 	}
 
 template <typename Handle, typename Allocator, typename Table, typename LockType>
@@ -121,11 +108,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		allocator_type heap_
 	)
 	{
-#if USE_CC_HEAP == 3
-		AK_REF_VOID;
-		(void) (heap_);
-		return true;
-#elif USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 		auto &aspd = heap_.pool()->aspd();
 		auto armed = aspd.is_armed();
 		if ( armed )
@@ -164,6 +147,10 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			/* S_unarmed: do nothing */
 		}
 		return armed;
+#else
+		AK_REF_VOID;
+		(void) (heap_);
+		return true;
 #endif
 	}
 
@@ -173,11 +160,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		allocator_type heap_
 	)
 	{
-#if USE_CC_HEAP == 3
-		AK_REF_VOID;
-		(void) (heap_);
-		return true;
-#elif USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 		auto &aspk = heap_.pool()->aspk();
 		auto armed = aspk.is_armed();
 		if ( armed )
@@ -216,6 +199,10 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			/* S_unarmed: do nothing */
 		}
 		return armed;
+#else
+		AK_REF_VOID;
+		(void) (heap_);
+		return true;
 #endif
 	}
 
@@ -252,7 +239,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		const std::size_t value_len = value.size();
 #endif
 
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 		/* Start of an emplace. Storage allocated by this->allocator()
 		 * is to be disclaimed upon a restart unless
 		 *  (1) verified in-use by the map (i.e., owner bit bit set to 1), or later
@@ -282,22 +269,6 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				)
 			);
 	}
-
-#if 0
-no matching function for call to
-
-std::tuple<
-  persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm>>
-  , common::Timestamp<common::Timepoint>
->
-::tuple(
-    std::tuple<const std::experimental::fundamentals_v1::basic_string_view<
-std::byte, std::char_traits<std::byte> >&
-, lock_state&&
-, allocator_cc<char, persister_nupm>&&>
-, common::Timestamp<common::Timepoint>
-)
-#endif
 
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	void session<Handle, Allocator, Table, LockType>::update_by_issue_41(
@@ -420,7 +391,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		TM_ACTUAL
 		const string_view_key key
 		, std::size_t new_mapped_len
-		, std::size_t alignment
+		, std::size_t alignment_
 	)
 	{
 		auto & map = locate_map(key);
@@ -429,7 +400,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		auto &v = map.at(TM_REF key);
 		auto &d = std::get<0>(v);
 		/* Replace the data if the size changes or if the data should be realigned */
-		if ( d.size() != new_mapped_len || reinterpret_cast<std::size_t>(d.data()) % alignment != 0 )
+		if ( d.size() != new_mapped_len || reinterpret_cast<std::size_t>(d.data()) % alignment_ != 0 )
 		{
 			this->_atomic_state.enter_replace(
 				AK_REF
@@ -440,7 +411,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				, key
 				, string_view_value(d.data(), std::min(d.size(), new_mapped_len))
 				, d.size() < new_mapped_len ? new_mapped_len - d.size() : std::size_t(0)
-				, alignment
+				, alignment_
 			);
 		}
 	}
@@ -453,10 +424,11 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		, lock_type type
 		, void *const value
 		, const std::size_t value_len
+		, const std::size_t alignment_
 	) -> lock_result
 	{
 		auto & map = locate_map(key);
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 		monitor_emplace<Allocator> me(this->allocator());
 #endif
 		auto it = map.find(TM_REF key);
@@ -483,7 +455,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 #if 0
 							std::piecewise_construct,
 #endif
-							std::forward_as_tuple(AK_REF fixed_data_location, value_len, lock_state::free, this->allocator())
+							std::forward_as_tuple(AK_REF fixed_data_location, value_len, alignment_, lock_state::free, this->allocator())
 #if ENABLE_TIMESTAMPS
 							, impl::tsc_now()
 #endif
@@ -493,7 +465,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				if ( ! r.second )
 				{
 					/* Should not happen. If we could not find it, should be able to create it */
-					return { lock_result::e_state::creation_failed, component::IKVStore::KEY_NONE, string_view_key(), string_view_value(static_cast<string_view_value::pointer>(value), value_len) };
+					return lock_result(lock_result::e_state::creation_failed, string_view_value(static_cast<string_view_value::pointer>(value), value_len));
 				}
 
 				auto &v = *r.first;
@@ -504,18 +476,18 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				PLOG(PREFIX "data exposed (newly created): %p", LOCATION, d.data_fixed());
 				PLOG(PREFIX "key exposed (newly created): %p", LOCATION, k.data_fixed());
 #endif
-				return {
+				return lock_result(
 					lock_result::e_state::created
-					, try_lock(d, type)
-						? new lock_impl(key)
-						: component::IKVStore::KEY_NONE
+					, d
+					, type
+					, key
 					, string_view_key(k.data_fixed(), k.size())
-					, string_view_value(d.data_fixed(), d.size())
-				};
+					, alignment_
+				);
 			}
 			else
 			{
-				return { lock_result::e_state::not_created, component::IKVStore::KEY_NONE, string_view_key(), string_view_value() };
+				return lock_result(lock_result::e_state::not_created, string_view_value(static_cast<string_view_value::pointer>(value), value_len));
 			}
 		}
 		else
@@ -547,14 +519,14 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			PLOG(PREFIX "key exposed (extant): %p", LOCATION, k.data_fixed());
 #endif
 			/* Note: now returning E_LOCKED on lock failure as per a private request */
-			lock_result r {
+			lock_result r(
 				lock_result::e_state::extant
-				, try_lock(d, type)
-					? new lock_impl(key)
-					: component::IKVStore::KEY_NONE
+				, d
+				, type
+				, key
 				, string_view_key(k.data_fixed(), k.size())
-				, string_view_value(d.data_fixed(), d.size())
-			};
+				, alignment_
+			);
 
 #if ENABLE_TIMESTAMPS
 			if ( type == component::IKVStore::STORE_LOCK_WRITE && r.lock_key != component::IKVStore::KEY_NONE )
@@ -641,7 +613,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			auto &d = std::get<0>(m);
 			if ( ! d.is_locked() )
 			{
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 				monitor_emplace<Allocator> me(this->allocator());
 #endif
 				++this->_writes;
@@ -812,12 +784,12 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 	void *session<Handle, Allocator, Table, LockType>::allocate_memory(
 		AK_ACTUAL
 		std::size_t size
-		, std::size_t alignment
+		, std::size_t alignment_
 	)
 	{
 		persistent_t<char *> p = nullptr;
 		/* ERROR: leaks memory on a crash */
-		allocator().allocate_tracked(AK_REF p, size, clean_align(alignment, sizeof(void *)));
+		allocator().allocate_tracked(AK_REF p, size, clean_align(alignment_, sizeof(void *)));
 		return p;
 	}
 
@@ -828,7 +800,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 	)
 	{
 		persistent_t<char *> p = static_cast<char *>(const_cast<void *>(addr));
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 		/* ERROR: leaks memory on a crash */
 #endif
 		allocator().deallocate_tracked(p, size);

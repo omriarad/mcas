@@ -6,7 +6,7 @@ add_subdirectory(pymcas)
 
 include(${CMAKE_SOURCE_DIR}/mk/avoid_boost_type_to_string_bug.cmake)
 
-find_program(PYTHON NAMES "python3.7" "python3.6")
+find_program(PYTHON NAMES "python3.8" "python3.7" "python3.6")
 find_program(FLATC NAMES flatc PATHS "${CMAKE_INSTALL_PREFIX}/bin" NO_DEFAULT_PATH)
 
 if (NOT FLATC)
@@ -32,7 +32,7 @@ message("--        include : ${PYTHON_INCLUDE_DIR}")
 
 set(GENERATED ${CMAKE_CURRENT_BINARY_DIR}/generated/pp_generated.h)
 
-set(PLUGIN_SOURCES ${GENERATED} src/pp_plugin.cpp pymcas/src/pymcas_core_module.cc)
+set(PLUGIN_SOURCES ${GENERATED} src/pp_plugin.cpp pymcas/src/pymcas_core_module.cc pymcas/src/ndarray_helpers.cc)
 set(CLIENT_SOURCES ${GENERATED} )
 
 set(TEST_SOURCES ./src/pp_test.cpp)

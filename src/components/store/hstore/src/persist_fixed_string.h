@@ -30,6 +30,7 @@
 #include <cstddef> /* size_t */
 #include <cstring> /* memcpy */
 #include <memory> /* allocator_traits */
+#include <tuple> /* make_from_tuple */
 
 #include <common/byte.h>
 struct fixed_data_location_t {};
@@ -273,16 +274,6 @@ template <typename T, std::size_t SmallLimit, typename Allocator>
 			{
 			}
 
-#if 0
-/usr/include/c++/10/tuple:1689:70: error: no matching function for call to
-
-persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::persist_fixed_string(
-  const std::byte*
-  , const std::byte*
-  , lock_state
-  , allocator_cc<char, persister_nupm>
-)
-#else
 		template <typename IT, typename AL>
 			persist_fixed_string(
 				AK_ACTUAL
@@ -292,7 +283,6 @@ persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::pers
 			)
 				: persist_fixed_string(AK_REF common::basic_string_view<common::byte>(first_, std::size_t(last_-first_)), 0U, default_alignment, lock_, al_)
 			{}
-#endif
 
 		template <typename C, typename AL>
 			persist_fixed_string(
@@ -366,6 +356,14 @@ persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::pers
 		 * forward_as_tuple, and the string is an element of a tuple, and std::tuple
 		 * (unlike pair) does not support piecewise_construct.
 		 */
+#if 0 && 201703L <= __cplusplus /* this may work, some day */
+		template <typename Tuple>
+			persist_fixed_string(
+				Tuple &&t
+			);
+			: persist_fixed_string(std::make_from_tuple<persist_fixed_string<T, SmallLimit, Allocator>>(std::move(t)))
+		{}
+#else
 		template <typename IT, typename AL>
 			persist_fixed_string(
 				std::tuple<AK_FORMAL IT&, IT&&, lock_state &&, AL>&& p_
@@ -403,6 +401,7 @@ persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::pers
 		 * forward_as_tuple, and the string is an element of a tuple, and std::tuple
 		 * (unlike pair) does not support piecewise_construct.
 		 */
+
 		template <typename AL>
 			persist_fixed_string(
 				std::tuple<AK_FORMAL const std::size_t &, lock_state &&, AL>&& p_
@@ -419,8 +418,9 @@ persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::pers
 
 		/* Needed because the persist_fixed_string arguments are sometimes conveyed via
 		 * forward_as_tuple, and the string is an element of a tuple, and std::tuple
-		 * (unlike pair) does not support picecewise_construct.
+		 * (unlike pair) does not support piecewise_construct.
 		 */
+
 		template <typename AL>
 			persist_fixed_string(
 				std::tuple<AK_FORMAL const fixed_data_location_t &, const std::size_t &, lock_state &&, AL>&& p_
@@ -437,6 +437,23 @@ persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::pers
 			{
 			}
 
+		template <typename AL>
+			persist_fixed_string(
+				std::tuple<AK_FORMAL const fixed_data_location_t &, const std::size_t &, const std::size_t &, lock_state &&, AL>&& p_
+			)
+				: persist_fixed_string(
+					std::get<0>(p_)
+					, std::get<1>(p_)
+					, std::get<2>(p_)
+					, std::get<3>(p_)
+					, std::get<4>(p_)
+#if AK_USED
+					, std::get<5>(p_)
+#endif
+				)
+			{
+			}
+#endif
 		template <typename AL>
 			persist_fixed_string(
 				AK_ACTUAL
@@ -655,7 +672,7 @@ persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::pers
 
 		void deconstitute() const
 		{
-#if USE_CC_HEAP == 3
+#if HEAP_RECONSTITUTE
 			if ( ! is_inline() )
 			{
 				/* used only by the table_base destructor, at which time
@@ -681,7 +698,7 @@ persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::pers
 					 * it would not need restoration. Arrange that.
 					 */
 					new (&const_cast<persist_fixed_string *>(this)->_outline.al()) allocator_char_type(al_);
-#if USE_CC_HEAP == 3
+#if HEAP_RECONSTITUTE
 					using reallocator_char_type =
 						typename std::allocator_traits<AL>::template rebind_alloc<char>;
 					auto alr = reallocator_char_type(al_);

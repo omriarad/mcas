@@ -33,7 +33,7 @@
 
 namespace
 {
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 	bool leak_check = common::env_value("LEAK_CHECK", false);
 #endif
 }
@@ -200,7 +200,7 @@ heap_cc::~heap_cc()
 
 auto heap_cc::regions() const -> nupm::region_descriptor
 {
-	return _eph->get_primary_region();
+	return _eph->get_managed_regions();
 }
 
 auto heap_cc::grow(
@@ -229,7 +229,7 @@ void heap_cc::alloc(persistent_t<void *> *p_, std::size_t sz_, std::size_t align
 	auto sz = (sz_ + align - 1U)/align * align;
 
 	try {
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 		if ( _eph->_aspd->is_armed() )
 		{
 		}
@@ -313,7 +313,7 @@ void heap_cc::pin_data_arm(
 	cptr &cptr_
 ) const
 {
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 	_eph->_aspd->arm(cptr_, persister_nupm());
 #else
 	(void)cptr_;
@@ -324,7 +324,7 @@ void heap_cc::pin_key_arm(
 	cptr &cptr_
 ) const
 {
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 	_eph->_aspk->arm(cptr_, persister_nupm());
 #else
 	(void)cptr_;
@@ -333,7 +333,7 @@ void heap_cc::pin_key_arm(
 
 char *heap_cc::pin_data_get_cptr() const
 {
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 	assert(_eph->_aspd->is_armed());
 	return _eph->_aspd->get_cptr();
 #else
@@ -342,7 +342,7 @@ char *heap_cc::pin_data_get_cptr() const
 }
 char *heap_cc::pin_key_get_cptr() const
 {
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 	assert(_eph->_aspk->is_armed());
 	return _eph->_aspk->get_cptr();
 #else

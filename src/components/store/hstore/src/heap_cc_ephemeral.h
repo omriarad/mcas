@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -26,12 +26,9 @@
 #include <common/string_view.h>
 #include <nupm/region_descriptor.h>
 
-#include <sys/uio.h> /* iovec */
-
 #include <algorithm> /* min, swap */
-#include <cstddef> /* size_t, ptrdiff_t */
+#include <cstddef> /* size_t */
 #include <memory> /* unique_ptr */
-#include <string>
 #include <vector>
 
 namespace impl
@@ -48,7 +45,7 @@ private:
 	using byte_span = common::byte_span;
 	using string_view = common::string_view;
 	std::unique_ptr<ccpm::IHeap_expandable> _heap;
-	nupm::region_descriptor _primary_region;
+	nupm::region_descriptor _managed_regions;
 	std::size_t _capacity;
 	std::size_t _allocated;
 	impl::allocation_state_emplace *_ase;
@@ -75,18 +72,19 @@ private:
 		, string_view id
 		, string_view backing_file
 		, const std::vector<byte_span> &rv_full
-		, const byte_span &pool0_heap
+		, const byte_span pool0_heap
 	);
-	nupm::region_descriptor get_primary_region() const override { return _primary_region; }
-	nupm::region_descriptor set_primary_region(nupm::region_descriptor n) override
+	nupm::region_descriptor get_managed_regions() const override { return _managed_regions; }
+	nupm::region_descriptor set_managed_regions(nupm::region_descriptor n) override
 	{
 		using std::swap;
-		swap(n, _primary_region);
+		swap(n, _managed_regions);
 		return n;
 	}
+	std::size_t capacity() const override { return _capacity; };
 
 	template <bool B>
-		void write_hist(const byte_span & pool_) const
+		void write_hist(const byte_span  pool_) const
 		{
 			static bool suppress = false;
 			if ( ! suppress )
@@ -120,7 +118,7 @@ public:
 		, string_view id
 		, string_view backing_file
 		, const std::vector<byte_span> &rv_full
-		, const byte_span &pool0_heap_
+		, byte_span pool0_heap_
 	);
 	explicit heap_cc_ephemeral(
 		unsigned debug_level
@@ -131,14 +129,13 @@ public:
 		, string_view id
 		, string_view backing_file
 		, const std::vector<byte_span> &rv_full
-		, const byte_span &pool0_heap
+		, byte_span pool0_heap
 		, ccpm::ownership_callback_t f
 	);
 	std::size_t free(persistent_t<void *> *p_, std::size_t sz_);
-	std::size_t capacity() const override { return _capacity; };
 	heap_cc_ephemeral(const heap_cc_ephemeral &) = delete;
 	heap_cc_ephemeral& operator=(const heap_cc_ephemeral &) = delete;
-	void add_managed_region(const byte_span &r_full, const byte_span &r_heap, unsigned numa_node) override;
+	void add_managed_region(byte_span r_full, byte_span r_heap, unsigned numa_node) override;
 };
 
 #endif

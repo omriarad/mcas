@@ -29,9 +29,10 @@ protected:
 public:
 	using byte_span = common::byte_span;
 	explicit heap_ephemeral(unsigned debug_level) : common::log_source(debug_level) {}
-	virtual void add_managed_region(const byte_span &r_full, const byte_span &r_heap, unsigned numa_node) = 0;
-	virtual nupm::region_descriptor get_primary_region() const = 0;
-	virtual nupm::region_descriptor set_primary_region(nupm::region_descriptor n) = 0;
+
+	virtual void add_managed_region(byte_span r_full, byte_span r_heap, unsigned numa_node) = 0;
+	virtual nupm::region_descriptor get_managed_regions() const = 0;
+	virtual nupm::region_descriptor set_managed_regions(nupm::region_descriptor n) = 0;
 	virtual std::size_t capacity() const = 0;
 };
 

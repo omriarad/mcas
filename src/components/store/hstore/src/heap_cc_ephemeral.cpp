@@ -26,6 +26,19 @@
 constexpr unsigned heap_cc_ephemeral::log_min_alignment;
 constexpr unsigned heap_cc_ephemeral::hist_report_upper_bound;
 
+namespace
+{
+	struct persister final
+		: public ccpm::persister
+	{
+		void persist(common::byte_span s) override
+		{
+			::pmem_persist(::base(s), ::size(s));
+		}
+	};
+	persister p_cc{};
+}
+
 heap_cc_ephemeral::heap_cc_ephemeral(
 	unsigned debug_level_
 	, impl::allocation_state_emplace *ase_
@@ -36,11 +49,11 @@ heap_cc_ephemeral::heap_cc_ephemeral(
 	, string_view id_
 	, string_view backing_file_
 	, const std::vector<byte_span> &rv_full_
-	, const byte_span &pool0_heap_
+	, const byte_span pool0_heap_
 )
 	: heap_ephemeral(debug_level_)
 	, _heap(std::move(p))
-	, _primary_region(id_, backing_file_, rv_full_)
+	, _managed_regions(id_, backing_file_, rv_full_)
 	, _capacity(
 		::size(pool0_heap_)
 		+
@@ -90,9 +103,9 @@ heap_cc_ephemeral::heap_cc_ephemeral(
 	, string_view id_
 	, string_view backing_file_
 	, const std::vector<byte_span> &rv_full_
-	, const byte_span &pool0_heap_
+	, const byte_span pool0_heap_
 )
-	: heap_cc_ephemeral(debug_level_, ase_, aspd_, aspk_, asx_, std::make_unique<ccpm::cca>(ccpm::region_vector_t(pool0_heap_)), id_, backing_file_, rv_full_, pool0_heap_)
+	: heap_cc_ephemeral(debug_level_, ase_, aspd_, aspk_, asx_, std::make_unique<ccpm::cca>(&p_cc, ccpm::region_span(&*ccpm::region_vector_t(pool0_heap_).begin(), 1)), id_, backing_file_, rv_full_, pool0_heap_)
 {}
 
 heap_cc_ephemeral::heap_cc_ephemeral(
@@ -104,15 +117,15 @@ heap_cc_ephemeral::heap_cc_ephemeral(
 	, string_view id_
 	, string_view backing_file_
 	, const std::vector<byte_span> &rv_full_
-	, const byte_span &pool0_heap_
+	, const byte_span pool0_heap_
 	, ccpm::ownership_callback_t f
 )
-	: heap_cc_ephemeral(debug_level_, ase_, aspd_, aspk_, asx_, std::make_unique<ccpm::cca>(ccpm::region_vector_t(pool0_heap_), f), id_, backing_file_, rv_full_, pool0_heap_)
+	: heap_cc_ephemeral(debug_level_, ase_, aspd_, aspk_, asx_, std::make_unique<ccpm::cca>(&p_cc, ccpm::region_span(&*ccpm::region_vector_t(pool0_heap_).begin(), 1), f), id_, backing_file_, rv_full_, pool0_heap_)
 {}
 
 void heap_cc_ephemeral::add_managed_region(
-	const byte_span &r_full
-	, const byte_span &r_heap
+	const byte_span r_full
+	, const byte_span r_heap
 	, const unsigned // numa_node
 )
 {
@@ -121,9 +134,10 @@ void heap_cc_ephemeral::add_managed_region(
 	{
 		CPLOG(0, "%s IHeap regions: %p.%zx", __func__, ::base(r), ::size(r));
 	}
-	_heap->add_regions(ccpm::region_vector_t(r_heap));
+	ccpm::region_span::value_type rs[1] { r_heap };
+	_heap->add_regions(rs);
 	CPLOG(0, "%s : %p.%zx", __func__, ::base(r_heap), ::size(r_heap));
-	_primary_region.address_map_push_back(r_full);
+	_managed_regions.address_map_push_back(r_full);
 	_capacity += ::size(r_heap);
 	CPLOG(0, "%s after IHeap::add_regions size %zu", __func__, _heap->get_regions().size());
 	for ( const auto &r : _heap->get_regions() )
@@ -139,7 +153,7 @@ std::size_t heap_cc_ephemeral::free(persistent_t<void *> *p_, std::size_t sz_)
 	 *
 	 * The free, however, does not return a size. Pretend that it does.
 	 */
-#if USE_CC_HEAP == 4
+#if HEAP_CONSISTENT
 	/* Note: order of testing is important. An extend arm+allocate) can occur while
 	 * emplace is armed, but not vice-versa
 	 */

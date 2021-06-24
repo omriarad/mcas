@@ -14,7 +14,6 @@
 #include "heap_rc.h"
 
 #include "clean_align.h"
-#include "dax_manager.h"
 #include "heap_rc_ephemeral.h"
 #include "hstore_config.h"
 #include "tracked_header.h"
@@ -22,6 +21,7 @@
 #include <common/byte_span.h>
 #include <common/string_view.h>
 #include <common/utils.h>
+#include <nupm/dax_manager_abstract.h>
 #include <algorithm> /* max */
 #include <cinttypes>
 #include <memory> /* make_unique */
@@ -124,7 +124,7 @@ heap_rc::~heap_rc()
 
 auto heap_rc::regions() const -> nupm::region_descriptor
 {
-	return _eph->get_primary_region();
+	return _eph->get_managed_regions();
 }
 
 auto heap_rc::grow(

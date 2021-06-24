@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -16,6 +16,7 @@
 #define MCAS_HSTORE_HEAP_RC_EPHEMERAL_H
 
 #include "heap_ephemeral.h"
+#include "injectee.h"
 
 #include "hstore_config.h"
 #include "histogram_log2.h"
@@ -27,18 +28,18 @@
 #include <nupm/rc_alloc_lb.h> /* Rca_LB */
 #include <nupm/region_descriptor.h>
 
-#include <algorithm> /* mini, swap */
+#include <algorithm> /* min, swap */
 #include <cstddef> /* size_t */
-#include <string>
 
 struct heap_rc_ephemeral
 	: public heap_ephemeral
+	, public injectee
 {
 private:
 	using byte_span = common::byte_span;
 	using string_view = common::string_view;
 	nupm::Rca_LB _heap;
-	nupm::region_descriptor _primary_region;
+	nupm::region_descriptor _managed_regions;
 	std::size_t _allocated;
 	std::size_t _capacity;
 	/* The set of reconstituted addresses. Only needed during recovery.
@@ -57,16 +58,18 @@ private:
 	/* Rca_LB seems not to allocate at or above about 2GiB. Limit reporting to 16 GiB. */
 	static constexpr unsigned hist_report_upper_bound = 34U;
 
-	void add_managed_region(const byte_span &r);
+	void add_managed_region(byte_span r);
 public:
 	explicit heap_rc_ephemeral(unsigned debug_level, string_view id, string_view backing_file);
+	virtual ~heap_rc_ephemeral() {}
 
-	void add_managed_region(const byte_span &r_full, const byte_span &r_heap, unsigned numa_node) override;
-	nupm::region_descriptor get_primary_region() const override { return _primary_region; }
-	nupm::region_descriptor set_primary_region(nupm::region_descriptor n) override { using std::swap; swap(n, _primary_region); return n; }
+	void add_managed_region(byte_span r_full, byte_span r_heap, unsigned numa_node) override;
+	nupm::region_descriptor get_managed_regions() const override { return _managed_regions; }
+	nupm::region_descriptor set_managed_regions(nupm::region_descriptor n) override { using std::swap; swap(n, _managed_regions); return n; }
+	std::size_t capacity() const override { return _capacity; };
 
 	template <bool B>
-		void write_hist(const byte_span & pool_) const
+		void write_hist(byte_span pool_) const
 		{
 			static bool suppress = false;
 			if ( ! suppress )
@@ -92,8 +95,7 @@ public:
 		}
 
 	std::size_t allocated() const {  return _allocated; }
-	std::size_t capacity() const override { return _capacity; };
-	void inject_allocation(void *p, std::size_t sz, unsigned numa_node);
+	void inject_allocation(void *p, std::size_t sz, unsigned numa_node) override;
 	void *allocate(std::size_t sz, unsigned numa_node, std::size_t alignment);
 	void *allocate_tracked(std::size_t sz, unsigned numa_node, std::size_t alignment);
 	void free(void *p, std::size_t sz, unsigned numa_node);

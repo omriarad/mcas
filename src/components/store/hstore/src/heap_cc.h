@@ -91,7 +91,7 @@ public:
 	~heap_cc();
 
 	static constexpr std::uint64_t magic_value() { return 0x7c84297de2de94a3; }
-	static void *iov_limit(const byte_span &r);
+	static void *iov_limit(byte_span r);
 
 	auto grow(
 		const std::unique_ptr<nupm::dax_manager_abstract> & dax_manager_

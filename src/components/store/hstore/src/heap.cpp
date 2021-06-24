@@ -52,7 +52,7 @@ namespace
 				v.begin()
 				, v.end()
 				, std::size_t(0)
-				, [] (std::size_t s, const byte_span &iov) -> std::size_t
+				, [] (std::size_t s, const byte_span iov) -> std::size_t
 					{
 						return s + ::size(iov);
 					}
@@ -80,15 +80,15 @@ auto heap::grow(
 
 		auto grown = false;
 		{
-			const auto old_regions = eph_->get_primary_region();
+			const auto old_regions = eph_->get_managed_regions();
 			const auto &old_region_list = old_regions.address_map();
 			const auto old_list_size = old_region_list.size();
 			const auto old_size = region_size(old_region_list);
 			if ( old_regions.id().size() != 0 )
 			{
-				eph_->set_primary_region(dax_manager_->resize_region(old_regions.id(),  _numa_node, old_size + increment_));
+				eph_->set_managed_regions(dax_manager_->resize_region(old_regions.id(),  _numa_node, old_size + increment_));
 			}
-			const auto new_region_list = eph_->get_primary_region().address_map();
+			const auto new_region_list = eph_->get_managed_regions().address_map();
 			const auto new_size = region_size(new_region_list);
 			const auto new_list_size = new_region_list.size();
 

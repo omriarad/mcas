@@ -143,6 +143,7 @@ protected:
   enum {
     MEMORY_TYPE_DRAM        = 0x1,
     MEMORY_TYPE_PMEM_DEVDAX = 0x2,
+    MEMORY_TYPE_PMEM_FSDAX  = 0x3,
     MEMORY_TYPE_UNKNOWN     = 0xFF,
   };
 
@@ -691,6 +692,7 @@ public:
    * @param type STORE_LOCK_READ | STORE_LOCK_WRITE
    * @param out_value [out] Pointer to data
    * @param inout_value_len [in-out] Size of data in bytes
+   * @param alignment [in] Alignment in bytes.
    * @param out_key [out]  Handle to key for unlock
    * @param out_key_ptr [out]  Optional request for key-string pointer (set to
    * nullptr if not required)
@@ -705,10 +707,12 @@ public:
                         const lock_type_t  type,
                         void*&             out_value,
                         size_t&            inout_value_len,
+                        size_t             alignment,
                         key_t&             out_key_handle,
                         const char**       out_key_ptr = nullptr)
   {
-    return error_value(E_NOT_SUPPORTED, pool, key, type, out_value, inout_value_len, out_key_handle, out_key_ptr);
+    return error_value(E_NOT_SUPPORTED, pool, key, type, out_value, inout_value_len, alignment,
+                       out_key_handle, out_key_ptr);
   }
 
   template <typename K>
@@ -717,10 +721,11 @@ public:
                         const lock_type_t  type,
                         void*&             out_value,
                         size_t&            inout_value_len,
+                        size_t             alignment,
                         key_t&             out_key_handle,
                         const char**       out_key_ptr = nullptr)
     {
-      return lock(pool, to_key(key), type, out_value, inout_value_len, out_key_handle, out_key_ptr);
+      return lock(pool, to_key(key), type, out_value, inout_value_len, alignment, out_key_handle, out_key_ptr);
     }
 
   /**
@@ -728,6 +733,7 @@ public:
    *
    * @param pool Pool handle
    * @param key_handle Handle (opaque) for key used to unlock
+   * @param flags Optional unlock flags, UNLOCK_FLAGS_FLUSH
    *
    * @return S_OK, S_MORE (for async), E_INVAL or other error
    */

@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -12,49 +12,38 @@
 */
 
 
-#ifndef COMANCHE_HSTORE_DEALLOCATOR_RC_H
-#define COMANCHE_HSTORE_DEALLOCATOR_RC_H
+#ifndef MCAS_HSTORE_DEALLOCATOR_RC_H
+#define MCAS_HSTORE_DEALLOCATOR_RC_H
 
+#include "hstore_config.h"
 #include "heap_access.h"
-#include "heap_rc.h"
 #include "persister_cc.h"
 
 #include <cstddef> /* size_t, ptrdiff_t */
 
-template <typename T, typename Persister>
+template <typename T, typename Heap, typename Persister>
 	struct deallocator_rc;
 
-template <>
-	struct deallocator_rc<void, persister>
+template <typename Heap, typename Persister>
+	struct deallocator_rc<void, Heap, Persister>
 	{
 		using value_type = void;
 		using pointer = value_type *;
 	};
 
-template <typename Persister>
-	struct deallocator_rc<void, Persister>
-	{
-		using value_type = void;
-		using pointer = value_type *;
-	};
-
-template <typename T, typename Persister = persister>
+template <typename T, typename Heap, typename Persister = persister>
 	struct deallocator_rc
 		: public Persister
 	{
+		using heap_type = Heap;
 	private:
-		heap_access<heap_rc> _pool;
+		heap_access<heap_type> _pool;
 	public:
 		using value_type = T;
 		using pointer = value_type *;
 		using size_type = std::size_t;
-#if 0
-		explicit deallocator_rc(void *area_, Persister p_ = Persister())
-			: Persister(p_)
-			, _pool(area_)
-		{}
-#endif
-		explicit deallocator_rc(const heap_access<heap_rc> &pool_, Persister p_ = Persister()) noexcept
+
+		explicit deallocator_rc(const heap_access<heap_type> &pool_, Persister p_ = Persister()) noexcept
 			: Persister(p_)
 			, _pool(pool_)
 		{}
@@ -62,7 +51,7 @@ template <typename T, typename Persister = persister>
 		explicit deallocator_rc(const deallocator_rc &) noexcept = default;
 
 		template <typename U, typename P>
-			explicit deallocator_rc(const deallocator_rc<U, P> &d_) noexcept
+			explicit deallocator_rc(const deallocator_rc<U, Heap, P> &d_) noexcept
 				: deallocator_rc(d_.pool())
 			{}
 

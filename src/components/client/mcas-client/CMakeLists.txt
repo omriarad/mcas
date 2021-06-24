@@ -13,7 +13,23 @@ add_subdirectory(./unit_test)
 # use this to disable optimizations, e.g. for debugging or profiling
 add_compile_options("$<$<CONFIG:Debug>:-O0>")
 
-file(GLOB SOURCES src/*.cpp)
+file(GLOB SOURCES
+# src/async_buffer_set_get_direct_offset.cpp
+# src/async_buffer_set_get_locate.cpp
+# src/async_buffer_set_invoke.cpp
+# src/async_buffer_set_put_direct_offset.cpp
+# src/async_buffer_set_put_locate.cpp
+# src/async_buffer_set_t.cpp
+src/connection.cpp
+# src/cw_fabric_test.CPP
+src/fabric_transport.cpp
+src/mcas_client.cpp
+src/mcas_client_factory.cpp
+src/memory_registered.cpp
+src/mr_many.cpp
+src/wait_poll.cpp
+)
+
 
 add_definitions(-DCONFIG_DEBUG)
 add_compile_options(${FLAG_DUMP_CLASS})

@@ -56,6 +56,7 @@
 #define API_LOCK()
 #endif
 
+
 namespace mcas
 {
 
@@ -69,8 +70,6 @@ struct TLS_transport
   static ssize_t gnutls_vec_push_func(gnutls_transport_ptr_t, const giovec_t * , int );
   static int gnutls_pull_timeout_func(gnutls_transport_ptr_t, unsigned int);
 };
-
-
 
 struct async_buffer_set_t;
 struct iob_free;

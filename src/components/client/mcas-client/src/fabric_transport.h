@@ -238,6 +238,9 @@ class Fabric_transport : protected common::log_source {
 
   inline auto allocate(buffer_t::completion_t c) { return _bm.allocate(c); }
   inline void free_buffer(buffer_t *buffer) { _bm.free(buffer); }
+#if 11
+  Transport *               transport() const { return _transport; }
+#endif
 
  protected:
   Transport *               _transport;
