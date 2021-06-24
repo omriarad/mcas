@@ -54,7 +54,7 @@ namespace config
 
 static constexpr const char *default_backend = "default_backend";
 static constexpr const char *index = "index";
-static constexpr const char *addr = "addr"; /* among other uses, Zyre cluster attribute */
+static constexpr const char *addr = "addr"; /* Among other uses, a Zyre cluster attribute */
 static constexpr const char *net = "net";
 static constexpr const char *cert_path = "cert_path";
 static constexpr const char *key_path = "key_path";
