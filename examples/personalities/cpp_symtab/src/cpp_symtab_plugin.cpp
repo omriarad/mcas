@@ -24,9 +24,74 @@
 #include <ccpm/immutable_list.h>
 #include <ccpm/immutable_string_table.h>
 #include "cpp_symtab_types.h"
+#include <btree_multimap.h>
+
+
 
 using namespace symtab_ADO_protocol;
 using namespace ccpm;
+using namespace stx;
+
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+struct GenericIndex {
+public:
+    virtual std::string name(void) = 0;
+    virtual void PrintStat(void) {}
+    virtual void UpdateThreadLocal(int num_threads) {}
+    virtual void AssignGCID(int thread_id) {}
+    virtual void UnregisterThread(int thread_id) {}
+    virtual void PrintStats(void) {}
+};
+
+
+
+template<typename KeyType, typename ValueType>
+struct Index : GenericIndex {
+public:
+    virtual bool Insert(const KeyType& key, const ValueType& value) = 0;
+    virtual void GetValue(const KeyType &key,
+                          std::vector<ValueType> &value_list)  = 0;
+};
+
+
+
+//////////////  STX tree      /////////////////////////////////////////
+
+template<typename KeyType, typename ValueType, int InnerSlots, int LeafSlots>
+struct BTreeType : Index<KeyType, ValueType> {
+    btree_multimap<KeyType, ValueType, InnerSlots, LeafSlots> tree;
+
+public:
+    std::string name(void) { return std::string("BTree") + "-" + std::to_string(InnerSlots) + "-" + std::to_string(LeafSlots); }
+
+    bool Insert(const KeyType& key, const ValueType& value) {
+        tree.insert(key, value);
+        return true;
+    }
+
+    void GetValue(const KeyType &key,
+                  std::vector<ValueType> &value_list) {
+        auto it = tree.lower_bound(key);
+        if (it != tree.end())
+            value_list.push_back(it->second);
+    }
+
+     void GetRange(const KeyType &key,
+                  std::vector<ValueType> &value_list) {
+        auto it = tree.lower_bound(key);
+        for (int i=0; i < 1; i++) {
+		if (it == tree.end())
+			break;
+		value_list.push_back(it->second);
+		it++;
+	}
+    }
+};
+///////////////////////////////////////////////////////
 
 std::vector<const char *> pointer_table;
 
@@ -131,11 +196,84 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
               }
               );
 
-    PMAJOR("Sort complete.");
+
+
+//      Index<KeyType, uint64_t>* makeBTreeIndexes(IndexType idx_type) {
+//      return new BTreeType<KeyType, uint64_t, INNER_NUM, LEAF_NUM>;
+//Index<KeyType, uint64_t>* makeIndex(IndexType idx_type) {
+//	return makeBTreeIndexes<KeyType>(idx_type);
+  const int INNER_NUM = 16;	
+  const int LEAF_NUM = 16;	
+  Index<uint64_t, uint64_t> *idx = new BTreeType<uint64_t, uint64_t, INNER_NUM, LEAF_NUM>;
+
+  const int keyNum = 10;
+  uint64_t array[keyNum] = {0};
+
+  for (uint64_t i = 0; i < keyNum; i++) {
+      array[i] = i;
+   }
+// Insert the data
+//   Timer timer {true};
+
+   for (uint64_t i = 0; i < keyNum; i++) {
+	   idx->Insert(array[i], i);
+   }
+//   double duration = timer.Stop();
+
+ 
+   
+
+  // This is used to record time taken for each individual thread
+//  std::vector<uint64_t> v {};
+//  KeyType k;
+
+//  v.reserve(1);
+
+//  Timer timer {true};
+//       size_t* i = (size_t *) &k;
+//       for (*i = 0; *i < key_num; (*i)++) {
+//        index->GetValue(k, v);
+//                    v.clear();
+//       }
+//  }
+
+//  double duration = timer.Stop();
+
+//  }
+
+
+  PMAJOR("Sort complete.");
+
+
+   
+
+
+
+
+
 
     for(unsigned i=0;i<10;i++) {
       PLOG("[%u] %s", i, pointer_table[i]);
     }
+
+
+    
+    // test 
+//    typedef stx::btree_multimap<std::string, unsigned int,
+//                             std::less<std::string>, traits_nodebug<std::string> > btree_type;
+//    std::string letters = "abcdefghijklmnopqrstuvwxyz";
+//    btree_type bt;
+
+//    for (unsigned int a = 0; a < letters.size(); ++a)
+//    {
+//	    for (unsigned int b = 0; b < letters.size(); ++b)
+//	    {
+//		    bt.insert2(std::string(1, letters[a]) + letters[b],
+//				    a * letters.size() + b);
+//	    }
+//    }
+
+/////// 
 
     if(root.index_size) {
       assert(root.index);
