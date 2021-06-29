@@ -218,6 +218,20 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
    for (uint64_t i = 0; i < keyNum; i++) {
 	   idx->Insert(array[i], i);
    }
+
+   std::vector<uint64_t> v {};
+
+   for (size_t i = 0; i < keyNum; i++) {
+            v.reserve(1);
+	    idx->GetValue(i, v);
+   }
+
+
+   for (size_t i = 0; i < keyNum; i++) {
+      PLOG("value = %u", v[i]);
+   }
+
+
 //   double duration = timer.Stop();
 
  
