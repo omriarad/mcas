@@ -203,8 +203,9 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
 //Index<KeyType, uint64_t>* makeIndex(IndexType idx_type) {
 //	return makeBTreeIndexes<KeyType>(idx_type);
   const int INNER_NUM = 16;	
-  const int LEAF_NUM = 16;	
-  Index<uint64_t, uint64_t> *idx = new BTreeType<uint64_t, uint64_t, INNER_NUM, LEAF_NUM>;
+  const int LEAF_NUM = 16;
+  typedef uint64_t  KeyType;  
+  Index<KeyType, uint64_t> *idx = new BTreeType<KeyType, uint64_t, INNER_NUM, LEAF_NUM>;
 
   const int keyNum = 10;
   uint64_t array[keyNum] = {0};
@@ -219,7 +220,7 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
 	   idx->Insert(array[i], i);
    }
 
-   std::vector<uint64_t> v {};
+   std::vector<KeyType> v {};
 
    for (size_t i = 0; i < keyNum; i++) {
             v.reserve(1);
