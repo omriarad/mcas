@@ -66,4 +66,6 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/data/google-10000-english.txt
   DESTINATION data/words/)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/data/traces.txt
+  DESTINATION data/words/)
 

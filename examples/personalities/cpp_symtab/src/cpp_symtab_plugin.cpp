@@ -91,6 +91,18 @@ public:
 	}
     }
 };
+
+const int INNER_NUM = 16;	
+const int LEAF_NUM = 16;
+typedef uint64_t  KeyType;  
+typedef uint64_t ValueType;  
+Index<KeyType, ValueType> *idx = new BTreeType<KeyType, ValueType, INNER_NUM, LEAF_NUM>;
+
+
+
+
+
+
 ///////////////////////////////////////////////////////
 
 std::vector<const char *> pointer_table;
@@ -197,18 +209,10 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
               );
 
 
-
-//      Index<KeyType, uint64_t>* makeBTreeIndexes(IndexType idx_type) {
-//      return new BTreeType<KeyType, uint64_t, INNER_NUM, LEAF_NUM>;
-//Index<KeyType, uint64_t>* makeIndex(IndexType idx_type) {
-//	return makeBTreeIndexes<KeyType>(idx_type);
-  const int INNER_NUM = 16;	
-  const int LEAF_NUM = 16;
-  typedef uint64_t  KeyType;  
-  Index<KeyType, uint64_t> *idx = new BTreeType<KeyType, uint64_t, INNER_NUM, LEAF_NUM>;
+// STX 
 
   const int keyNum = 10;
-  uint64_t array[keyNum] = {0};
+  KeyType array[keyNum] = {0};
 
   for (uint64_t i = 0; i < keyNum; i++) {
       array[i] = i;
@@ -232,6 +236,7 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
       PLOG("value = %u", v[i]);
    }
 
+////// 
 
 //   double duration = timer.Stop();
 
@@ -258,13 +263,6 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
 
 
   PMAJOR("Sort complete.");
-
-
-   
-
-
-
-
 
 
     for(unsigned i=0;i<10;i++) {
