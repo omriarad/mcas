@@ -25,12 +25,16 @@
 #include <ccpm/immutable_string_table.h>
 #include "cpp_symtab_types.h"
 #include <btree_multimap.h>
-
+#include <boost/algorithm/string.hpp>
 
 
 using namespace symtab_ADO_protocol;
 using namespace ccpm;
 using namespace stx;
+using namespace std;
+using namespace boost;
+
+
 
 ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////
@@ -94,8 +98,8 @@ public:
 
 const int INNER_NUM = 16;	
 const int LEAF_NUM = 16;
-typedef uint64_t  KeyType;  
-typedef uint64_t ValueType;  
+typedef string  KeyType;  
+typedef const char*  ValueType;  
 Index<KeyType, ValueType> *idx = new BTreeType<KeyType, ValueType, INNER_NUM, LEAF_NUM>;
 
 
@@ -178,9 +182,10 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
   if(put_request) {
     auto str = put_request->word()->c_str();
 
+  ValueType p;  
   retry:
     try {
-      auto p = string_table.add_string(str);
+      p = string_table.add_string(str);
       pointer_table.push_back(p);
     }
     catch(const std::bad_alloc& e) {
@@ -192,6 +197,19 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
       goto retry;
     }
 
+
+// STX
+   std::vector<string> fields;
+   boost::split( fields, str, is_any_of(" ") );
+   idx->Insert( fields[2], p);
+   PLOG("fields[0] = %s", fields[0].c_str());
+   PLOG("fields[1] = %s", fields[1].c_str());
+   PLOG("fields[2] = %s", fields[2].c_str());
+   PLOG("fields[3] = %s", fields[3].c_str());
+   std::vector<ValueType> v {};
+   idx->GetValue(fields[2], v);
+   PLOG("value = %s", v[0]);
+///////
     return S_OK;
   }
 
@@ -210,31 +228,6 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
 
 
 // STX 
-
-  const int keyNum = 10;
-  KeyType array[keyNum] = {0};
-
-  for (uint64_t i = 0; i < keyNum; i++) {
-      array[i] = i;
-   }
-// Insert the data
-//   Timer timer {true};
-
-   for (uint64_t i = 0; i < keyNum; i++) {
-	   idx->Insert(array[i], i);
-   }
-
-   std::vector<KeyType> v {};
-
-   for (size_t i = 0; i < keyNum; i++) {
-            v.reserve(1);
-	    idx->GetValue(i, v);
-   }
-
-
-   for (size_t i = 0; i < keyNum; i++) {
-      PLOG("value = %u", v[i]);
-   }
 
 ////// 
 
