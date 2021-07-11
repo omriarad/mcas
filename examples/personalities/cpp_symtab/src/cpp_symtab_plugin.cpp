@@ -25,6 +25,9 @@
 #include <ccpm/immutable_string_table.h>
 #include "cpp_symtab_types.h"
 #include <btree_multimap.h>
+#include <blindi_btree_hybrid_nodes_multimap.h>
+
+
 #include <boost/algorithm/string.hpp>
 
 
@@ -96,15 +99,43 @@ public:
     }
 };
 
+////////////////// Elastic /////////////////
+template<typename KeyType, typename ValueType, template<typename, int> typename BlindiBtreeHybridType, int InnerSlots, int LeafSlots>
+struct BlindiBTreeHybridNodes : Index<KeyType, ValueType> {
+	    blindi_btree_hybrid_nodes_multimap<KeyType, ValueType, BlindiBtreeHybridType, InnerSlots, LeafSlots> tree;
+
+
+
+std::string blindi_type;
+
+public:
+    BlindiBTreeHybridNodes(std::string type) : blindi_type(type) {}
+
+    std::string name(void) { return blindi_type + "-" + std::to_string(InnerSlots) + "-" + std::to_string(LeafSlots); }
+
+    bool Insert(const KeyType& key, const ValueType& value) {
+        tree.insert(key, value);
+     return true;
+    }
+
+    void GetValue(const KeyType &key,
+                  std::vector<ValueType> &value_list) {
+
+        auto it = tree.find(key);
+        if (it != tree.end())
+            value_list.push_back(it->second);
+    }
+
+};
+/////////////
+
+
 const int INNER_NUM = 16;	
 const int LEAF_NUM = 16;
 typedef string  KeyType;  
 typedef const char*  ValueType;  
-Index<KeyType, ValueType> *idx = new BTreeType<KeyType, ValueType, INNER_NUM, LEAF_NUM>;
-
-
-
-
+//Index<KeyType, ValueType> *idx = new BTreeType<KeyType, ValueType, INNER_NUM, LEAF_NUM>;
+Index<KeyType, ValueType> *idx = new BlindiBTreeHybridNodes<KeyType, ValueType, SeqTreeBlindiNode, INNER_NUM, LEAF_NUM>("SeqTreeBlindi");
 
 
 ///////////////////////////////////////////////////////
@@ -148,7 +179,7 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
 
   auto value = values[0].ptr;
 
-  constexpr size_t buffer_increment = KB(32); /* granularity for memory expansion */
+  constexpr size_t buffer_increment = 32*1024; /* granularity for memory expansion */
 
   //  PLOG("invoke: value=%p value_len=%lu", value, value_len);
 

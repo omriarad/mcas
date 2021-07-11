@@ -25,6 +25,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/common)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnop/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/stx_btree)
+include_directories(${CMAKE_SOURCE_DIR}/src/lib/stx_blindi)
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # EASTL
 
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}) # flatbuffers
