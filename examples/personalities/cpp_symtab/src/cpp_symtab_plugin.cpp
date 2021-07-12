@@ -29,7 +29,7 @@
 
 
 #include <boost/algorithm/string.hpp>
-
+#include <boost/lexical_cast.hpp>
 
 using namespace symtab_ADO_protocol;
 using namespace ccpm;
@@ -129,13 +129,26 @@ public:
 };
 /////////////
 
-
 const int INNER_NUM = 16;	
 const int LEAF_NUM = 16;
-typedef string  KeyType;  
-typedef const char*  ValueType;  
+//typedef string  KeyType;  
+//typedef const char*  ValueType;  
+typedef uint64_t  KeyType;  
+typedef uint64_t*  ValueType;  
 //Index<KeyType, ValueType> *idx = new BTreeType<KeyType, ValueType, INNER_NUM, LEAF_NUM>;
 Index<KeyType, ValueType> *idx = new BlindiBTreeHybridNodes<KeyType, ValueType, SeqTreeBlindiNode, INNER_NUM, LEAF_NUM>("SeqTreeBlindi");
+
+
+
+typedef  struct {
+	uint64_t f0;
+	string f1;
+	string f2;
+	string f3;
+} item;
+
+item table[500000]; 
+uint64_t row_nu = 0;
 
 
 ///////////////////////////////////////////////////////
@@ -213,7 +226,7 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
   if(put_request) {
     auto str = put_request->word()->c_str();
 
-  ValueType p;  
+  const char *p;  
   retry:
     try {
       p = string_table.add_string(str);
@@ -232,15 +245,20 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
 // STX
    std::vector<string> fields;
    boost::split( fields, str, is_any_of(" ") );
-   idx->Insert( fields[2], p);
+   uint64_t num = lexical_cast<uint64_t>(fields[0]);
+   table[row_nu] = {num, fields[1], fields[2], fields[3]};
+//   idx->Insert(table[row_nu].f0.c_str(), table[row_nu].f0.c_str());
+   idx->Insert(table[row_nu].f0, &table[row_nu].f0);
+
    PLOG("fields[0] = %s", fields[0].c_str());
    PLOG("fields[1] = %s", fields[1].c_str());
    PLOG("fields[2] = %s", fields[2].c_str());
    PLOG("fields[3] = %s", fields[3].c_str());
    std::vector<ValueType> v {};
-   idx->GetValue(fields[2], v);
-   PLOG("value = %s", v[0]);
-///////
+//   idx->GetValue(table[row_nu].f1.c_str(), v);
+   idx->GetValue(table[row_nu].f0, v);
+   std::cout << ("value = %s", v[0]) << std::endl;
+   row_nu++;
     return S_OK;
   }
 
