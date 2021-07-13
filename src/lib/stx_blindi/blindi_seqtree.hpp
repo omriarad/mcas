@@ -23,13 +23,12 @@ enum REMOVE_RESULT {REMOVE_SUCCESS = 0, REMOVE_NODE_EMPTY = 1, REMOVE_UNDERFLOW 
 #define BREATHING_BLINDI_SIZE 4
 #define BREATHING_BLINDI_DATA_ONLY
 
-//#define BREATHING_BLINDI_STSTS
-#undef BREATHING_BLINDI_STSTS
+#define BREATHING_BLINDI_STSTS
 #ifndef _BREATHING_BLINDI_STSTS_DEFINE_
 #define _BREATHING_BLINDI_STSTS_DEFINE_
-//static uint64_t breathing_sum = 0;
-//static uint64_t breathing_count = 0;
-//static uint64_t insert_count = 0;
+static uint64_t breathing_sum = 0;
+static uint64_t breathing_count = 0;
+static uint64_t insert_count = 0;
 #endif
 
 #define END_TREE ((idx_t)-1)
@@ -38,9 +37,9 @@ enum REMOVE_RESULT {REMOVE_SUCCESS = 0, REMOVE_NODE_EMPTY = 1, REMOVE_UNDERFLOW 
 //#define DEBUG_AGG
 #define DEBUG_SEQTREE
 #ifdef DEBUG_AGG
-//uint64_t Agg_first_stage_tree = 0;
-//uint64_t Agg_first_stage_seq = 0;
-//uint64_t Agg_number = 0;
+uint64_t Agg_first_stage_tree = 0;
+uint64_t Agg_first_stage_seq = 0;
+uint64_t Agg_number = 0;
 #define AGG_TH NUM_SLOTS
 #endif
 
@@ -58,19 +57,20 @@ static int CompareStage (const uint8_t *key1, const uint8_t *key2, bool *eq, boo
 template <typename _Key, int NUM_SLOTS>
 class SeqTreeBlindiNode {
 
+#define TREE_LEVELS 0
 #define TREE_LEVEL_HYBRID 0
 #define START_TREE_LEVELS 64 
 #if TREE_LEVEL_HYBRID > 0 // till START_TREE_LEVELS LVL=0 elase LVL=2
 #define TREE_LEVELS ((NUM_SLOTS + START_TREE_LEVELS)/START_TREE_LEVELS/2)*2L
 #define TREE_SIZE 3 
 #else // all the levels are the same
-#define TREE_LEVELS 0
+// #define TREE_LEVELS 2
 #define TREE_SIZE (1 << (TREE_LEVELS)) - 1
 #endif
 
 	static_assert((NUM_SLOTS % 2) == 0, "NUM_SLOTS is not even");
 
-	typedef typename std::conditional<sizeof(_Key)<= 32,
+	typedef typename std::conditional<sizeof(_Key) <= 31,
 		uint8_t, uint16_t>::type bitidx_t;
 	typedef typename std::conditional<NUM_SLOTS < 254,
 		uint8_t, uint16_t>::type idx_t;
@@ -185,7 +185,7 @@ class SeqTreeBlindiNode {
 	}
 
 
-	void transfer_btree2blindi_node(uint16_t valid_len, const _Key *keys, uint8_t **keys_ptr,  int key_len, uint8_t *fingerprint = NULL)
+	void transfer_btree2blindi(uint16_t valid_len, const _Key *keys, uint8_t **keys_ptr,  uint16_t *key_len = NULL, uint8_t *fingerprint = NULL)
 	{
 		this->valid_len = valid_len; 
 		bool _hit, _large_small;
@@ -221,7 +221,7 @@ class SeqTreeBlindiNode {
 		for (int i=0; i < (valid_len - 1); i++) 
 		{ 
 			keys_i_p1 = (uint8_t *)&keys[i+1];
-			this->blindiKeys[i] = CompareStage(keys_i, keys_i_p1, &_hit, &_large_small, key_len, key_len);
+			this->blindiKeys[i] = CompareStage(keys_i, keys_i_p1, &_hit, &_large_small, sizeof(_Key), sizeof(_Key));
 			if (TREE_LEVELS > 0) {
 				this->blindiTree[0] = (this->blindiKeys[i] < this->blindiKeys[this->blindiTree[0]]) ? i : this->blindiTree[0];
 			}
@@ -256,7 +256,7 @@ class SeqTreeBlindiNode {
 
 #ifdef DEBUG_SEQTREE
 			std::cout << "transfer_btree2blindi " << std::endl;
-			print_node(key_len);
+			print_node();
 #endif
 
 	}
@@ -2332,11 +2332,11 @@ class SeqTreeBlindiNode {
 	// bring_edges_seq_from_pos
 
 	public:
-	void print_node (int key_len) const{
+	void print_node () const{
 		printf ("valid_len %d\n", valid_len);
 		printf ("key_ptr ");
 		for (int i = 0; i<= valid_len - 1; i++) {
-			for (int j = key_len - 1; j>= 0; j--) {
+			for (int j = sizeof(_Key) - 1; j>= 0; j--) {
 				printf ("%d ", get_key_ptr(i)[j]);
 			}
 			printf ("  ");
@@ -2490,7 +2490,7 @@ class SeqTreeBlindiNode {
 			}
 #endif
 			if (idx <= high_miss) { // this position is a potintial one
-				if (isNthBitSetInString(key_ptr, idx, key_len)) {// check if the bit is set
+				if (isNthBitSetInString(key_ptr, idx, sizeof(_Key))) {// check if the bit is set
 					high_miss = MAX_HIGH_MISS;
 					first_stage_key_position = i+1;
 				}  //Else the subtree is still does not relevant
@@ -3067,7 +3067,7 @@ class SeqTreeBlindiNode {
 
 
 	// The merge is from the large node to small_node (this)
-	int MergeBlindiNodes(SeqTreeBlindiNode *node_large, int key_len1, int key_len2) {
+	int MergeBlindiNodes(SeqTreeBlindiNode *node_large) {
 		// copy the key_ptr from large node to small_node (this) -> create two trees pointing to small node
 		int small_node_len = this->get_valid_len();
 		int large_node_len = node_large->get_valid_len();
@@ -3095,7 +3095,7 @@ class SeqTreeBlindiNode {
 		bool _hit, _large_small;
 		uint16_t _diff_pos;
 
-		_diff_pos = CompareStage (last_small_key, first_large_key, &_hit, &_large_small, key_len1, key_len2);
+		_diff_pos = CompareStage (last_small_key, first_large_key, &_hit, &_large_small, sizeof(_Key), sizeof(_Key));
 		if (_hit) 
 		{
 			_diff_pos = DUPLICATE;	
@@ -3278,7 +3278,7 @@ class GenericBlindiSeqTreeNode {
 		NODE node;
 
 		GenericBlindiSeqTreeNode() : node() { }
-		typedef typename std::conditional<sizeof(_Key) <= 32,
+		typedef typename std::conditional<sizeof(_Key) <= 31,
 			uint8_t, uint16_t>::type bitidx_t;
 
 		typedef typename std::conditional<NUM_SLOTS < 254,
@@ -3311,9 +3311,9 @@ class GenericBlindiSeqTreeNode {
 			return (*((_Key*) node.get_key_ptr(node.get_valid_len() / 2  - 1)));
 		}
 		// transfer from btree node 2 blindi_node
-		void transfer_btree2blindi(uint16_t valid_len, const _Key *keys, uint8_t **keys_ptr, int key_len,  uint8_t *fingerprint = NULL)
+		void transfer_btree2blindi(uint16_t valid_len, const _Key *keys, uint8_t **keys_ptr, uint16_t *key_len = NULL, uint8_t *fingerprint = NULL)
 		{
-			node.transfer_btree2blindi_node(valid_len, keys, keys_ptr ,key_len, fingerprint);	
+			node.transfer_btree2blindi(valid_len, keys, keys_ptr ,key_len, fingerprint);	
 		}	
 
 		// Predecessor search -> return the position of the largest key not greater than x.
@@ -3338,19 +3338,14 @@ class GenericBlindiSeqTreeNode {
 #endif
 #ifdef DEBUG_SEQTREE
                         std::cout << "find key "; 
-				for (int j = key_len - 1; j>= 0; j--) {
+				for (int j = sizeof(_Key) - 1; j>= 0; j--) {
 					printf ("%d ", search_key[j]);
 				}
-                        std::cout << " " << std::endl;
-                       std::cout << "db_key "; 
-				for (int j = key_len- 1; j>= 0; j--) {
-					printf ("%d ", db_key[j]);
-				}
                         std::cout << " " << std::endl; 
-			node.print_node(key_len);
+			node.print_node();
 #endif
 
-			_diff_pos = CompareStage (search_key, db_key, hit, &_large_small, key_len, key_len);
+			_diff_pos = CompareStage (search_key, db_key, hit, &_large_small, sizeof(_Key), sizeof(_Key));
 			if ((diff_pos != NULL) && (large_small != NULL)) {
 				*diff_pos = _diff_pos;
 				*large_small = _large_small;
@@ -3390,7 +3385,7 @@ class GenericBlindiSeqTreeNode {
 		// Insert2BlindiNodeInPosition
 		// return success or duplicated key or overflow
 		// INSERT TREE
-		int Insert2BlindiNodeWithKey(uint8_t *insert_key, uint16_t key_len, uint8_t fingerprint = 0) 
+		int Insert2BlindiNodeWithKey(uint8_t *insert_key, uint16_t key_len = sizeof(_Key), uint8_t fingerprint = 0) 
 		{
 #ifdef BREATHING_BLINDI_STSTS 
 			insert_count++;
@@ -3403,7 +3398,7 @@ class GenericBlindiSeqTreeNode {
 			bool smaller_than_node = false;
 			uint16_t insert_position;
 			int return_value = INSERT_SUCCESS;
-                        std::cout << "key len " << key_len << std::endl; 
+
 			if (node.get_valid_len() ==(uint16_t)NUM_SLOTS) {
 				return INSERT_OVERFLOW;
 			}
@@ -3431,12 +3426,12 @@ class GenericBlindiSeqTreeNode {
 
 #ifdef DEBUG_SEQTREE
 			std::cout << "Insert key " << std::endl;
-				for (int j = key_len - 1; j>= 0; j--) {
+				for (int j = sizeof(_Key) - 1; j>= 0; j--) {
 					printf ("%d ", insert_key[j]);
 				}
                         std::cout << " " << std::endl; 
 
-			node.print_node(key_len);
+			node.print_node();
 #endif
 #ifdef BREATHING_BLINDI_STSTS
                           
@@ -3447,11 +3442,11 @@ class GenericBlindiSeqTreeNode {
 			return return_value;
 		}
 
-		void SplitBlindiNode(GenericBlindiSeqTreeNode *node_small, GenericBlindiSeqTreeNode *node_large, int key_len) {
+		void SplitBlindiNode(GenericBlindiSeqTreeNode *node_small, GenericBlindiSeqTreeNode *node_large) {
 			node.SplitBlindiNode(&node_small->node, &node_large->node);
 #ifdef DEBUG_SEQTREE
 			printf("split!!!\n"); 
-			node_large->node.print_node(key_len);
+			node_large->node.print_node();
 #endif
 		}
 
@@ -3459,7 +3454,7 @@ class GenericBlindiSeqTreeNode {
 		// UPSERT either inserts a new key into the blindi node, or overwrites the key pointer
 		// return success or duplicated key or overflow
 		// UPSERT TREE
-		uint16_t Upsert2BlindiNodeWithKey(uint8_t *insert_key, uint16_t key_len, uint8_t fingerprint = 0) {
+		uint16_t Upsert2BlindiNodeWithKey(uint8_t *insert_key, uint16_t key_len = sizeof(_Key), uint8_t fingerprint = 0) {
 			bool hit = 0;
 			int diff_pos = 0;
 			bool large_small = 0;
@@ -3475,12 +3470,16 @@ class GenericBlindiSeqTreeNode {
 
 			insert_position = SearchBlindiNode(insert_key, key_len, PREDECESSOR_SEARCH, &hit, &smaller_than_node, &tree_traverse[0], &tree_traverse_len, fingerprint, &diff_pos, &large_small);
 
+#ifdef DEBUG_SEQTREE
+			std::cout << "insert_position " << insert_position << std::endl;
+#endif
 			if (node.get_valid_len() == NUM_SLOTS && !hit)
 				return INSERT_OVERFLOW;
 
 			node.Insert2BlindiNodeInPosition(insert_key, key_len, insert_position, &diff_pos, &large_small, &smaller_than_node, tree_traverse, &tree_traverse_len, fingerprint);
 #ifdef DEBUG_SEQTREE
-			node.print_node(key_len);
+			std::cout << "Insert2BlindiNodeInPosition finished" << std::endl;
+			node.print_node();
 #endif
 #ifdef BREATHING_BLINDI_STSTS
 //			if (!(insert_count % (1024*1024))){ 
@@ -3491,7 +3490,7 @@ class GenericBlindiSeqTreeNode {
 		}
 
 
-		int MergeBlindiNodes(GenericBlindiSeqTreeNode *large_node, int key_len1, int key_len2) {
+		int MergeBlindiNodes(GenericBlindiSeqTreeNode *large_node) {
 			int small_node_len = this->get_valid_len();
 			int large_node_len = large_node->get_valid_len();
 			if (node.get_valid_len() == 0) {
@@ -3501,10 +3500,10 @@ class GenericBlindiSeqTreeNode {
 			if (large_node->node.get_valid_len() == 0){
 				return 0;
 			} 
-			return this->node.MergeBlindiNodes(&large_node->node, key_len1, key_len2);
+			return this->node.MergeBlindiNodes(&large_node->node);
 		}
 
-		int RemoveFromBlindiNodeWithKey(uint8_t *remove_key, uint16_t key_len, uint8_t fingerprint = 0) {
+		int RemoveFromBlindiNodeWithKey(uint8_t *remove_key, uint16_t key_len = sizeof(_Key), uint8_t fingerprint = 0) {
 			bool hit = 0;
 			uint16_t position = 0;
 			uint16_t tree_traverse[NUM_SLOTS] = {0};

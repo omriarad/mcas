@@ -47,19 +47,19 @@
 
 #include "blindi_seqtree.hpp"
 
-#define KB 1024L
-#define MB 1024L*KB
-#define GB 1024L*MB
+//#define KB 1024L
+//#define MB 1024L*KB
+//#define GB 1024L*MB
 #define MILLION 1000000L
 #define BILLION 1000L*MILLION
 
-#define LIMIT_CAPACITY 50*MILLION
-#define MUST_PRECENT 2500
-#define SHOULD_COMPRESS_PERCENT 50
+#define LIMIT_CAPACITY 2000 
+#define MUST_PRECENT 1000000 
+#define SHOULD_COMPRESS_PERCENT 100
 #define MUST_ONLY 0
 #define IS_ITEMSCOUNT  // define or not
 
-#define BLINDI_MAX_MULTI_SIZE 8 
+#define BLINDI_MAX_MULTI_SIZE 8
 
 //#define BREATHING_SIZE_BTREE 64
 //#define BREATHING_DATA_ONLY_BTREE
@@ -182,7 +182,7 @@ template <typename _Key, typename _Data, template<typename, int> typename Blindi
           bool _Duplicates = false,
           typename _Alloc = std::allocator<_Value>,
           bool _UsedAsSet = false, 
-          std::uint16_t _Key_len = 8, // string
+          std::uint16_t _Key_len = sizeof(_Key),
           std::uint16_t _Val_len = 8 >
 class blindi_btree_hybrid_nodes
 {
@@ -400,6 +400,9 @@ public:
         /// True if the node's slots are full
         inline bool isfullblindi() const
         {
+		    std::cout << "node::blindileaftype " << (uint64_t)node::blindileaftype  << std::endl;
+		    std::cout << "leafslotmax" << leafslotmax  << std::endl;
+		    std::cout << "node:slotuse" << node::slotuse  << std::endl;
 		    return (node::slotuse == leafslotmax * node::blindileaftype);
 	}
 
@@ -2421,7 +2424,6 @@ public:
 
     inline int insert_blindi(leaf_node *currnode, const key_type &key) const
     {
-	    std::cout << "I am insert key " << key << " to blindi " << std::endl;
 	    switch (currnode->blindileaftype) 
 	    {
 		    case 1:	{ 
@@ -2448,7 +2450,6 @@ public:
 
     inline void split_blindi_nodex(leaf_node *currnode, key_type* splitkey, node ** splitnode)
     {
-	    std::cout << "I am slitting blindi node" << std::endl;
 	    switch (currnode->blindileaftype) 
 	    {
 		    case 1:	{ 
@@ -2512,7 +2513,6 @@ public:
     /// key/data slot if found. If unsuccessful it returns end().
     iterator find(const key_type &key)
     {
-       std::cout << "key find " << key << std::endl;
         node *n = m_root;
         if (!n) return end();
 
@@ -2530,18 +2530,14 @@ public:
         if (!leaf->isblindileafnode()) {  
 		btree_leaf_node *btree_leaf = static_cast<btree_leaf_node*>(n);
 		int slot = find_lower(btree_leaf, key);
-		std::cout << " btree slot: "<< slot << std::endl;
 		return (slot < leaf->slotuse && key_equal(key, btree_leaf->slotkey[slot]))
 			? iterator(leaf, slot) : end();
 	}
         // blindi_leaf_node1 
-        std::cout << " search blindi " << std::endl;
 	bool hit = false, smaller_than_node = false;
         uint16_t tree_traverse_len;
         uint16_t tree_traverse[5];
         int slot = search_blindi(leaf, key, SEARCH_TYPE::POINT_SEARCH, &hit, &smaller_than_node, tree_traverse, &tree_traverse_len);
-	std::cout << "blindi slot after search "<< slot << std::endl;
-	std::cout << slot << std::endl;
         return (hit ? iterator(leaf, slot) : end());
     }
 
@@ -2566,8 +2562,8 @@ public:
         if (!leaf->isblindileafnode()) {  
 		int slot = find_lower(leaf, key);
 		btree_leaf_node *btree_leaf = static_cast<btree_leaf_node*>(n);
-		return (slot < leaf->slotuse && key_equal(key, btree_leaf->slotkey[slot]));
-			//? const_iterator(leaf, slot) : end();
+		return (slot < leaf->slotuse && key_equal(key, btree_leaf->slotkey[slot]))
+			? const_iterator(leaf, slot) : end();
 	}
         // blindi_leaf_node1 
 	bool hit = false, smaller_than_node = false;
@@ -2969,13 +2965,10 @@ private:
     {
         node *newchild = NULL;
         key_type newkey = key_type();
-        std::cout << sizeof(key) << std::endl;
-        std::cout << key << std::endl;   
-
 
         if (m_root == NULL) {
 	        m_root = m_headleaf = m_tailleaf = allocate_btree_leaf(leafslotmax);
-//		m_root = m_headleaf = m_tailleaf = allocate_blindi_leaf1();
+		    // m_root = m_headleaf = m_tailleaf = allocate_blindi_leaf1();
 		m_stats.limit2MustCompress -= sizeof(*m_root);	
 #ifdef BREATHING_SIZE 
 		m_stats.leavesslotsbreath = leafslotmax;
@@ -2984,10 +2977,7 @@ private:
         }
         
 	bool istransferbtreeblindi = 0;
-	std::cout << " Inseart 1 " << std::endl;
-	std::cout << key << std::endl;
         std::pair<iterator, bool> r = insert_descend(m_root, key, value, &newkey, &newchild, &istransferbtreeblindi, m_root, 0);
-	std::cout << " Inseart end " << std::endl;
 
         if (newchild)
         {
@@ -3346,8 +3336,6 @@ private:
 		    {
 			    if(leaf->isblindi_can_extend()) // extend the blindi size instead of split	
 			    {
-
-				    std::cout << "I am extended blindi node" << std::endl;
 				    leaf = transfer_blindixtoblibdi2x(leaf_tmp, parent_n, parentslot);
 			    }
 			    else  // split the blindi_size
@@ -3369,9 +3357,12 @@ private:
 			    *splitkey = key;
 		    }
 
-		    if (insert_blindi(leaf, key) == INSERT_DUPLICATED_KEY){
-			    return std::pair<iterator, bool>(iterator(leaf, slot), false);
-		    }
+
+//                   If not supported duplication
+//		    if (insert_blindi(leaf, key) == INSERT_DUPLICATED_KEY){
+//			    return std::pair<iterator, bool>(iterator(leaf, slot), false);
+//		    }
+		    insert_blindi(leaf, key);
 		    leaf->slotuse++;
 
 		    return std::pair<iterator, bool>(iterator(leaf, slot), true);
@@ -3441,7 +3432,7 @@ private:
         blindileaf->blindileaftype = 1; // blindi_node
 
         // transfer the keys/data 
-        blindileaf->blindi_hybrid_node.transfer_btree2blindi(leaf_btree->slotuse, leaf_btree->slotkey, (uint8_t **)(leaf_btree->slotdata), _Key_len);
+        blindileaf->blindi_hybrid_node.transfer_btree2blindi(leaf_btree->slotuse, leaf_btree->slotkey, (uint8_t **)(leaf_btree->slotdata));
 	if (n != parent_n) // if we are not transfering the root
 		connect_newleaf2tree(parent_n, parentslot,  leaf_btree, blindileaf);
 	m_stats.btree2blindi1trans++;
@@ -3466,7 +3457,7 @@ private:
         blindileaf->blindileaftype = 2; // blindi_node
 
         // transfer the keys/data 
-        blindileaf->blindi_hybrid_node.transfer_btree2blindi(leaf_btree->slotuse, leaf_btree->slotkey, (uint8_t **)(leaf_btree->slotdata), _Key_len);
+        blindileaf->blindi_hybrid_node.transfer_btree2blindi(leaf_btree->slotuse, leaf_btree->slotkey, (uint8_t **)(leaf_btree->slotdata));
 	if (n != parent_n) // if we are not transfering the root
 		connect_newleaf2tree(parent_n, parentslot,  leaf_btree, blindileaf);
 	m_stats.btree2blindi2trans++;
@@ -3626,7 +3617,7 @@ private:
         }
 //        *_newkey = leaf->blindi_hybrid_node.get_mid_key_in_node();
         blindi_node1 small_tree;
-        leaf->blindi_hybrid_node.SplitBlindiNode(&small_tree, &newleaf->blindi_hybrid_node, _Key_len);
+        leaf->blindi_hybrid_node.SplitBlindiNode(&small_tree, &newleaf->blindi_hybrid_node);
         memcpy(&leaf->blindi_hybrid_node, &small_tree, sizeof(leaf->blindi_hybrid_node));
         leaf->slotuse = mid;
         leaf->nextleaf = newleaf;
@@ -3649,7 +3640,7 @@ private:
         }
 //        *_newkey = leaf->blindi_hybrid_node.get_mid_key_in_node();
         blindi_node2 small_tree;
-        leaf->blindi_hybrid_node.SplitBlindiNode(&small_tree, &newleaf->blindi_hybrid_node, _Key_len);
+        leaf->blindi_hybrid_node.SplitBlindiNode(&small_tree, &newleaf->blindi_hybrid_node);
         memcpy(&leaf->blindi_hybrid_node, &small_tree, sizeof(leaf->blindi_hybrid_node));
         leaf->slotuse = mid;
         leaf->nextleaf = newleaf;
@@ -3672,7 +3663,7 @@ private:
         }
 //        *_newkey = leaf->blindi_hybrid_node.get_mid_key_in_node();
         blindi_node4 small_tree;
-        leaf->blindi_hybrid_node.SplitBlindiNode(&small_tree, &newleaf->blindi_hybrid_node, _Key_len);
+        leaf->blindi_hybrid_node.SplitBlindiNode(&small_tree, &newleaf->blindi_hybrid_node);
         memcpy(&leaf->blindi_hybrid_node, &small_tree, sizeof(leaf->blindi_hybrid_node));
         leaf->slotuse = mid;
         leaf->nextleaf = newleaf;
@@ -3695,7 +3686,7 @@ private:
         }
 //        *_newkey = leaf->blindi_hybrid_node.get_mid_key_in_node();
         blindi_node8 small_tree;
-        leaf->blindi_hybrid_node.SplitBlindiNode(&small_tree, &newleaf->blindi_hybrid_node, _Key_len);
+        leaf->blindi_hybrid_node.SplitBlindiNode(&small_tree, &newleaf->blindi_hybrid_node);
         memcpy(&leaf->blindi_hybrid_node, &small_tree, sizeof(leaf->blindi_hybrid_node));
         leaf->slotuse = mid;
         leaf->nextleaf = newleaf;
@@ -5023,7 +5014,7 @@ public:
 		 std::cout << "vstats.itemcount == m_stats.itemcount "<< vstats.itemcount << " " <<  m_stats.itemcount  << " vstats.leaves == m_stats.leaves "<<  vstats.leaves <<" " << m_stats.leaves << "  vstats.innernodes == m_stats.innernodes " <<   vstats.innernodes<< " " <<  m_stats.innernodes << std::endl;
 		 exit(0);
 	    }
-//            verify_leaflinks();
+            verify_leaflinks();
         }
     }
 
@@ -5032,6 +5023,7 @@ private:
     /// Recursively descend down the tree and verify each node
     void verify_node(node* n, key_type* minkey, key_type* maxkey, tree_stats &vstats) const
     {
+	    
         BTREE_PRINT("verifynode " << n);
 
         if (n->isleafnode())
@@ -5214,14 +5206,14 @@ private:
 
             for(unsigned short slot = 0; slot < n->slotuse - 1; ++slot)
             {
-                assert(key_lessequal(n->slotkey[slot], n->slotkey[slot + 1]));
+//                assert(key_lessequal(n->slotkey[slot], n->slotkey[slot + 1]));
             }
 
             testcount += n->slotuse;
 
             if (n->nextleaf)
             {
-                assert(key_lessequal(n->slotkey[n->slotuse-1], n->nextleaf->slotkey[0]));
+  //              assert(key_lessequal(n->slotkey[n->slotuse-1], n->nextleaf->slotkey[0]));
 
                 assert(n == n->nextleaf->prevleaf);
             }
