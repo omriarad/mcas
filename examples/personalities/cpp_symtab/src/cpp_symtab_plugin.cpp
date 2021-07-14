@@ -62,6 +62,9 @@ public:
     virtual bool Insert(const KeyType& key, const ValueType& value) = 0;
     virtual void GetValue(const KeyType &key,
                           std::vector<ValueType> &value_list)  = 0;
+
+    virtual void GetRange(const KeyType &key,
+                          std::vector<ValueType> &value_list)  = 0;
 };
 
 
@@ -90,7 +93,7 @@ public:
      void GetRange(const KeyType &key,
                   std::vector<ValueType> &value_list) {
         auto it = tree.lower_bound(key);
-        for (int i=0; i < 1; i++) {
+        for (int i=0; i < 3; i++) {
 		if (it == tree.end())
 			break;
 		value_list.push_back(it->second);
@@ -121,10 +124,36 @@ public:
     void GetValue(const KeyType &key,
                   std::vector<ValueType> &value_list) {
 
-        auto it = tree.find(key);
-        if (it != tree.end())
+        auto it = tree.lower_bound(key);
+
+        if (it != tree.end()) {
+            std::cout << " tree.end " << std::endl;
             value_list.push_back(it->second);
+	}
+
     }
+
+    void GetRange(const KeyType &key,
+                  std::vector<ValueType> &value_list) {
+
+        auto it = tree.lower_bound(key);
+
+	for (int i=0; i < 2; i++) {
+		if (it == tree.end()) {
+			std::cout << " tree.end " << std::endl;
+			break;
+		}
+		std::cout << " it->second " << it->second << std::endl;
+		value_list.push_back(it->second);
+		it++;
+	}
+
+    }
+
+
+
+
+
 
 };
 /////////////
@@ -147,7 +176,7 @@ typedef  struct {
 	string f3;
 } item;
 
-item table[500000]; 
+item table[5000]; 
 uint64_t row_nu = 0;
 
 
@@ -196,6 +225,7 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
 
   //  PLOG("invoke: value=%p value_len=%lu", value, value_len);
 
+  std::cout << "root " << std::endl;
   auto& root = *(new (value) Value_root);
   bool force_init = false;
 
@@ -248,6 +278,7 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
    uint64_t num = lexical_cast<uint64_t>(fields[0]);
    table[row_nu] = {num, fields[1], fields[2], fields[3]};
 //   idx->Insert(table[row_nu].f0.c_str(), table[row_nu].f0.c_str());
+   std::cout << "idx->Insert"   << std::endl;
    idx->Insert(table[row_nu].f0, &table[row_nu].f0);
 
    PLOG("fields[0] = %s", fields[0].c_str());
@@ -255,11 +286,20 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
    PLOG("fields[2] = %s", fields[2].c_str());
    PLOG("fields[3] = %s", fields[3].c_str());
    std::vector<ValueType> v {};
-//   idx->GetValue(table[row_nu].f1.c_str(), v);
    idx->GetValue(table[row_nu].f0, v);
-   std::cout << ("value = %s", v[0]) << std::endl;
+   std::cout << "end row_nu " << row_nu << std::endl;
+   std::cout << "valuei_ptr = " << v[0] << std::endl;
+   std::cout << "value = " << *v[0] << std::endl;
+   if (row_nu > 3){
+	   std::vector<ValueType> v1 {};
+	   idx->GetRange((table[row_nu-3].f0), v1);
+	   std::cout << "value_range_ptr[0] = "<<  v1[0] << std::endl;
+	   std::cout << "value_range[0] = "<<  *v1[0] << std::endl;
+	   std::cout << "value_range_ptr[1] = "<<  v1[1] << std::endl;
+	   std::cout << "value_range[1] = "<<  *v1[1] << std::endl;
+   }
    row_nu++;
-    return S_OK;
+   return S_OK;
   }
 
   /*------------------------------*/
@@ -309,7 +349,7 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
 
     for(unsigned i=0;i<10;i++) {
       PLOG("[%u] %s", i, pointer_table[i]);
-    }
+  }
 
 
     
