@@ -23,13 +23,13 @@ enum REMOVE_RESULT {REMOVE_SUCCESS = 0, REMOVE_NODE_EMPTY = 1, REMOVE_UNDERFLOW 
 #define BREATHING_BLINDI_SIZE 4
 #define BREATHING_BLINDI_DATA_ONLY
 
-#define BREATHING_BLINDI_STSTS
-#ifndef _BREATHING_BLINDI_STSTS_DEFINE_
-#define _BREATHING_BLINDI_STSTS_DEFINE_
-static uint64_t breathing_sum = 0;
-static uint64_t breathing_count = 0;
-static uint64_t insert_count = 0;
-#endif
+//#define BREATHING_BLINDI_STSTS
+//#ifndef _BREATHING_BLINDI_STSTS_DEFINE_
+//#define _BREATHING_BLINDI_STSTS_DEFINE_
+//static uint64_t breathing_sum = 0;
+//static uint64_t breathing_count = 0;
+//static uint64_t insert_count = 0;
+//#endif
 
 #define END_TREE ((idx_t)-1)
 #define DUPLICATE ((bitidx_t)-2)
@@ -2582,6 +2582,8 @@ class SeqTreeBlindiNode {
 	void Insert2BlindiNodeInPosition(uint8_t *insert_key, uint16_t key_len, int insert_position,  int *diff_pos, bool *large_small, bool *smaller_than_node, uint16_t *tree_traverse, uint16_t *tree_traverse_len, uint8_t fingerprint = 0) {
 		int insert_blindikey_position = insert_position;
 
+                 std::cout << "line 2585 " << std::endl;
+		 print_node();
 #ifdef BREATHING_BLINDI_SIZE
 		if (this->isneedbreath()) { 
 
@@ -2606,6 +2608,8 @@ class SeqTreeBlindiNode {
 					tmp_key_ptr);
 			free(key_ptr);
 			key_ptr = tmp_key_ptr;
+                 std::cout << "line 2610 " << std::endl;
+		 print_node();
 
 #ifndef BREATHING_BLINDI_DATA_ONLY
 			bitidx_t *tmp_blindiKeys = (bitidx_t *)malloc ((currentmaxslot - 1) * sizeof(bitidx_t));
@@ -2648,6 +2652,8 @@ class SeqTreeBlindiNode {
 		}
 
 
+                 std::cout << "line 2655 " << std::endl;
+		 print_node();
 
 		// calc and insert the new predecesor blindKey (If we don't smaller_than_node)
 		if (!*smaller_than_node && (valid_len != 0)) { // calc the blindIkey predecessor key
@@ -2668,9 +2674,13 @@ class SeqTreeBlindiNode {
 		int i =0;
 
 
+                 std::cout << "line 2676 " << std::endl;
+		 print_node();
 		// go over levels update position in blindiTree
                 if (TREE_LEVELS > 0) 
 		{
+			std::cout << "line 2682 " << std::endl;
+			print_node();
 			for (int l = levels; l <= TREE_LEVELS; l++) {
 				// go over the elements in the level
 				for (i = pow(2,l) - 1; i >= pow(2, (l - 1)); i--) {
@@ -2751,6 +2761,8 @@ class SeqTreeBlindiNode {
 				}
 			}
 		} // WITH_TREE	  
+		std::cout << "line 2763 " << std::endl;
+		print_node();
 	}
 	//    			0
 	//    	   1   				2
@@ -3417,6 +3429,9 @@ class GenericBlindiSeqTreeNode {
 				return_value = INSERT_DUPLICATED_KEY;
 			}
 
+#ifdef DEBUG_SEQTREE
+			std::cout << "Insetred key in position " << insert_position << " NUM_SLOTS " << NUM_SLOTS << std::endl;
+#endif
 			node.Insert2BlindiNodeInPosition(insert_key, key_len, insert_position, &diff_pos, &large_small, &smaller_than_node, tree_traverse, &tree_traverse_len, fingerprint);
 #ifdef BREATHING_BLINDI_STSTS
 //			if (!(insert_count % (1024*1024))){ 
@@ -3425,12 +3440,12 @@ class GenericBlindiSeqTreeNode {
 #endif
 
 #ifdef DEBUG_SEQTREE
-			std::cout << "Insert key " << std::endl;
+			std::cout << "Inserted key " << std::endl;
 				for (int j = sizeof(_Key) - 1; j>= 0; j--) {
 					printf ("%d ", insert_key[j]);
 				}
                         std::cout << " " << std::endl; 
-
+			std::cout << "print node after insert" << std::endl;
 			node.print_node();
 #endif
 #ifdef BREATHING_BLINDI_STSTS
@@ -3439,6 +3454,8 @@ class GenericBlindiSeqTreeNode {
 				std::cout << "insert_count " << insert_count <<" breathing_sum " << breathing_sum << " breathing_count " << breathing_count << std::endl;
 			}
 #endif
+
+			std::cout << "return value" << std::endl;
 			return return_value;
 		}
 

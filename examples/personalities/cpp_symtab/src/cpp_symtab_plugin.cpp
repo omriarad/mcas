@@ -26,7 +26,7 @@
 #include "cpp_symtab_types.h"
 #include <btree_multimap.h>
 #include <blindi_btree_hybrid_nodes_multimap.h>
-
+#include <iostream>
 
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
@@ -37,7 +37,7 @@ using namespace stx;
 using namespace std;
 using namespace boost;
 
-
+#define END 16000
 
 ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////
@@ -65,7 +65,40 @@ public:
 
     virtual void GetRange(const KeyType &key,
                           std::vector<ValueType> &value_list)  = 0;
+
+
+    virtual uint64_t GetRangeTime(const KeyType &key,
+                  std::vector<ValueType> &value_list, uint64_t time_end) = 0;
 };
+
+struct UUID {
+  uint64_t val[2];
+
+public:
+  bool operator<(const UUID& rhs) const {
+    if (val[1] == rhs.val[1])
+      return val[0] < rhs.val[0];
+    else
+      return val[1] < rhs.val[1];
+  }
+
+  bool operator==(const UUID& other) const {
+    return val[0] == other.val[0] && val[1] == other.val[1];
+  }
+};
+
+
+uint64_t char8B_to_uint64 (const char * input) { 
+	uint64_t out;
+        out = input[0]<<(8*7) | input[1]<<(8*6)
+		| input[2]<<(8*5)
+		| input[3]<<(8*4)
+		| input[4]<<(8*3)
+		| input[5]<<(8*2)
+		| input[6]<<(8*1)
+		| input[7];
+	return out;
+}
 
 
 
@@ -125,10 +158,13 @@ public:
                   std::vector<ValueType> &value_list) {
 
         auto it = tree.lower_bound(key);
+	std::cout << " it.currslot " << it.currslot << std::endl;
 
-        if (it != tree.end()) {
-            std::cout << " tree.end " << std::endl;
+        if (it.currslot != END) {
             value_list.push_back(it->second);
+	}
+	else {
+		std::cout << " GetValue tree.end " << std::endl;
 	}
 
     }
@@ -138,11 +174,16 @@ public:
 
         auto it = tree.lower_bound(key);
 
-	for (int i=0; i < 2; i++) {
-		if (it == tree.end()) {
-			std::cout << " tree.end " << std::endl;
+	for (int i=0; i < 10; i++) {
+	std::cout << " it.currslot " << it.currslot << std::endl;
+		if (it.currslot == ENDSLOT) {
+			std::cout << " Range tree.end END= " << ENDSLOT << std::endl;
 			break;
 		}
+		ValueType v1 = it->second; 
+		std::cout << "value_range_ptr[0] = "<<  v1 << std::endl;
+		std::cout << "value_range[0] = "<<  v1->val[0] << std::endl;
+		std::cout << "value_range[1] = "<<  v1->val[1] << std::endl;
 		std::cout << " it->second " << it->second << std::endl;
 		value_list.push_back(it->second);
 		it++;
@@ -150,10 +191,40 @@ public:
 
     }
 
+    uint64_t GetRangeTime(const KeyType &key,
+                  std::vector<ValueType> &value_list, uint64_t time_end) {
 
+        auto it = tree.lower_bound(key);
+	uint64_t cnt = 0;
+        KeyType *curr_ts;
+	std::cout << " current timestamp " << std::endl;
+	while  (it.currslot != ENDSLOT) {
+		std::cout << " current slot " << it.currslot << std::endl;
+		curr_ts =  it->second;
+		if (key.val[1] != curr_ts->val[1]){
+			std::cout << "GetRangeTime the type are not identical key.type " << key.val[1] << " curr_ts " << curr_ts->val[1] << std::endl; 
+			return cnt;
+		}	
+		if (curr_ts->val[0] > time_end){
+			std::cout << "GetRangeTime the curr-time is above the time ; curr_ts " << curr_ts->val[0] << " time_end " << time_end << std::endl; 
+			return cnt;
+		}
+		if (curr_ts->val[0] >= key.val[0]){
+			std::cout << "GetRangeTime the curr-time in the right range count++ ; curr_ts " << curr_ts->val[0] << " key->val[0] " << key.val[0] << std::endl;
+		       cnt++;	
+		}
+	       	else {
+			std::cout << "GetRangeTime the curr-time is below  count stay the same ; curr_ts " << curr_ts->val[0] << " key->val[0] " << key.val[0] << std::endl; 
+		}
 
+		value_list.push_back(it->second);
+		it++;
+		std::cout << " current slot  after ++ " << it.currslot << std::endl;
 
+	}
+	return cnt;
 
+    }
 
 };
 /////////////
@@ -162,8 +233,8 @@ const int INNER_NUM = 16;
 const int LEAF_NUM = 16;
 //typedef string  KeyType;  
 //typedef const char*  ValueType;  
-typedef uint64_t  KeyType;  
-typedef uint64_t*  ValueType;  
+typedef UUID  KeyType;  
+typedef UUID*  ValueType;  
 //Index<KeyType, ValueType> *idx = new BTreeType<KeyType, ValueType, INNER_NUM, LEAF_NUM>;
 Index<KeyType, ValueType> *idx = new BlindiBTreeHybridNodes<KeyType, ValueType, SeqTreeBlindiNode, INNER_NUM, LEAF_NUM>("SeqTreeBlindi");
 
@@ -171,9 +242,10 @@ Index<KeyType, ValueType> *idx = new BlindiBTreeHybridNodes<KeyType, ValueType, 
 
 typedef  struct {
 	uint64_t f0;
-	string f1;
-	string f2;
-	string f3;
+	uint64_t f1;
+	uint64_t f2;
+	uint64_t  f3;
+	UUID  f4;
 } item;
 
 item table[5000]; 
@@ -182,7 +254,6 @@ uint64_t row_nu = 0;
 
 ///////////////////////////////////////////////////////
 
-std::vector<const char *> pointer_table;
 
 status_t ADO_symtab_plugin::register_mapped_memory(void * shard_vaddr,
                                                    void * local_vaddr,
@@ -237,9 +308,6 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
     force_init = true;
   }
 
-  /* instantiate immutable string table */
-  ccpm::Immutable_string_table<> string_table(root.get_regions(), force_init);
-
 
   Verifier verifier(static_cast<const uint8_t*>(in_work_request), in_work_request_len);
   if(!VerifyMessageBuffer(verifier)) {
@@ -257,46 +325,58 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
     auto str = put_request->word()->c_str();
 
   const char *p;  
-  retry:
-    try {
-      p = string_table.add_string(str);
-      pointer_table.push_back(p);
-    }
-    catch(const std::bad_alloc& e) {
-      void * buffer;
-      if(cb_allocate_pool_memory(buffer_increment, 8, buffer)!=S_OK)
-        throw std::runtime_error("unable to allocate new region");
-      PLOG("Expanding memory .. %p", buffer);
-      string_table.expand(common::make_byte_span(buffer, buffer_increment));
-      goto retry;
-    }
 
 
 // STX
+    std::cout << "devide fields " << std::endl;
    std::vector<string> fields;
    boost::split( fields, str, is_any_of(" ") );
-   uint64_t num = lexical_cast<uint64_t>(fields[0]);
-   table[row_nu] = {num, fields[1], fields[2], fields[3]};
+   uint64_t num0 = lexical_cast<uint64_t>(fields[0]);
+
+   const char * c = fields[1].c_str();
+   uint64_t num1 = char8B_to_uint64(c);
+
+   std::stringstream ss;
+   uint64_t num2;
+   ss << std::hex << fields[2];
+   ss >> num2;
+   fields[3].erase(fields[3].length()-1);
+   uint64_t num3 = lexical_cast<uint64_t>(fields[3]);
+   std::cout << "num0 " << num0 << std::endl; 
+   std::cout << "num1 " << num1 << "  felids1 " << fields[1].c_str() <<  std::endl; 
+   std::cout << "num2 " << num2 << "  felids2 " << fields[2].c_str() << std::endl; 
+   std::cout << "num3 " << num3 << std::endl; 
+///   table[row_nu] = {num0, num1, num2, num3};
+   table[row_nu] = {num0, num1, num2, num3};
+   table[row_nu].f4.val[0] = num0;
+   table[row_nu].f4.val[1] = num1;
 //   idx->Insert(table[row_nu].f0.c_str(), table[row_nu].f0.c_str());
    std::cout << "idx->Insert"   << std::endl;
-   idx->Insert(table[row_nu].f0, &table[row_nu].f0);
+   idx->Insert(table[row_nu].f4, &table[row_nu].f4);
 
    PLOG("fields[0] = %s", fields[0].c_str());
    PLOG("fields[1] = %s", fields[1].c_str());
    PLOG("fields[2] = %s", fields[2].c_str());
    PLOG("fields[3] = %s", fields[3].c_str());
    std::vector<ValueType> v {};
-   idx->GetValue(table[row_nu].f0, v);
+   idx->GetValue(table[row_nu].f4, v);
    std::cout << "end row_nu " << row_nu << std::endl;
    std::cout << "valuei_ptr = " << v[0] << std::endl;
-   std::cout << "value = " << *v[0] << std::endl;
-   if (row_nu > 3){
+   std::cout << "value[0] = " << v[0]->val[0] << std::endl;
+   std::cout << "value[1] = " << v[0]->val[1] << std::endl;
+   if (row_nu > 0){
 	   std::vector<ValueType> v1 {};
-	   idx->GetRange((table[row_nu-3].f0), v1);
+           idx->GetRange((table[row_nu].f4), v1);
 	   std::cout << "value_range_ptr[0] = "<<  v1[0] << std::endl;
-	   std::cout << "value_range[0] = "<<  *v1[0] << std::endl;
-	   std::cout << "value_range_ptr[1] = "<<  v1[1] << std::endl;
-	   std::cout << "value_range[1] = "<<  *v1[1] << std::endl;
+	   std::cout << "value_range[0] = "<<  v1[0]->val[0] << std::endl;
+	   std::cout << "value_range[1] = "<<  v1[0]->val[1] << std::endl;
+           uint64_t cnter = idx->GetRangeTime((table[0].f4), v1, 1361306);
+	   std::cout << " the COUNTER in this range is "<< cnter << std::endl;
+//	   std::cout << "value_range_ptr[1] = "<<  v1[1] << std::endl;
+//	   std::cout << "value_range[1][0] = "<<  v1[1]->val[0] << std::endl;
+//	   std::cout << "value_range_ptr[1] = "<<  v1[1] << std::endl;
+//	   std::cout << "value_range[1][0] = "<<  v1[1]->val[0] << std::endl;
+//	   std::cout << "value_range[1][1] = "<<  v1[1]->val[1] << std::endl;
    }
    row_nu++;
    return S_OK;
@@ -306,102 +386,6 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
   /* build index request handling */
   /*------------------------------*/
   if(msg->command_as_BuildIndex()) {
-    PMAJOR("Building index...");
-    std::sort(pointer_table.begin(),
-              pointer_table.end(),
-              []( const char *s1, const char *s2 ) -> bool
-              {
-                return std::strcmp( s1, s2 ) < 0;
-              }
-              );
-
-
-// STX 
-
-////// 
-
-//   double duration = timer.Stop();
-
- 
-   
-
-  // This is used to record time taken for each individual thread
-//  std::vector<uint64_t> v {};
-//  KeyType k;
-
-//  v.reserve(1);
-
-//  Timer timer {true};
-//       size_t* i = (size_t *) &k;
-//       for (*i = 0; *i < key_num; (*i)++) {
-//        index->GetValue(k, v);
-//                    v.clear();
-//       }
-//  }
-
-//  double duration = timer.Stop();
-
-//  }
-
-
-  PMAJOR("Sort complete.");
-
-
-    for(unsigned i=0;i<10;i++) {
-      PLOG("[%u] %s", i, pointer_table[i]);
-  }
-
-
-    
-    // test 
-//    typedef stx::btree_multimap<std::string, unsigned int,
-//                             std::less<std::string>, traits_nodebug<std::string> > btree_type;
-//    std::string letters = "abcdefghijklmnopqrstuvwxyz";
-//    btree_type bt;
-
-//    for (unsigned int a = 0; a < letters.size(); ++a)
-//    {
-//	    for (unsigned int b = 0; b < letters.size(); ++b)
-//	    {
-//		    bt.insert2(std::string(1, letters[a]) + letters[b],
-//				    a * letters.size() + b);
-//	    }
-//    }
-
-/////// 
-
-    if(root.index_size) {
-      assert(root.index);
-      cb_free_pool_memory(root.index_size, root.index);
-      root.index = nullptr;
-      root.index_size = 0;
-      pmem_flush(&root.index_size, sizeof(root.index_size));
-    }
-
-    root.index = nullptr;
-    void * mem;
-    size_t index_size = sizeof(const char *) * pointer_table.size();
-    if(cb_allocate_pool_memory(index_size,
-                               8,
-                               mem)!=S_OK)
-      throw std::runtime_error("unable to allocate memory for index");
-
-    root.index = new (mem) std::vector<const char*>(pointer_table.size());
-
-    for(size_t i=0;i<pointer_table.size();i++) {
-      (*root.index)[i] = pointer_table[i];
-    }
-    root.index_size = pointer_table.size();
-    pmem_flush(mem, index_size);
-    pmem_flush(&root.index_size, sizeof(root.index_size));
-    pmem_flush(&root.index, index_size);
-    PLOG("Index (%lu entries) built OK.", root.index_size);
-
-    for(unsigned i=0;i<10;i++) {
-      PLOG("[%u-%p] %s", i, &root.index[i],  (*root.index)[i]);
-    }
-    PLOG("...");
-
     return S_OK;
   }
 
@@ -410,30 +394,14 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
   /*---------------------------------------*/  
   auto get_symbol_request = msg->command_as_GetSymbol();
   if(get_symbol_request) {
+    char *str1 = "string Literal";
     auto& req_word = *(get_symbol_request->word());
-    PLOG("Get symbol for \"%s\"", req_word.c_str());
-    PLOG("Root index size=%lu", root.index->size());
-    /* binary chop - could use hash index */
-
-    //std::size_t size, /*compare-pred*/* comp );
-    auto i = std::lower_bound(root.index->begin(),
-                              root.index->end(),
-                              req_word.c_str(),
-                              [](const char* left,
-                                 const char* right) -> bool {
-                                PLOG("%s--%s", left, right);
-                                auto comp = strcmp(left, right) < 0;
-                                //answer = const_cast<char*>(right);
-                                return comp;
-                              }
-                              );
-    if(i != root.index->end()) {
-      PLOG("Found it! (%p)", *i);
-      auto result = new uint64_t;
-      *result = reinterpret_cast<uint64_t>(*i);
-      response_buffers.emplace_back(result, sizeof(uint64_t), response_buffer_t::alloc_type_malloc{});
-    }
-
+    std::vector<ValueType> v2 {};
+    uint64_t cnter = idx->GetRangeTime((table[0].f4), v2, 1361306);
+    std::cout << " the COUNTER symbol in this range is "<< cnter << std::endl;
+    auto result = new uint64_t;
+    *result = reinterpret_cast<uint64_t>(str1);
+    response_buffers.emplace_back(result, sizeof(uint64_t), response_buffer_t::alloc_type_malloc{});
     return S_OK;
   }
 
@@ -442,13 +410,6 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
   /*---------------------------------------*/
   auto get_string_request = msg->command_as_GetString();
   if(get_string_request) { 
-    
-    auto sym_id = get_string_request->symbol();
-    auto sym_str = reinterpret_cast<char*>(sym_id);
-    PLOG("Request symbol:(0x%lx, %s)", sym_id, sym_str);
-    response_buffers.emplace_back(sym_str,
-                                  strlen(sym_str),
-                                  response_buffer_t::alloc_type_pool{}); /* pool type means don't try to free */
     return S_OK;
   }
 

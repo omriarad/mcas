@@ -56,7 +56,7 @@
 //#define GB 1024L*MB
 #define MILLION 1000000L
 #define BILLION 1000L*MILLION
-
+#define ENDSLOT 16000
 #define LIMIT_CAPACITY 100 
 #define MUST_PRECENT 1000000 
 #define SHOULD_COMPRESS_PERCENT 100
@@ -707,7 +707,7 @@ public:
         /// Our own type
         typedef iterator                self;
 
-    private:
+    public:
         // *** Members
 
         /// The currently referenced leaf node of the tree
@@ -915,8 +915,9 @@ public:
             }
             else {
                 // this is end()
-		std::cout << " end() " << std::endl;
-                currslot = currnode->slotuse;
+		std::cout << "HYBRID  end() " << std::endl;
+//                currslot = currnode->slotuse;
+                currslot = ENDSLOT;
             }
 
             return tmp;
@@ -3287,6 +3288,7 @@ private:
 	    {
 		    btree_leaf_node *leaf = static_cast<btree_leaf_node*>(leaf_tmp);
 		    int slot = find_lower(leaf, key);
+		    std:: cout << "Insert to BTREE slot " << slot << std::endl;
 		    if (leaf->isfullbtree())
 		    {
 			    // regular split
@@ -3398,7 +3400,8 @@ private:
 
 
     leaf_node * transfer_blindixtoblibdi2x (leaf_node *leaf_old, node* parent_n, int parentslot) 
-    {	 
+    {	
+	    std::cout  << " transfer_blindixtoblibdi2x " << std::endl;
 	    switch (leaf_old->blindileaftype)
 	    {
 		    case 1 : {

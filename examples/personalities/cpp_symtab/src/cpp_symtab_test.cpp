@@ -136,8 +136,8 @@ int main(int argc, char * argv[])
 
   table.build_index();
 
-//  auto sym = table.get_symbol("business");
-//  PLOG("Symbol for business:0x%lx", sym);
+  auto sym = table.get_symbol("business");
+  PLOG("Symbol for business:0x%lx", sym);
 
 //  auto reverse_lookup = table.get_string(sym);
 //  PLOG("Reverse lookup: %s", reverse_lookup.c_str());
