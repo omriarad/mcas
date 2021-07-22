@@ -30,6 +30,8 @@
 
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
+//#define DEBUG_PLUGIN 
+
 
 using namespace symtab_ADO_protocol;
 using namespace ccpm;
@@ -39,6 +41,7 @@ using namespace boost;
 
 #define END 16000
 
+char *str1 = "string Literal";
 ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////
@@ -62,6 +65,8 @@ public:
     virtual bool Insert(const KeyType& key, const ValueType& value) = 0;
     virtual void GetValue(const KeyType &key,
                           std::vector<ValueType> &value_list)  = 0;
+
+    virtual void PrintTreeStats()  = 0;
 
     virtual void GetRange(const KeyType &key,
                           std::vector<ValueType> &value_list)  = 0;
@@ -118,7 +123,7 @@ public:
 
     void GetValue(const KeyType &key,
                   std::vector<ValueType> &value_list) {
-        auto it = tree.lower_bound(key);
+        auto it = tree.find(key);
         if (it != tree.end())
             value_list.push_back(it->second);
     }
@@ -150,21 +155,48 @@ public:
     std::string name(void) { return blindi_type + "-" + std::to_string(InnerSlots) + "-" + std::to_string(LeafSlots); }
 
     bool Insert(const KeyType& key, const ValueType& value) {
-        tree.insert(key, value);
-     return true;
+	    tree.insert(key, value);
+	    return true;
+    }
+
+    void PrintTreeStats (){
+	    auto stats = tree.get_stats();
+	    uint64_t capacity = 0.0;
+	    uint64_t breathing_capacity = 0.0;
+	    uint64_t insert_breath = breathing_count;
+	    breathing_capacity = sizeof(uint8_t*) * breathing_sum;
+	    capacity = stats.indexcapacity + breathing_capacity;
+	    std::cout   << "STX Seqtree stats:\n";
+	    std::cout   << "* leaf size:    " << stats.leafsize << std::endl 	
+                    << "* leaf num:     " << stats.leaves << std::endl
+                    << "* leaf slots:   " << stats.leafslots << std::endl
+                    << "* inner size:   " << stats.nodesize << std::endl
+                    << "* inner num:    " << stats.innernodes << std::endl
+                    << "* inner slots:  " << stats.innerslots << std::endl
+                    << "* theoretical index size: " << (stats.leaves * stats.leafsize) + (stats.innernodes * stats.nodesize) << std::endl
+                    << "* index capacity:         " << stats.indexcapacity << std::endl
+                    << "* overall item count:     " << stats.itemcount << std::endl
+	            << " breathing_sum: " << breathing_sum << ", breathing_capacity " << breathing_capacity << std::endl  
+ 	            << " total_capacity: " << capacity/1024/1024.0  << " [MB] "  << std::endl
+                    << " avgBYTE: " << 1.0 * capacity/ stats.itemcount << std::endl
+		    << " insert_breathing: " << insert_breath <<  std::endl;
     }
 
     void GetValue(const KeyType &key,
                   std::vector<ValueType> &value_list) {
 
         auto it = tree.lower_bound(key);
+	
+#ifdef DEBUG_PLUGIN
 	std::cout << " it.currslot " << it.currslot << std::endl;
-
+#endif
         if (it.currslot != END) {
             value_list.push_back(it->second);
 	}
 	else {
+#ifdef DEBUG_PLUGIN
 		std::cout << " GetValue tree.end " << std::endl;
+#endif
 	}
 
     }
@@ -174,17 +206,16 @@ public:
 
         auto it = tree.lower_bound(key);
 
-	for (int i=0; i < 10; i++) {
-	std::cout << " it.currslot " << it.currslot << std::endl;
+	for (int i=0; i < 1000; i++) {
+//	std::cout << " it.currslot " << it.currslot << std::endl;
 		if (it.currslot == ENDSLOT) {
-			std::cout << " Range tree.end END= " << ENDSLOT << std::endl;
+//			std::cout << " Range tree.end END= " << ENDSLOT << std::endl;
 			break;
 		}
 		ValueType v1 = it->second; 
-		std::cout << "value_range_ptr[0] = "<<  v1 << std::endl;
-		std::cout << "value_range[0] = "<<  v1->val[0] << std::endl;
-		std::cout << "value_range[1] = "<<  v1->val[1] << std::endl;
-		std::cout << " it->second " << it->second << std::endl;
+//		std::cout << "value_range[0] = "<<  v1->val[0] << std::endl;
+//		std::cout << "value_range[1] = "<<  v1->val[1] << std::endl;
+//		std::cout << " it->second " << it->second << std::endl;
 		value_list.push_back(it->second);
 		it++;
 	}
@@ -197,29 +228,43 @@ public:
         auto it = tree.lower_bound(key);
 	uint64_t cnt = 0;
         KeyType *curr_ts;
+#ifdef DEBUG_PLUGIN
 	std::cout << " current timestamp " << std::endl;
+#endif	
 	while  (it.currslot != ENDSLOT) {
+#ifdef DEBUG_PLUGIN
 		std::cout << " current slot " << it.currslot << std::endl;
+#endif	
 		curr_ts =  it->second;
 		if (key.val[1] != curr_ts->val[1]){
+#ifdef DEBUG_PLUGIN
 			std::cout << "GetRangeTime the type are not identical key.type " << key.val[1] << " curr_ts " << curr_ts->val[1] << std::endl; 
+#endif	
 			return cnt;
 		}	
 		if (curr_ts->val[0] > time_end){
+#ifdef DEBUG_PLUGIN
 			std::cout << "GetRangeTime the curr-time is above the time ; curr_ts " << curr_ts->val[0] << " time_end " << time_end << std::endl; 
+#endif	
 			return cnt;
 		}
 		if (curr_ts->val[0] >= key.val[0]){
+#ifdef DEBUG_PLUGIN
 			std::cout << "GetRangeTime the curr-time in the right range count++ ; curr_ts " << curr_ts->val[0] << " key->val[0] " << key.val[0] << std::endl;
+#endif	
 		       cnt++;	
 		}
 	       	else {
+#ifdef DEBUG_PLUGIN
 			std::cout << "GetRangeTime the curr-time is below  count stay the same ; curr_ts " << curr_ts->val[0] << " key->val[0] " << key.val[0] << std::endl; 
+#endif	
 		}
 
 		value_list.push_back(it->second);
 		it++;
+#ifdef DEBUG_PLUGIN
 		std::cout << " current slot  after ++ " << it.currslot << std::endl;
+#endif	
 
 	}
 	return cnt;
@@ -227,6 +272,7 @@ public:
     }
 
 };
+
 /////////////
 
 const int INNER_NUM = 16;	
@@ -235,21 +281,23 @@ const int LEAF_NUM = 16;
 //typedef const char*  ValueType;  
 typedef UUID  KeyType;  
 typedef UUID*  ValueType;  
+typedef uint64_t  KeyType2;  
+typedef uint64_t*  ValueType2;  
 //Index<KeyType, ValueType> *idx = new BTreeType<KeyType, ValueType, INNER_NUM, LEAF_NUM>;
-Index<KeyType, ValueType> *idx = new BlindiBTreeHybridNodes<KeyType, ValueType, SeqTreeBlindiNode, INNER_NUM, LEAF_NUM>("SeqTreeBlindi");
+Index<KeyType, ValueType> *idx1 = new BlindiBTreeHybridNodes<KeyType, ValueType, SeqTreeBlindiNode, INNER_NUM, LEAF_NUM>("SeqTreeBlindi");
+//Index<KeyType2, ValueType2> *idx2 = new BlindiBTreeHybridNodes<KeyType2, ValueType2, SeqTreeBlindiNode, INNER_NUM, LEAF_NUM>("SeqTreeBlindi");
 
 
 
 typedef  struct {
-	uint64_t f0;
-	uint64_t f1;
-	uint64_t f2;
-	uint64_t  f3;
-	UUID  f4;
+	uint64_t obj;
+	uint64_t  size;
+	UUID  op_time;
 } item;
 
-item table[5000]; 
+item table[48000000]; 
 uint64_t row_nu = 0;
+
 
 
 ///////////////////////////////////////////////////////
@@ -296,7 +344,9 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
 
   //  PLOG("invoke: value=%p value_len=%lu", value, value_len);
 
+#ifdef DEBUG_PLUGIN
   std::cout << "root " << std::endl;
+#endif
   auto& root = *(new (value) Value_root);
   bool force_init = false;
 
@@ -307,7 +357,6 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
     root.add_region(buffer, buffer_increment);
     force_init = true;
   }
-
 
   Verifier verifier(static_cast<const uint8_t*>(in_work_request), in_work_request_len);
   if(!VerifyMessageBuffer(verifier)) {
@@ -328,7 +377,10 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
 
 
 // STX
-    std::cout << "devide fields " << std::endl;
+//
+#ifdef DEBUG_PLUGIN
+   std::cout << "devide fields " << std::endl;
+#endif   
    std::vector<string> fields;
    boost::split( fields, str, is_any_of(" ") );
    uint64_t num0 = lexical_cast<uint64_t>(fields[0]);
@@ -342,42 +394,31 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
    ss >> num2;
    fields[3].erase(fields[3].length()-1);
    uint64_t num3 = lexical_cast<uint64_t>(fields[3]);
+#ifdef DEBUG_PLUGIN
    std::cout << "num0 " << num0 << std::endl; 
    std::cout << "num1 " << num1 << "  felids1 " << fields[1].c_str() <<  std::endl; 
    std::cout << "num2 " << num2 << "  felids2 " << fields[2].c_str() << std::endl; 
    std::cout << "num3 " << num3 << std::endl; 
-///   table[row_nu] = {num0, num1, num2, num3};
-   table[row_nu] = {num0, num1, num2, num3};
-   table[row_nu].f4.val[0] = num0;
-   table[row_nu].f4.val[1] = num1;
-//   idx->Insert(table[row_nu].f0.c_str(), table[row_nu].f0.c_str());
-   std::cout << "idx->Insert"   << std::endl;
-   idx->Insert(table[row_nu].f4, &table[row_nu].f4);
+#endif
+   ///   table[row_nu] = {num0, num1, num2, num3};
+   table[row_nu] = {num2, num3};
+   table[row_nu].op_time.val[0] = num0;
+   table[row_nu].op_time.val[1] = num1;
+   idx1->Insert(table[row_nu].op_time, &table[row_nu].op_time);
 
+#ifdef DEBUG_PLUGIN
    PLOG("fields[0] = %s", fields[0].c_str());
    PLOG("fields[1] = %s", fields[1].c_str());
    PLOG("fields[2] = %s", fields[2].c_str());
    PLOG("fields[3] = %s", fields[3].c_str());
    std::vector<ValueType> v {};
-   idx->GetValue(table[row_nu].f4, v);
+   idx1->GetValue(table[row_nu].op_time, v);
    std::cout << "end row_nu " << row_nu << std::endl;
    std::cout << "valuei_ptr = " << v[0] << std::endl;
    std::cout << "value[0] = " << v[0]->val[0] << std::endl;
    std::cout << "value[1] = " << v[0]->val[1] << std::endl;
-   if (row_nu > 0){
-	   std::vector<ValueType> v1 {};
-           idx->GetRange((table[row_nu].f4), v1);
-	   std::cout << "value_range_ptr[0] = "<<  v1[0] << std::endl;
-	   std::cout << "value_range[0] = "<<  v1[0]->val[0] << std::endl;
-	   std::cout << "value_range[1] = "<<  v1[0]->val[1] << std::endl;
-           uint64_t cnter = idx->GetRangeTime((table[0].f4), v1, 1361306);
-	   std::cout << " the COUNTER in this range is "<< cnter << std::endl;
-//	   std::cout << "value_range_ptr[1] = "<<  v1[1] << std::endl;
-//	   std::cout << "value_range[1][0] = "<<  v1[1]->val[0] << std::endl;
-//	   std::cout << "value_range_ptr[1] = "<<  v1[1] << std::endl;
-//	   std::cout << "value_range[1][0] = "<<  v1[1]->val[0] << std::endl;
-//	   std::cout << "value_range[1][1] = "<<  v1[1]->val[1] << std::endl;
-   }
+#endif
+
    row_nu++;
    return S_OK;
   }
@@ -386,7 +427,9 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
   /* build index request handling */
   /*------------------------------*/
   if(msg->command_as_BuildIndex()) {
-    return S_OK;
+	 std::cout << "sizeof(table) " << sizeof(table)/1024/1024.0 <<" [MB]" << std::endl;
+	 idx1->PrintTreeStats();
+         return S_OK;
   }
 
   /*---------------------------------------*/
@@ -394,20 +437,41 @@ status_t ADO_symtab_plugin::do_work(const uint64_t work_request_id,
   /*---------------------------------------*/  
   auto get_symbol_request = msg->command_as_GetSymbol();
   if(get_symbol_request) {
-    char *str1 = "string Literal";
-    auto& req_word = *(get_symbol_request->word());
+    auto req_str = get_symbol_request->word()->c_str();
+//    auto& req_word = *(get_symbol_request->word());
+#ifdef DEBUG_PLUGIN
+    std::cout << "req_str " << req_str << std::endl;
+    std::cout << "devide fields " << std::endl;
+#endif
+    std::vector<string> fields;
+    boost::split( fields, req_str, is_any_of(" ") );
+    const char *c = fields[0].c_str();
+    uint64_t opcode = char8B_to_uint64(c);
+    uint64_t stime = lexical_cast<uint64_t>(fields[1]);
+    uint64_t jump = lexical_cast<uint64_t>(fields[2]);
+#ifdef DEBUG_PLUGIN
+    std::cout << " after split " << opcode << " " << stime << " " << jump << std::endl;
+#endif
     std::vector<ValueType> v2 {};
-    uint64_t cnter = idx->GetRangeTime((table[0].f4), v2, 1361306);
+    KeyType req;
+    req.val[0]  = stime;
+    req.val[1] =  opcode;
+    uint64_t cnter = 0;
+//    cnter = idx1->GetRangeTime(req, v2, jump);
+    idx1->GetRange(req, v2);
+//    idx1->GetValue(req, v2);
+#ifdef DEBUG_PLUGIN
     std::cout << " the COUNTER symbol in this range is "<< cnter << std::endl;
+#endif
     auto result = new uint64_t;
-    *result = reinterpret_cast<uint64_t>(str1);
+    *result = reinterpret_cast<uint64_t>(cnter);
     response_buffers.emplace_back(result, sizeof(uint64_t), response_buffer_t::alloc_type_malloc{});
     return S_OK;
   }
 
   /*---------------------------------------*/
   /* requesting string for provided sym id */
-  /*---------------------------------------*/
+  ///*---------------------------------------*/
   auto get_string_request = msg->command_as_GetString();
   if(get_string_request) { 
     return S_OK;

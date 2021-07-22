@@ -15,6 +15,8 @@
 #include <api/mcas_itf.h>
 #include <ccpm/immutable_list.h>
 #include "cpp_symtab_client.h"
+#include <chrono>
+#define DEBUG_TEST
 
 struct Options
 {
@@ -52,8 +54,6 @@ component::IMCAS * init(const std::string& server_hostname,  int port)
   fact->release_ref();
   return mcas;
 }
-
-
 
 
 int main(int argc, char * argv[])
@@ -111,7 +111,7 @@ int main(int argc, char * argv[])
   
   /* main code */
   auto pool = i_mcas->create_pool("Dictionaries",
-                                  MB(32),
+                                  MB(10000),
                                   0, /* flags */
                                   1000); /* obj count */
   
@@ -119,11 +119,15 @@ int main(int argc, char * argv[])
   
   /* open data file */
   unsigned count = 0;
+  std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
   try {
     std::ifstream ifs(g_options.data);
 
     std::string line;
     while(getline(ifs, line)) {
+      if (count%1000000== 0) {
+	      std::cout << "insert counti " << count  << std::endl;
+      }     
       table.add_word(line);
       count++;
       //      if(count == 100) break;
@@ -132,24 +136,120 @@ int main(int argc, char * argv[])
   catch(...) {
     PERR("Reading word file failed");
   }
-  PMAJOR("Loaded %u words", count);
+  std::chrono::steady_clock::time_point end = std::chrono::steady_clock::now();
+  uint64_t insert_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
 
+  std::cout << "Insert " << count << " took: "  << insert_time_ms << " [ms]" << " -> Inserts per sec " << count/insert_time_ms*1000 << std::endl;
+  PMAJOR("Loaded %u words", count);
+ 
   table.build_index();
 
-  auto sym = table.get_symbol("business");
-  PLOG("Symbol for business:0x%lx", sym);
+  uint64_t start_time = 5100* 1000; // 
+  uint64_t jump_time = 1000;// jump every X millisec
+  uint64_t end_time = 11740*1000; // 
+  begin = std::chrono::steady_clock::now();
 
-//  auto reverse_lookup = table.get_string(sym);
-//  PLOG("Reverse lookup: %s", reverse_lookup.c_str());
+  uint64_t cnt = 0;
+  uint64_t curr_start_time = start_time;
+    
+  srand(1);
 
-//  if(reverse_lookup != "business")
-//    throw General_exception("unexpected data mismatch");
-  
-  /* implicitly close and delete pool */
+
+  while (cnt<1000000) {
+	  curr_start_time = start_time;
+	  int rand_num = rand()%432000;
+	  curr_start_time = rand_num*100 + 5100*1000;
+	  if (rand_num >  66400) {
+		  curr_start_time += 10180 * 1000;
+	  }
+//	  std::cout << " search curr_start_time " << curr_start_time <<  " curr_start_time + jump_time " << curr_start_time + jump_time  << "  cnt " << cnt << std::endl;
+	  std::string send_symbol = "REST.HEAD.OBJECT " + boost::lexical_cast<std::string>(curr_start_time) + " " + boost::lexical_cast<std::string> (curr_start_time+jump_time);
+	  uint64_t num_res = table.get_symbol(send_symbol);
+//	  std::cout << "The number of elements in the range are: " << num_res << std::endl;
+
+	  send_symbol = "REST.PUT.OBJECT " + boost::lexical_cast<std::string>(curr_start_time) + " " + boost::lexical_cast<std::string> (curr_start_time+jump_time);
+	  num_res = table.get_symbol(send_symbol);
+//	  std::cout << "The number of elements in the range are: " << num_res << std::endl;
+
+	  send_symbol = "REST.GET.OBJECT " + boost::lexical_cast<std::string>(curr_start_time) + " " + boost::lexical_cast<std::string> (curr_start_time+jump_time);
+	  num_res = table.get_symbol(send_symbol);
+//	  std::cout << "The number of elements in the range are: " << num_res << std::endl;
+
+	  curr_start_time = curr_start_time + jump_time/10;
+          cnt++; 
+
+  }
+/*
+  start_time = 21920* 1000; // 
+  jump_time = 1000;// jump every X millisec
+  end_time = 34000*1000; // 
+  begin = std::chrono::steady_clock::now();
+
+  curr_start_time = start_time;
+  while (curr_start_time < end_time) { 
+//	  std::cout << " search curr_start_time " << curr_start_time << " start_time " << start_time <<  " end_time "  << (curr_start_time+jump_time) <<  " jump_time " << jump_time <<  "  cnt " << cnt << std::endl;
+	  std::string send_symbol = "REST.HEAD.OBJECT " + boost::lexical_cast<std::string>(curr_start_time) + " " + boost::lexical_cast<std::string> (curr_start_time+jump_time);
+//	  std::cout << send_symbol << std::endl;
+	  uint64_t num_res = table.get_symbol(send_symbol);
+//	  std::cout << "The number of elements in the range are: " << num_res << std::endl;
+
+	  send_symbol = "REST.PUT.OBJECT " + boost::lexical_cast<std::string>(curr_start_time) + " " + boost::lexical_cast<std::string> (curr_start_time+jump_time);
+//	  std::cout << send_symbol << std::endl;
+	  num_res = table.get_symbol(send_symbol);
+//	  std::cout << "The number of elements in the range are: " << num_res << std::endl;
+
+	  send_symbol = "REST.GET.OBJECT " + boost::lexical_cast<std::string>(curr_start_time) + " " + boost::lexical_cast<std::string> (curr_start_time+jump_time);
+//	  std::cout << send_symbol << std::endl;
+	  num_res = table.get_symbol(send_symbol);
+//	  std::cout << "The number of elements in the range are: " << num_res << std::endl;
+
+	  curr_start_time = curr_start_time + jump_time/10;
+          cnt++; 
+
+  }
+
+
+  start_time = 34000* 1000; // 
+  jump_time = 1000;// jump every X millisec
+  end_time = 58480*1000; // 
+  begin = std::chrono::steady_clock::now();
+
+  curr_start_time = start_time;
+  while (curr_start_time < end_time) { 
+//	  std::cout << " search curr_start_time " << curr_start_time << " start_time " << start_time <<  " end_time "  << end_time <<  " jump_time " << jump_time <<  "  cnt " << cnt << std::endl;
+	  std::string send_symbol = "REST.HEAD.OBJECT " + boost::lexical_cast<std::string>(curr_start_time) + " " + boost::lexical_cast<std::string> (curr_start_time+jump_time);
+//	  std::cout << send_symbol << std::endl;
+	  uint64_t num_res = table.get_symbol(send_symbol);
+//	  std::cout << "The number of elements in the range are: " << num_res << std::endl;
+
+	  send_symbol = "REST.PUT.OBJECT " + boost::lexical_cast<std::string>(curr_start_time) + " " + boost::lexical_cast<std::string> (curr_start_time+jump_time);
+//	  std::cout << send_symbol << std::endl;
+	  num_res = table.get_symbol(send_symbol);
+//	  std::cout << "The number of elements in the range are: " << num_res << std::endl;
+
+	  send_symbol = "REST.GET.OBJECT " + boost::lexical_cast<std::string>(curr_start_time) + " " + boost::lexical_cast<std::string> (curr_start_time+jump_time);
+//	  std::cout << send_symbol << std::endl;
+	  num_res = table.get_symbol(send_symbol);
+//	  std::cout << "The number of elements in the range are: " << num_res << std::endl;
+
+	  curr_start_time = curr_start_time + jump_time/10;
+          cnt++; 
+
+  }
+*/
+  end = std::chrono::steady_clock::now();
+  std::cout << "finish search "<< std::endl;
+  uint64_t search_time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
+
+  std::cout << "finish calculate time "<< std::endl;
+
+  std::cout << "search " << cnt << "*3=" << cnt*3 << std::endl;
+  std::cout  << " took: "  << search_time_ms << " [ms]" << std::endl;
+  if (search_time_ms > 0) {
+	  std::cout  << " -> Searches per sec " << cnt*3*1000/search_time_ms << std::endl;
+  }
   PLOG("Cleaning up.");
   i_mcas->delete_pool(pool);
 
-
   return 0;
 }
-

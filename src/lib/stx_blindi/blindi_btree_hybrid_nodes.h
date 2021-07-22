@@ -46,7 +46,7 @@
 #include <assert.h>
 
 #include "blindi_seqtree.hpp"
-#define DEBUG_BLINDI
+//#define DEBUG_BLINDI
 
 
 
@@ -57,7 +57,13 @@
 #define MILLION 1000000L
 #define BILLION 1000L*MILLION
 #define ENDSLOT 16000
-#define LIMIT_CAPACITY 100 
+//#define LIMIT_CAPACITY 100 // Blindi 
+//#define LIMIT_CAPACITY 16000000 // Elastic16
+//#define LIMIT_CAPACITY 24000000 // Elastic24
+//#define LIMIT_CAPACITY 32000000 // Elastic32
+//#define LIMIT_CAPACITY 40000000 // Elastic40 
+#define LIMIT_CAPACITY 100000000 // BTREE 
+
 #define MUST_PRECENT 1000000 
 #define SHOULD_COMPRESS_PERCENT 100
 #define MUST_ONLY 0
@@ -404,9 +410,12 @@ public:
         /// True if the node's slots are full
         inline bool isfullblindi() const
         {
+		
+#ifdef DEBUG_BLINDI
 		    std::cout << "node::blindileaftype " << (uint64_t)node::blindileaftype  << std::endl;
 		    std::cout << "leafslotmax " << leafslotmax  << std::endl;
 		    std::cout << "node:slotuse " << node::slotuse  << std::endl;
+#endif		    
 		    return (node::slotuse == leafslotmax * node::blindileaftype);
 	}
 
@@ -851,9 +860,11 @@ public:
         /// Writable reference to the current data object
         inline data_type data() const
         {
+#ifdef DEBUG_BLINDI
 		std::cout <<  "data isblindileafnode " << currnode->isblindileafnode() << (int)currnode->isblindileafnode() << std::endl;
 		std::cout << "data currnode " << currnode << std::endl;
 		std::cout << " data currslot " << currslot << std::endl;
+#endif		
 		if(currnode->isblindileafnode())
 		{
 			return (data_type) get_key_blindi(currnode, currslot);
@@ -901,21 +912,29 @@ public:
         inline self operator++(int)
         {
             self tmp = *this;   // copy ourselves
+#ifdef DEBUG_BLINDI
             std::cout << "iterator ++ "<< std::endl;
             std::cout << " iterator: currslot  " << currslot<< std::endl;
             std::cout << " slotuse  " << currnode->slotuse << std::endl;
+#endif	    
             if (currslot + 1 < currnode->slotuse) {
+#ifdef DEBUG_BLINDI
 		    std::cout << " currslot++  " << std::endl;
+#endif	    
                 ++currslot;
             }
             else if (currnode->nextleaf != NULL) {
+#ifdef DEBUG_BLINDI
 		std::cout << " nextleaf " << std::endl;
+#endif	    
                 currnode = currnode->nextleaf;
                 currslot = 0;
             }
             else {
                 // this is end()
+#ifdef DEBUG_BLINDI
 		std::cout << "HYBRID  end() " << std::endl;
+#endif	    
 //                currslot = currnode->slotuse;
                 currslot = ENDSLOT;
             }
@@ -2440,22 +2459,22 @@ public:
 	    switch (currnode->blindileaftype) 
 	    {
 		    case 1:	{ 
-					std::cout << "Insert blindi_leaf_node1 " << std::endl;
+//					std::cout << "Insert blindi_leaf_node1 " << std::endl;
 					blindi_leaf_node1 *blindi_leaf1 = static_cast<blindi_leaf_node1*>(currnode);
 					return blindi_leaf1->blindi_hybrid_node.Insert2BlindiNodeWithKey((uint8_t*) &key, _Key_len);
 				}
 		    case 2:	{ 
-					std::cout << "Insert blindi_leaf_node2 " << std::endl;
+//					std::cout << "Insert blindi_leaf_node2 " << std::endl;
 					blindi_leaf_node2 *blindi_leaf2 = static_cast<blindi_leaf_node2*>(currnode);
 					return blindi_leaf2->blindi_hybrid_node.Insert2BlindiNodeWithKey((uint8_t*) &key, _Key_len);
 				}
 		    case 4:	{ 
-					std::cout << "Insert blindi_leaf_node4 " << std::endl;
+//					std::cout << "Insert blindi_leaf_node4 " << std::endl;
 					blindi_leaf_node4 *blindi_leaf4 = static_cast<blindi_leaf_node4*>(currnode);
 					return blindi_leaf4->blindi_hybrid_node.Insert2BlindiNodeWithKey((uint8_t*) &key, _Key_len);
 				}
 		    case 8:	{ 
-					std::cout << "Insert blindi_leaf_node8 " << std::endl;
+//					std::cout << "Insert blindi_leaf_node8 " << std::endl;
 					blindi_leaf_node8 *blindi_leaf8 = static_cast<blindi_leaf_node8*>(currnode);
 					return blindi_leaf8->blindi_hybrid_node.Insert2BlindiNodeWithKey((uint8_t*) &key, _Key_len);
 				}
@@ -2530,7 +2549,7 @@ public:
     /// key/data slot if found. If unsuccessful it returns end().
     iterator find(const key_type &key)
     {
-        std::cout << " start find " << std::endl;    
+//        std::cout << " start find " << std::endl;    
         node *n = m_root;
         if (!n) return end();
 
@@ -2587,9 +2606,9 @@ public:
 	bool hit = false, smaller_than_node = false;
         uint16_t tree_traverse[5];
         uint16_t tree_traverse_len;
-        std::cout << " search blindi " << std::endl;    
+//        std::cout << " search blindi " << std::endl;    
 	int slot = search_blindi(leaf, key, SEARCH_TYPE::POINT_SEARCH, &hit, &smaller_than_node, tree_traverse, &tree_traverse_len);
-        std::cout << " end search blindi " << std::endl;    
+//        std::cout << " end search blindi " << std::endl;    
 
         return (hit ? const_iterator(leaf, slot) : end());
     }
@@ -3116,7 +3135,7 @@ private:
                                              const key_type& key, const data_type& value,
                                              key_type* splitkey, node** splitnode, bool *istransferbtreeblindi, node* parent_n, int parentslot)
     {
-        std::cout <<  "insert_descend " << std::endl; 
+//        std::cout <<  "insert_descend " << std::endl; 
         if (!n->isleafnode())
         {
             inner_node *inner = static_cast<inner_node*>(n);
@@ -3128,7 +3147,7 @@ private:
 
             BTREE_PRINT("blindi_btree_hybrid_nodes::insert_descend into " << inner->childid[slot]);
             
-            std::cout << " insert descent no leaf node " << std::endl; 
+//            std::cout << " insert descent no leaf node " << std::endl; 
             std::pair<iterator, bool> r = insert_descend(inner->childid[slot],
                                                          key, value, &newkey, &newchild, istransferbtreeblindi, n, slot);
             
@@ -3202,7 +3221,7 @@ private:
         }
         else // n->isleafnode() == true
         {
-            std::cout << " insert to leaf node " << std::endl; 
+//            std::cout << " insert to leaf node " << std::endl; 
             leaf_node *leaf_tmp = static_cast<leaf_node*>(n);
 	    // transfer btreenode to blindinode
             if (!leaf_tmp->isblindileafnode()) 
@@ -3288,7 +3307,7 @@ private:
 	    {
 		    btree_leaf_node *leaf = static_cast<btree_leaf_node*>(leaf_tmp);
 		    int slot = find_lower(leaf, key);
-		    std:: cout << "Insert to BTREE slot " << slot << std::endl;
+//		    std:: cout << "Insert to BTREE slot " << slot << std::endl;
 		    if (leaf->isfullbtree())
 		    {
 			    // regular split
@@ -3358,10 +3377,10 @@ private:
 		    leaf_node *leaf = leaf_tmp;
 		    bool b_split = false;
 		    int slot = 0;
-		    std::cout << "leaf->isfullblindi " << (int)leaf->isfullblindi() << std::endl;
+//		    std::cout << "leaf->isfullblindi " << (int)leaf->isfullblindi() << std::endl;
 		    if (leaf->isfullblindi())
 		    {
-			    std::cout << "leaf->isblindi_can_extend " << (int)leaf->isblindi_can_extend() << std::endl;
+//			    std::cout << "leaf->isblindi_can_extend " << (int)leaf->isblindi_can_extend() << std::endl;
 			    if(leaf->isblindi_can_extend()) // extend the blindi size instead of split	
 			    {
 				    leaf = transfer_blindixtoblibdi2x(leaf_tmp, parent_n, parentslot);
@@ -3401,7 +3420,7 @@ private:
 
     leaf_node * transfer_blindixtoblibdi2x (leaf_node *leaf_old, node* parent_n, int parentslot) 
     {	
-	    std::cout  << " transfer_blindixtoblibdi2x " << std::endl;
+//	    std::cout  << " transfer_blindixtoblibdi2x " << std::endl;
 	    switch (leaf_old->blindileaftype)
 	    {
 		    case 1 : {
