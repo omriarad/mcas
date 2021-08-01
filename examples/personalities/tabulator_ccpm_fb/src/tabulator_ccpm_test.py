@@ -77,6 +77,9 @@ class Tabulator:
             "\nMax->",q.Value().Max(),
             "\nMean->",q.Value().Mean(), "\n")
 
+    def print_get (self, key): 
+        res = tab.pool.get(key)
+        print (key + " get is: ", str(res))
 
                 
 
@@ -93,6 +96,9 @@ tab.add_sample("london", 666.6)
 
 tab.print_query("manchester")
 
+tab.pool.put("leeds", "10.0")
+tab.print_get("leeds")
+tab.print_get("manchester")
 
 
 
