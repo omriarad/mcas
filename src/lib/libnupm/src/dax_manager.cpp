@@ -360,9 +360,9 @@ dax_manager::dax_manager(
   /* Maximum expected need is about 6 TiB (12 512GiB DIMMs).
    * Start, arbitrarily, at 0x10000000000
    */
-  byte *free_address_begin = reinterpret_cast<byte *>(uintptr_t(1) << 40);
+  auto free_address_begin = reinterpret_cast<nupm::range_manager::byte *>(uintptr_t(1) << 40);
   auto free_address_end    = free_address_begin + (std::size_t(1) << 40);
-  auto i = boost::icl::interval<byte *>::right_open(free_address_begin, free_address_end);
+  auto i = boost::icl::interval<nupm::range_manager::byte *>::right_open(free_address_begin, free_address_end);
   _address_fs_available->insert(i);
 
   /* set up each configuration */

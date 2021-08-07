@@ -27,9 +27,14 @@ namespace nupm
 {
 	struct range_manager
 	{
-		using byte = common::byte;
-		using byte_interval = boost::icl::discrete_interval<byte *>;
-		using byte_interval_set = boost::icl::interval_set<byte *>;
+		/*
+		 * Until we get past bosot 1.65, this interface has to work across
+		 * C++14 and C++17. common::byte, which is gsl::byte, has different
+		 * types in the two g++ compilers.
+		 */
+		using byte = char;
+		using byte_interval = boost::icl::discrete_interval<char *>;
+		using byte_interval_set = boost::icl::interval_set<char *>;
 	protected:
 		~range_manager() {}
 	public:

@@ -34,7 +34,8 @@ std::vector<common::memory_mapped> range_use::address_coverage_check(std::vector
 	AC this_coverage;
 	for ( const auto &e : iovm_ )
 	{
-		boost::icl::discrete_interval<byte *> i = boost::icl::interval<byte *>::right_open(::data(e), ::data_end(e));
+		/* pointer_casts because the interval byte is, co far a char, not a gsl::byte or std::byte */
+		boost::icl::discrete_interval<byte *> i = boost::icl::interval<byte *>::right_open(common::pointer_cast<byte>(::data(e)), common::pointer_cast<byte>(::data_end(e)));
 		if ( _rm->interferes(i) )
 		{
 			std::ostringstream o;
@@ -64,7 +65,8 @@ range_use::~range_use()
 	{
 		for ( const auto &e : _iovm )
 		{
-			auto i = boost::icl::interval<byte *>::right_open(::data(e), ::data_end(e));
+			/* pointer_casts because the interval byte is, so far, a char and not a gsl::byte or std::byte */
+			auto i = boost::icl::interval<byte *>::right_open(common::pointer_cast<byte>(::data(e)), common::pointer_cast<byte>(::data_end(e)));
 			_rm->remove_coverage(i);
 		}
 	}
@@ -83,14 +85,16 @@ void range_use::shrink(std::size_t size_)
 		auto &e = _iovm.back();
 		if ( size_ < ::size(e) )
 		{
-			auto i = boost::icl::interval<byte *>::right_open(::data_end(e) - size_, ::data_end(e));
+			/* pointer_casts because the interval byte is, so far, a char and not a gsl::byte or std::byte */
+			auto i = boost::icl::interval<byte *>::right_open(common::pointer_cast<byte>(::data_end(e)) - size_, common::pointer_cast<byte>(::data_end(e)));
 			_rm->remove_coverage(i);
 			_iovm.back().shrink_by(size_);
 			size_ = 0;
 		}
 		else
 		{
-			auto i = boost::icl::interval<byte *>::right_open(::data(e), ::data_end(e));
+			/* pointer_casts because the interval byte is, so far, a char and not a gsl::byte or std::byte */
+			auto i = boost::icl::interval<byte *>::right_open(common::pointer_cast<byte>(::data(e)), common::pointer_cast<byte>(::data_end(e)));
 			_rm->remove_coverage(i);
 			size_ -= ::size(e);
 			_iovm.pop_back();
