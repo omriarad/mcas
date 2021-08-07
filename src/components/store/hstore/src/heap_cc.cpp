@@ -28,26 +28,25 @@
 #include <algorithm>
 #include <cassert>
 #include <memory> /* make_unique */
+#include <numeric> /* accumulate */
 #include <stdexcept> /* range_error */
 #include <utility>
 
 namespace
 {
-#if HEAP_CONSISTENT
 	bool leak_check = common::env_value("LEAK_CHECK", false);
-#endif
 }
 
 namespace
 {
 	using byte_span = common::byte_span;
 	using string_view = common::string_view;
-	byte_span open_region(const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_, string_view id_, unsigned numa_node_)
+	byte_span open_region(const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_, std::uint64_t uuid_, unsigned numa_node_)
 	{
-		auto file_and_iov = dax_manager_->open_region(id_, numa_node_);
+		auto file_and_iov = dax_manager_->open_region(std::to_string(uuid_), numa_node_);
 		if ( file_and_iov.address_map().size() != 1 )
 		{
-			throw std::range_error("failed to re-open region " + std::string(id_));
+			throw std::range_error("failed to re-open region " + std::to_string(uuid_));
 		}
 		return file_and_iov.address_map().front();
 	}
@@ -57,7 +56,6 @@ namespace
 		, const byte_span pool0_heap_
 		, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_
 		, unsigned numa_node_
-		, const uint64_t uuid_
 		, const byte_span *iov_addl_first_
 		, const byte_span *iov_addl_last_
 		, std::uint64_t *first_, std::uint64_t *last_
@@ -66,7 +64,7 @@ namespace
 		auto v = std::move(rv_);
 		for ( auto it = first_; it != last_; ++it )
 		{
-			auto r = open_region(dax_manager_, std::to_string(uuid_ + *it), numa_node_);
+			auto r = open_region(dax_manager_, *it, numa_node_);
 			if ( it == first_ )
 			{
 				(void) pool0_heap_;
@@ -121,6 +119,8 @@ heap_cc::heap_cc(
 			, pool0_heap_
 		)
 	)
+	, _pin_data(&heap_cc::pin_data_arm, &heap_cc::pin_data_disarm, &heap_cc::pin_data_get_cptr)
+	, _pin_key(&heap_cc::pin_key_arm, &heap_cc::pin_key_disarm, &heap_cc::pin_key_get_cptr)
 {
 	/* cursor now locates the best-aligned region */
 	hop_hash_log<trace_heap_summary>::write(
@@ -140,7 +140,6 @@ heap_cc::heap_cc(
 	, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_
 	, const string_view id_
 	, const string_view backing_file_
-	, const std::uint64_t uuid_
 	, const byte_span *iov_addl_first_
 	, const byte_span *iov_addl_last_
 	, impl::allocation_state_emplace *const ase_
@@ -165,7 +164,6 @@ heap_cc::heap_cc(
 				, _pool0_heap
 				, dax_manager_
 				, _numa_node
-				, uuid_
 				, iov_addl_first_
 				, iov_addl_last_
 				, &_more_region_uuids[0]
@@ -174,13 +172,15 @@ heap_cc::heap_cc(
 			, _pool0_heap
 			, [ase_, aspd_, aspk_, asx_] (const void *p) -> bool {
 				/* To answer whether the map or the allocator owns pointer p?
-				 * Guessing that true means that the map owns p
+				 * "true" means that the map (us, the callee) owns p
 				 */
 				auto cp = const_cast<void *>(p);
-				return ase_->is_in_use(cp) || aspd_->is_in_use(p) || aspk_->is_in_use(p) || asx_->is_in_use(p);
+				return ase_->is_in_use(cp) || aspd_->is_in_use(p) || aspk_->is_in_use(p) || asx_->is_in_use(p, true);
 			}
 		)
 	)
+	, _pin_data(&heap_cc::pin_data_arm, &heap_cc::pin_data_disarm, &heap_cc::pin_data_get_cptr)
+	, _pin_key(&heap_cc::pin_key_arm, &heap_cc::pin_key_disarm, &heap_cc::pin_key_get_cptr)
 {
 	hop_hash_log<trace_heap_summary>::write(
 		LOG_LOCATION
@@ -214,50 +214,54 @@ auto heap_cc::grow(
 
 void heap_cc::quiesce()
 {
-	hop_hash_log<trace_heap_summary>::write(LOG_LOCATION, " size ", ::size(_pool0_heap), " allocated ", _eph->_allocated);
+	hop_hash_log<trace_heap_summary>::write(LOG_LOCATION, " size ", ::size(_pool0_heap), " allocated ", _eph->allocated());
 	VALGRIND_DESTROY_MEMPOOL(::base(_pool0_heap));
 	VALGRIND_MAKE_MEM_UNDEFINED(::base(_pool0_heap), ::size(_pool0_heap));
 	_eph->write_hist<trace_heap_summary>(_pool0_heap);
 	_eph.reset(nullptr);
 }
 
-void heap_cc::alloc(persistent_t<void *> *p_, std::size_t sz_, std::size_t align_)
+void heap_cc::alloc(persistent_t<void *> &p_, std::size_t sz_, std::size_t align_)
 {
 	auto align = clean_align(align_, sizeof(void *));
 
 	/* allocation must be multiple of alignment */
 	auto sz = (sz_ + align - 1U)/align * align;
 
-	try {
-#if HEAP_CONSISTENT
-		if ( _eph->_aspd->is_armed() )
+	try
+	{
+		if ( _eph->is_crash_consistent() )
 		{
-		}
-		else if ( _eph->_aspk->is_armed() )
-		{
-		}
-		/* Note: order of testing is important. An extend arm+allocate) can occur while
-		 * emplace is armed, but not vice-versa
-		 */
-		else if ( _eph->_asx->is_armed() )
-		{
-			_eph->_asx->record_allocation(&persistent_ref(*p_), persister_nupm());
-		}
-		else if ( _eph->_ase->is_armed() )
-		{
-			_eph->_ase->record_allocation(&persistent_ref(*p_), persister_nupm());
-		}
-		else
-		{
-			if ( leak_check )
+			if ( _eph->_aspd->is_armed() )
 			{
-				PLOG(PREFIX "leaky allocation, size %zu", LOCATION, sz_);
+			}
+			else if ( _eph->_aspk->is_armed() )
+			{
+			}
+			/* Note: order of testing is important. An extend arm+allocate) can occur while
+			 * emplace is armed, but not vice-versa
+			 */
+			else if ( _eph->_asx->is_armed() )
+			{
+				_eph->_asx->record_allocation(&persistent_ref(p_), persister_nupm());
+			}
+			else if ( _eph->_ase->is_armed() )
+			{
+				_eph->_ase->record_allocation(&persistent_ref(p_), persister_nupm());
+			}
+			else
+			{
+				if ( leak_check )
+				{
+					PLOG(PREFIX "leaky allocation, size %zu", LOCATION, sz_);
+				}
 			}
 		}
-#endif
+
 		/* IHeap interface does not support abstract pointers. Cast to regular pointer */
-		_eph->_heap->allocate(*reinterpret_cast<void **>(p_), sz, align);
-		/* We would like to carry the persistent_t through to the crash-conssitent allocator,
+		/* ERROR: BAD use of eph (change to something like heap_mr) */
+		_eph->allocate(p_, sz, align);
+		/* We would like to carry the persistent_t through to the crash-consistent allocator,
 		 * but for now just assume that the allocator has modifed p_, and call tick to indicate that.
 		 */
 		perishable::tick();
@@ -265,8 +269,6 @@ void heap_cc::alloc(persistent_t<void *> *p_, std::size_t sz_, std::size_t align
 		VALGRIND_MEMPOOL_ALLOC(::base(_pool0_heap), p_, sz);
 		/* size grows twice: once for aligment, and possibly once more in allocation */
 		hop_hash_log<trace_heap>::write(LOG_LOCATION, "pool ", ::base(_pool0_heap), " addr ", p_, " size ", sz_, "->", sz);
-		_eph->_allocated += sz;
-		_eph->_hist_alloc.enter(sz);
 	}
 	catch ( const std::bad_alloc & )
 	{
@@ -276,19 +278,47 @@ void heap_cc::alloc(persistent_t<void *> *p_, std::size_t sz_, std::size_t align
 	}
 }
 
-void heap_cc::free(persistent_t<void *> *p_, std::size_t sz_)
+void *heap_cc::alloc_tracked(const std::size_t sz_, const std::size_t align_)
+try
+{
+	void * p = nullptr;
+	_eph->allocate(reinterpret_cast<persistent_t<void *> &>(p), sz_, align_);
+	VALGRIND_MEMPOOL_ALLOC(::base(_pool0_heap), p, sz_);
+	return p;
+}
+catch ( const std::bad_alloc & )
+{
+	return nullptr;
+}
+
+void heap_cc::inject_allocation(const void *, std::size_t)
+{
+	throw std::logic_error(std::string(__func__) + " not supported (and not needed) by crash-consistent heap");
+}
+
+void heap_cc::free(persistent_t<void *> &p_, std::size_t sz_)
 {
 	VALGRIND_MEMPOOL_FREE(::base(_pool0_heap), p_);
 	auto sz = _eph->free(p_, sz_);
 	hop_hash_log<trace_heap>::write(LOG_LOCATION, "pool ", ::base(_pool0_heap), " addr ", p_, " size ", sz_, "->", sz);
 }
 
+void heap_cc::free_tracked(
+	const void * p_
+	, std::size_t sz_
+)
+{
+	VALGRIND_MEMPOOL_FREE(::base(_pool0_heap), p_);
+	hop_hash_log<trace_heap>::write(LOG_LOCATION, "pool ", ::base(_pool0_heap), " addr ", p_, " size ", sz_);
+	return _eph->free_tracked(p_, sz_, _numa_node);
+}
+
 unsigned heap_cc::percent_used() const
 {
 	return
 		unsigned(
-			_eph->_capacity
-			? _eph->_allocated * 100U / _eph->_capacity
+			_eph->capacity()
+			? _eph->allocated() * 100U / _eph->capacity()
 			: 100U
 		);
 }
@@ -306,48 +336,47 @@ void heap_cc::extend_disarm() const
 void heap_cc::emplace_arm() const { _eph->_ase->arm(persister_nupm()); }
 void heap_cc::emplace_disarm() const { _eph->_ase->disarm(persister_nupm()); }
 
-impl::allocation_state_pin &heap_cc::aspd() const { return *_eph->_aspd; }
-impl::allocation_state_pin &heap_cc::aspk() const { return *_eph->_aspk; }
+impl::allocation_state_pin *heap_cc::aspd() const { return _eph->_aspd; }
+impl::allocation_state_pin *heap_cc::aspk() const { return _eph->_aspk; }
 
 void heap_cc::pin_data_arm(
 	cptr &cptr_
 ) const
 {
-#if HEAP_CONSISTENT
-	_eph->_aspd->arm(cptr_, persister_nupm());
-#else
-	(void)cptr_;
-#endif
+	if ( _eph->is_crash_consistent() )
+	{
+		_eph->_aspd->arm(cptr_, persister_nupm());
+	}
 }
 
 void heap_cc::pin_key_arm(
 	cptr &cptr_
 ) const
 {
-#if HEAP_CONSISTENT
-	_eph->_aspk->arm(cptr_, persister_nupm());
-#else
-	(void)cptr_;
-#endif
+	if ( _eph->is_crash_consistent() )
+	{
+		_eph->_aspk->arm(cptr_, persister_nupm());
+	}
 }
 
 char *heap_cc::pin_data_get_cptr() const
 {
-#if HEAP_CONSISTENT
-	assert(_eph->_aspd->is_armed());
-	return _eph->_aspd->get_cptr();
-#else
-	return nullptr;
-#endif
+	assert( ! _eph->is_crash_consistent() || _eph->_aspd->is_armed());
+	return
+		_eph->is_crash_consistent()
+		? _eph->_aspd->get_cptr()
+		: nullptr
+		;
 }
+
 char *heap_cc::pin_key_get_cptr() const
 {
-#if HEAP_CONSISTENT
-	assert(_eph->_aspk->is_armed());
-	return _eph->_aspk->get_cptr();
-#else
-	return nullptr;
-#endif
+	assert( ! _eph->is_crash_consistent() || _eph->_aspk->is_armed());
+	return
+		_eph->is_crash_consistent()
+		? _eph->_aspk->get_cptr()
+		: nullptr
+		;
 }
 
 void heap_cc::pin_data_disarm() const

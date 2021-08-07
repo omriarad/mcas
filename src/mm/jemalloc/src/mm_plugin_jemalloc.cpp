@@ -22,16 +22,15 @@
 #include <common/utils.h>
 #include <jemalloc/jemalloc.h>
 
-#include "avl_malloc.h"
-#include "logging.h"
-
-#include "../../mm_plugin_itf.h"
-
 //#define DEBUG_EXTENTS
 //#define DEBUG_ALLOCS
 //#define DEBUG
 #define USE_AVL
 
+#include "avl_malloc.h"
+#include "logging.h"
+
+#include "../../mm_plugin_itf.h"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-value"
@@ -400,26 +399,28 @@ PUBLIC status_t mm_plugin_aligned_allocate_offset(mm_plugin_heap_t heap, size_t 
   return E_NOT_IMPL;
 }
 
-PUBLIC status_t mm_plugin_deallocate(mm_plugin_heap_t heap, void * ptr, size_t n)
+PUBLIC status_t mm_plugin_deallocate(mm_plugin_heap_t heap, void ** ptr, size_t n)
 {
 #ifdef DEBUG_ALLOCS
-  PPLOG("%s (%p, %lu) x_flags=%x",__func__, ptr, n, CAST_HEAP(heap)->x_flags());
+  PPLOG("%s (%p, %lu) x_flags=%x",__func__, *ptr, n, CAST_HEAP(heap)->x_flags());
 #endif
   
-  jel_sdallocx(ptr, n, CAST_HEAP(heap)->x_flags());
+  jel_sdallocx(*ptr, n, CAST_HEAP(heap)->x_flags());
+  *ptr = nullptr;
 
   return S_OK;
 }
 
-PUBLIC status_t mm_plugin_deallocate_without_size(mm_plugin_heap_t heap, void * ptr)
+PUBLIC status_t mm_plugin_deallocate_without_size(mm_plugin_heap_t heap, void ** ptr)
 {
 #ifdef DEBUG_ALLOCS
-  PPLOG("%s (%p) x_flags=%x",__func__, ptr, CAST_HEAP(heap)->x_flags());
+  PPLOG("%s (%p) x_flags=%x",__func__, *ptr, CAST_HEAP(heap)->x_flags());
 #endif
 
-  if(ptr == nullptr) return S_OK;
+  if(*ptr == nullptr) return S_OK;
 
-  jel_dallocx(ptr, CAST_HEAP(heap)->x_flags());
+  jel_dallocx(*ptr, CAST_HEAP(heap)->x_flags());
+  *ptr = nullptr;
 
   return S_OK;
 }
@@ -440,22 +441,23 @@ PUBLIC status_t mm_plugin_callocate(mm_plugin_heap_t heap, size_t n, void ** out
   return S_OK;
 }
 
-PUBLIC status_t mm_plugin_reallocate(mm_plugin_heap_t heap, void * ptr, size_t n, void ** out_ptr)
+PUBLIC status_t mm_plugin_reallocate(mm_plugin_heap_t heap, void ** in_out_ptr, size_t n)
 {
-#ifdef DEBUG_ALLOCS
-  PPLOG("%s (%p, %lu) x_flags=%x",__func__, ptr, n, CAST_HEAP(heap)->x_flags());
-#endif
-  
-  if(ptr == nullptr) {
+  if(*in_out_ptr == nullptr) {
     /* if pointer is null, then we just do a new allocation */
-    *out_ptr = jel_mallocx(n, CAST_HEAP(heap)->x_flags());
+    *in_out_ptr = jel_mallocx(n, CAST_HEAP(heap)->x_flags());
   }
-  else if(n == 0 && ptr != nullptr) {
-    return mm_plugin_deallocate_without_size(heap, ptr);
+  else if(n == 0) {
+    return mm_plugin_deallocate_without_size(heap, in_out_ptr);
   }
   else {
-    *out_ptr = jel_rallocx(ptr, n, CAST_HEAP(heap)->x_flags());
+    *in_out_ptr = jel_rallocx(*in_out_ptr, n, CAST_HEAP(heap)->x_flags());
   }
+
+#ifdef DEBUG_ALLOCS
+  PPLOG("%s (%p, %lu) x_flags=%x",__func__, *in_out_ptr, n, CAST_HEAP(heap)->x_flags());
+#endif
+  
 
   return S_OK;
 }
@@ -467,10 +469,21 @@ PUBLIC status_t mm_plugin_usable_size(mm_plugin_heap_t heap, void * ptr, size_t 
   return S_OK;
 }
 
+PUBLIC int mm_plugin_is_crash_consistent(mm_plugin_heap_t heap)
+{
+  return 0;
+}
+
+PUBLIC int mm_plugin_can_inject_allocation(mm_plugin_heap_t heap)
+{
+  return 0;
+}
+
 PUBLIC void mm_plugin_debug(mm_plugin_heap_t heap)
 {
   jel_malloc_stats_print(nullptr,nullptr,nullptr);
 }
+
 
 
 #pragma GCC diagnostic pop

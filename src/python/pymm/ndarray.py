@@ -30,7 +30,7 @@ class ndarray(Shadow):
     '''
     ndarray that is stored in a memory resource
     '''
-    def __init__(self, shape, dtype=float, strides=None, order='C'):
+    def __init__(self, shape, dtype=float, strides=None, order='C', zero=False):
 
         # todo check params
         # todo check and invalidate param 'buffer'
@@ -39,6 +39,7 @@ class ndarray(Shadow):
         self.__p_dtype = dtype
         self.__p_strides = strides
         self.__p_order = order
+        self.__p_zero = zero
 
     def make_instance(self, memory_resource: MemoryResource, name: str):
         '''
@@ -49,20 +50,21 @@ class ndarray(Shadow):
                                shape = self.__p_shape,
                                dtype = self.__p_dtype,
                                strides = self.__p_strides,
-                               order = self.__p_order)
+                               order = self.__p_order,
+                               zero = self.__p_zero)
 
     def existing_instance(memory_resource: MemoryResource, name: str):
         '''
         Determine if an persistent named memory object corresponds to this type
         '''
-        metadata = memory_resource.get_named_memory(name + '-meta')
+        metadata = memory_resource.get_named_memory(name)
         if metadata is None:
-            return None
+            return (False, None)
         
         if pymmcore.ndarray_read_header(memoryview(metadata)) == None:
-            return None
+            return (False, None)
         else:
-            return shelved_ndarray(memory_resource, name, shape = None)
+            return (True, shelved_ndarray(memory_resource, name, shape = None))
 
     def __str__(self):
         print('shadow ndarray')
@@ -86,55 +88,68 @@ class ndarray(Shadow):
 # concrete subclass for ndarray
 #
 class shelved_ndarray(np.ndarray, ShelvedCommon):
-    '''
-    ndarray that is stored in a memory resource
-    '''
+    '''ndarray that is stored in a memory resource'''
     __array_priority__ = -100.0 # what does this do?
 
-    def __new__(subtype, memory_resource, name, shape, dtype=float, strides=None, order='C'):
+    def __new__(subtype, memory_resource, name, shape, dtype=float, strides=None, order='C', type=0, zero=False):
 
         # determine size of memory needed
         #
         descr = dtypedescr(dtype)
         _dbytes = descr.itemsize
 
-        if not shape is None:
-            if not isinstance(shape, tuple):
-                shape = (shape,)
+        if shape != None:
             size = np.intp(1)  # avoid default choice of np.int_, which might overflow
-            for k in shape:
-                size *= k
-                
-        value_named_memory = memory_resource.open_named_memory(name)
-        metadata_key = name + '-meta'
+
+            if isinstance(shape, tuple) or isinstance(shape, list):
+                if isinstance(shape, tuple) and isinstance(shape[0], list):
+                    shape = shape[0]
+
+                for k in shape:
+                    size *= k
+            else:
+                raise RuntimeError('unhandled condition in shelved_ndarray shape handling (shape={})'.format(shape))
+
+        # the meta data is always accessible by the key name
+        value_key = name + '-value'
+        metadata_key = name
+
+        value_named_memory = memory_resource.open_named_memory(value_key)
 
         if value_named_memory == None: # does not exist yet
             #
             # create a newly allocated named memory from MemoryResource
             #
-            value_named_memory = memory_resource.create_named_memory(name,
-                                                                     int(size*_dbytes),
-                                                                     8, # alignment
-                                                                     False) # zero
+            msize = int(size*_dbytes)
+            if msize < 8:
+                alignment = 1
+            else:
+                alignment = 8
+            value_named_memory = memory_resource.create_named_memory(value_key,
+                                                                     msize,
+                                                                     alignment,
+                                                                     zero) # zero memory
             # construct array using supplied memory
             #        shape, dtype=float, buffer=None, offset=0, strides=None, order=None
             self = np.ndarray.__new__(subtype, dtype=dtype, shape=shape, buffer=value_named_memory.buffer,
                                       strides=strides, order=order)
 
             # create and store metadata header
-            metadata = pymmcore.ndarray_header(self,np.dtype(dtype).str)
+            metadata = pymmcore.ndarray_header(self,np.dtype(dtype).str, type=type)
             memory_resource.put_named_memory(metadata_key, metadata)
 
         else:
             # entity already exists, load metadata            
             metadata = memory_resource.get_named_memory(metadata_key)
-            hdr = pymmcore.ndarray_read_header(memoryview(metadata))
+            hdr = pymmcore.ndarray_read_header(memoryview(metadata),type=type)
             self = np.ndarray.__new__(subtype, dtype=hdr['dtype'], shape=hdr['shape'], buffer=value_named_memory.buffer,
                                       strides=hdr['strides'], order=order)
 
+        # hold a reference to the memory resource
         self._memory_resource = memory_resource
         self._value_named_memory = value_named_memory
         self._metadata_key = metadata_key
+        self._value_key = value_key
         self.name = name
         return self
 
@@ -158,6 +173,9 @@ class shelved_ndarray(np.ndarray, ShelvedCommon):
 
     def asndarray(self):
         return self.view(np.ndarray)
+
+    def dim(self):
+        return len(super().shape)
     
     def update_metadata(self, array):
         metadata = pymmcore.ndarray_header(array,np.dtype(dtype).str)
@@ -172,6 +190,7 @@ class shelved_ndarray(np.ndarray, ShelvedCommon):
         self._value_named_memory.tx_begin()
         result = F(*args)
         self._value_named_memory.tx_commit()
+        return result
 
     # all methods that perform writes are implicitly used to define transaction
     # boundaries (at least most fine-grained)
@@ -187,7 +206,7 @@ class shelved_ndarray(np.ndarray, ShelvedCommon):
         if inplace == True:
             return self._value_only_transaction(super().byteswap, True)
         else:
-            return super().byteswap(False)    
+            return super().byteswap(False)
 
     # in-place arithmetic
     def __iadd__(self, value): # +=
@@ -224,12 +243,45 @@ class shelved_ndarray(np.ndarray, ShelvedCommon):
         return self._value_only_transaction(super().__ior__, value)
 
     
+    # out-of-place we need to convert back to ndarray
+    def __add__(self, value):
+        return super().__add__(value).asndarray()
 
-    # TODO... more
+    def __mul__(self, value):
+        return super().__mul__(value).asndarray()
+
+    def __sub__(self, value):
+        return super().__sub__(value).asndarray()
+
+    def __div__(self, value):
+        return super().__div__(value).asndarray()
+
+    def __mod__(self, value):
+        return super().__mod__(value).asndarray()
+
+    def __pow__(self, value):
+        return super().__pow__(value).asndarray()
+
+    def __lshift__(self, value):
+        return super().__lshift__(value).asndarray()
+
+    def __rshift__(self, value):
+        return super().__rshift__(value).asndarray()
+
+    def __and__(self, value):
+        return super().__and__(value).asndarray()
+
+    def __or__(self, value):
+        return super().__or__(value).asndarray()
+    
+    def __xor__(self, value):
+        return super().__xor__(value).asndarray()
+
 
     # set item, e.g. x[2] = 2
-    def __setitem__(self, position, x):
-        return self._value_only_transaction(super().__setitem__, position, x)
+    # if we want transactionality on this we override it - but beware, it will cost!
+#    def __setitem__(self, position, x):
+#        return self._value_only_transaction(super().__setitem__, position, x)
 
     def flip(self, m, axis=None):
         return self._value_only_transaction(super().flip, m, axis)
@@ -237,9 +289,9 @@ class shelved_ndarray(np.ndarray, ShelvedCommon):
 
     # operations that return new views on same data.  we want to change
     # the behavior to give a normal volatile version
-    def reshape(self, shape, order='C'):
-        x = np.array(self) # copy constructor
-        return x.reshape(shape)
+#    def reshape(self, shape, order='C'):
+#        x = np.array(self) # copy constructor
+#        return x.reshape(shape)
         
 
     def __array_finalize__(self, obj):
@@ -254,3 +306,10 @@ class shelved_ndarray(np.ndarray, ShelvedCommon):
         self._value_named_memory = getattr(obj, '_value_named_memory', None)
         self._metadata_key = getattr(obj, '_metadata_key', None)
         self.name = getattr(obj, 'name', None)
+
+    def persist(self):
+        '''
+        Flush cache and persistent all value memory
+        '''
+        self._value_named_memory.persist()
+        

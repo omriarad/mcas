@@ -23,6 +23,7 @@
 #define __NUPM_DAX_MANAGER_H__
 
 #include "dax_manager_abstract.h"
+#include "range_manager_impl.h"
 
 #include "nd_utils.h" /* ND_control */
 #include "config_t.h"
@@ -78,7 +79,11 @@ struct registry_memory_mapped
  * configuration.
  *
  */
-struct dax_manager : public dax_manager_abstract, protected common::log_source, private registry_memory_mapped {
+struct dax_manager
+	: public dax_manager_abstract
+	, private registry_memory_mapped
+	, public range_manager_impl
+{
  private:
   static constexpr const char *_cname = "dax_manager";
   using byte = common::byte;
@@ -179,7 +184,9 @@ struct dax_manager : public dax_manager_abstract, protected common::log_source, 
 
   void register_range(const void *begin, std::size_t size);
   void deregister_range(const void *begin, std::size_t size);
-  void * locate_free_address_range(std::size_t size) override;
+#if 1
+  void * locate_free_address_range(std::size_t size) override { return range_manager_impl::locate_free_address_range(size); }
+#endif
  private:
   using byte_span = common::byte_span;
   space_opened map_space(const std::string &path, addr_t base_addr);
@@ -209,9 +216,6 @@ struct dax_manager : public dax_manager_abstract, protected common::log_source, 
   using mapped_spaces = std::map<std::string, space_registered>;
 
   ND_control                                _nd;
-  using AC = boost::icl::interval_set<byte *>;
-  std::unique_ptr<AC>                       _address_coverage;
-  std::unique_ptr<AC>                       _address_fs_available;
   mapped_spaces                             _mapped_spaces;
   std::vector<std::unique_ptr<arena>>       _arenas;
   std::mutex                                _reentrant_lock;

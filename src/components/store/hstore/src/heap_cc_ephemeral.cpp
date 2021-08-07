@@ -39,6 +39,8 @@ namespace
 	persister p_cc{};
 }
 
+/* initial cosntruction */
+
 heap_cc_ephemeral::heap_cc_ephemeral(
 	unsigned debug_level_
 	, impl::allocation_state_emplace *ase_
@@ -94,6 +96,7 @@ heap_cc_ephemeral::heap_cc_ephemeral(
   CPLOG(2, "%s : pool0_heap: %p.%zx", __func__, ::base(pool0_heap_), ::size(pool0_heap_));
 }
 
+/* initial construction */
 heap_cc_ephemeral::heap_cc_ephemeral(
 	unsigned debug_level_
 	, impl::allocation_state_emplace *ase_
@@ -108,6 +111,7 @@ heap_cc_ephemeral::heap_cc_ephemeral(
 	: heap_cc_ephemeral(debug_level_, ase_, aspd_, aspk_, asx_, std::make_unique<ccpm::cca>(&p_cc, ccpm::region_span(&*ccpm::region_vector_t(pool0_heap_).begin(), 1)), id_, backing_file_, rv_full_, pool0_heap_)
 {}
 
+/* crash-consistent recovery */
 heap_cc_ephemeral::heap_cc_ephemeral(
 	unsigned debug_level_
 	, impl::allocation_state_emplace *ase_
@@ -120,13 +124,24 @@ heap_cc_ephemeral::heap_cc_ephemeral(
 	, const byte_span pool0_heap_
 	, ccpm::ownership_callback_t f
 )
-	: heap_cc_ephemeral(debug_level_, ase_, aspd_, aspk_, asx_, std::make_unique<ccpm::cca>(&p_cc, ccpm::region_span(&*ccpm::region_vector_t(pool0_heap_).begin(), 1), f), id_, backing_file_, rv_full_, pool0_heap_)
+	: heap_cc_ephemeral(
+		debug_level_
+		, ase_, aspd_, aspk_, asx_
+		, std::make_unique<ccpm::cca>(
+			&p_cc
+			, ccpm::region_span(&*ccpm::region_vector_t(pool0_heap_).begin(), 1)
+			, f
+		)
+		, id_
+		, backing_file_
+		, rv_full_
+		, pool0_heap_
+	)
 {}
 
 void heap_cc_ephemeral::add_managed_region(
 	const byte_span r_full
 	, const byte_span r_heap
-	, const unsigned // numa_node
 )
 {
 	CPLOG(0, "%s before IHeap::add_regions size %zu", __func__, _heap->get_regions().size());
@@ -146,36 +161,52 @@ void heap_cc_ephemeral::add_managed_region(
 	}
 }
 
-std::size_t heap_cc_ephemeral::free(persistent_t<void *> *p_, std::size_t sz_)
+void heap_cc_ephemeral::allocate(
+	persistent_t<void *> &p_
+	, std::size_t sz_
+	, std::size_t alignment_
+)
+{
+	if ( S_OK != _heap->allocate(*reinterpret_cast<void **>(&p_), sz_, alignment_) )
+	{
+		throw std::bad_alloc{};
+	}
+	_allocated += sz_;
+	_hist_alloc.enter(sz_);
+}
+
+std::size_t heap_cc_ephemeral::free(persistent_t<void *> &p_, std::size_t sz_)
 {
 	/* Our free does not know the true size, because alignment is not known.
 	 * But the pool free will know, as it can see how much has been allocated.
 	 *
 	 * The free, however, does not return a size. Pretend that it does.
 	 */
-#if HEAP_CONSISTENT
+	if ( is_crash_consistent() )
+	{
 	/* Note: order of testing is important. An extend arm+allocate) can occur while
 	 * emplace is armed, but not vice-versa
 	 */
-	if ( _asx->is_armed() )
-	{
-		CPLOG(1, PREFIX "unexpected segment deallocation of %p of %zu", LOCATION, persistent_ref(*p_), sz_);
-		abort();
+		if ( _asx->is_armed() )
+		{
+			CPLOG(1, PREFIX "unexpected segment deallocation of %p of %zu", LOCATION, persistent_ref(p_), sz_);
+			abort();
 #if 0
-		_asx->record_deallocation(&persistent_ref(*p_), persister_nupm());
+			_asx->record_deallocation(&persistent_ref(p_), persister_nupm());
 #endif
+		}
+		else if ( _ase->is_armed() )
+		{
+			_ase->record_deallocation(&persistent_ref(p_), persister_nupm());
+		}
+		else
+		{
+			CPLOG(1, PREFIX "leaky deallocation of %p of %zu", LOCATION, persistent_ref(p_), sz_);
+		}
 	}
-	else if ( _ase->is_armed() )
-	{
-		_ase->record_deallocation(&persistent_ref(*p_), persister_nupm());
-	}
-	else
-	{
-		CPLOG(1, PREFIX "leaky deallocation of %p of %zu", LOCATION, persistent_ref(*p_), sz_);
-	}
-#endif
+
 	/* IHeap interface does not support abstract pointers. Cast to regular pointer */
-	auto sz = (_heap->free(*reinterpret_cast<void **>(p_), sz_), sz_);
+	auto sz = (_heap->free(*reinterpret_cast<void **>(&p_), sz_), sz_);
 	/* We would like to carry the persistent_t through to the crash-conssitent allocator,
 	 * but for now just assume that the allocator has modifed p_, and call tick to indicate that.
 	 */
@@ -184,4 +215,11 @@ std::size_t heap_cc_ephemeral::free(persistent_t<void *> *p_, std::size_t sz_)
 	_allocated -= sz;
 	_hist_free.enter(sz);
 	return sz;
+}
+
+void heap_cc_ephemeral::free_tracked(const void *p_, std::size_t sz_, unsigned)
+{
+	_heap->free(const_cast<void *&>(p_), sz_);
+	_allocated -= sz_;
+	_hist_free.enter(sz_);
 }

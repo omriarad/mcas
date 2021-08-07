@@ -17,7 +17,6 @@
 #include <common/byte_span.h>
 #include <common/types.h>
 
-
 #define DECLARE_OPAQUE_TYPE(NAME)               \
   struct Opaque_##NAME {                        \
     virtual ~Opaque_##NAME() {}                 \
@@ -63,7 +62,7 @@ public:
    * Direct memory regions should be unregistered before the memory is released
    * on the client side.
    *
-   * @param vaddr Address of region to unregister.
+   * @param handle (as returned by register_direct_memory) of region to deregister.
    *
    * @return S_OK on success
    */

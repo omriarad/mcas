@@ -109,7 +109,7 @@ public:
 		, _rmd( desc_ ? nullptr : rmd_)
 		, _h(_rmd ? _rmd->register_direct_memory(range_.first, range_.length()) : IMCAS::MEMORY_HANDLE_NONE)
 	{
-    TM_SCOPE()
+		TM_SCOPE()
 	}
 
 	memory_registered(Registrar_memory_direct * rmd_,
@@ -568,9 +568,11 @@ public:
                                      std::size_t &            length_,
                                      void *                   desc_)
   : async_buffer_set_t(debug_level_, std::move(iobs_), std::move(iobr_)),
-    memory_registered(TM_REF rmd_,
-      mcas::range<char *>(static_cast<char *>(buffer_), static_cast<char *>(buffer_) + length_)
-      .round_inclusive(4096),
+    memory_registered(TM_REF rmd_
+      , mcas::range<char *>(
+          static_cast<char *>(buffer_)
+          , static_cast<char *>(buffer_) + length_
+        ).round_inclusive(4096),
       desc_),
     _iobrd(std::move(iobrd_)),
     _iobs2(std::move(iobs2_)),
@@ -581,7 +583,7 @@ public:
     _buffer(static_cast<char *>(buffer_)),
     _length(length_),
     _key{},
-    _desc{this->desc()}  // provided by M
+    _desc{this->desc()}  // provided by memory_registered
   ,
     _v{},
     _addr_list{},
@@ -1369,8 +1371,8 @@ IMCAS::async_handle_t Connection_handler::put_locate_async(TM_ACTUAL const pool_
    */
   return
     static_cast<IMCAS::async_handle_t>(
-      new async_buffer_set_put_locate(TM_REF
-        debug_level()
+      new async_buffer_set_put_locate(
+        TM_REF debug_level()
         , rmd_
         , std::move(iobs)
         , std::move(iobr)
@@ -1409,8 +1411,8 @@ IMCAS::async_handle_t Connection_handler::get_direct_offset_async(const pool_t  
    * request recv RELEASE response
    */
   return
-    static_cast<IMCAS::async_handle_t>(new async_buffer_set_get_direct_offset(TM_REF
-                                                                                                         debug_level(), rmd_, std::move(iobs), std::move(iobr), iob_ptr(nullptr, this), make_iob_ptr_send(),
+    static_cast<IMCAS::async_handle_t>(new async_buffer_set_get_direct_offset(
+                                                                                                         TM_REF debug_level(), rmd_, std::move(iobs), std::move(iobr), iob_ptr(nullptr, this), make_iob_ptr_send(),
                                                                                                          make_iob_ptr_recv(), pool_, auth_id(), offset_, buffer_, len_, desc_));
 }
 
@@ -1439,9 +1441,9 @@ IMCAS::async_handle_t Connection_handler::put_direct_offset_async(const pool_t  
    * request recv RELEASE response
    */
   return
-    static_cast<IMCAS::async_handle_t>(new async_buffer_set_put_direct_offset(TM_REF
-                                                                                                         debug_level(), rmd_, std::move(iobs), std::move(iobr), iob_ptr(nullptr, this), make_iob_ptr_send(),
-                                                                                                         make_iob_ptr_recv(), pool_, auth_id(), offset_, buffer_, length_, desc_));
+    static_cast<IMCAS::async_handle_t>(new async_buffer_set_put_direct_offset(
+      TM_REF debug_level(), rmd_, std::move(iobs), std::move(iobr), iob_ptr(nullptr, this), make_iob_ptr_send(),
+      make_iob_ptr_recv(), pool_, auth_id(), offset_, buffer_, length_, desc_));
 }
 
 IMCAS::async_handle_t
@@ -1502,7 +1504,8 @@ Connection_handler::get_locate_async(TM_ACTUAL const pool_t                     
 		 *   recv GET_RELEASE response
 		 */
 		return
-			static_cast<IMCAS::async_handle_t>(new async_buffer_set_get_locate(TM_REF
+			static_cast<IMCAS::async_handle_t>(new async_buffer_set_get_locate(
+				TM_REF
 				debug_level(), rmd_, make_iob_ptr_read(), make_iob_ptr_send(),
 				make_iob_ptr_recv(), pool, auth_id(), value, transfer_len, this, desc_, addr, memory_key));
 	}
@@ -1607,11 +1610,49 @@ status_t Connection_handler::async_put_direct(const IMCAS::pool_t               
     auto iobr = make_iob_ptr_recv();
     auto iobs = make_iob_ptr_send();
 
+#if 1
     /* for large puts, where the receiver will not have
      * sufficient buffer space, we use put locate (DMA write) protocol */
     out_async_handle_ = put_locate_async(TM_REF
                                          pool_, key_, values_, rmd_,
                                          mem_handles_, flags_);
+#else
+    if (values_.size() == 1 /* A simplification. We could change the small put code to handle multiple source */
+        &&
+        (_force_direct == false) &&
+        (mcas::protocol::Message_IO_request::would_fit(key_len_ + ::size(values_.front()), iobs->original_length())) &&
+        (mem_handles_.size() != 0 && mem_handles_.front() != IKVStore::HANDLE_NONE)) {
+
+      /* Fast path: small size and memory already registered */
+      CPLOG(1, "%s: using small send for direct put key=(%.*s) key_len=%lu value=(%.20s...) value_len=%lu", __func__, int(key_len_),
+            static_cast<const char *>(key_), key_len_, static_cast<const char *>(::base(values_.front())), ::size(values_.front()));
+
+      const auto msg =
+        new (iobs->base()) mcas::protocol::Message_IO_request(iobs->length(), auth_id(), request_id(), pool_,
+                                                              mcas::protocol::OP_PUT,  // op
+                                                              key_, key_len_, size(values_.front()), flags_);
+
+      if (_options.short_circuit_backend) msg->add_scbe();
+
+      post_recv(&*iobr);
+
+      iobs->set_length(msg->msg_len());
+      iobs->iov[1].iov_base = const_cast<void*>(::base(values_.front()));
+      iobs->iov[1].iov_len =  size(values_.front());
+      iobs->desc[1] = static_cast<buffer_base *>(mem_handles_.front())->get_desc();
+      post_send(iobs->iov, iobs->iov + 2, iobs->desc, &*iobs, msg, __func__); /* send two concatentated buffers in single DMA */
+
+      out_async_handle_ = new async_buffer_set_simple(debug_level(), std::move(iobs), std::move(iobr));
+    }
+    else
+    {
+        /* for large puts, where the receiver will not have
+         * sufficient buffer space, we use put locate (DMA write) protocol
+         */
+        out_async_handle_ = put_locate_async(TM_REF pool_, key_, key_len_, values_, rmd_,
+                                             mem_handles_, flags_);
+    }
+#endif
     return S_OK;
   }
   catch (const Exception &e) {

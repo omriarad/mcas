@@ -49,15 +49,6 @@
 #include <set>
 #include <stdexcept> /* domain_error */
 
-template<typename T>
-  struct type_number;
-
-template<> struct type_number<char> { static constexpr uint64_t value = 2; };
-
-#if HEAP_RECONSTITUTE /* reconstituting allocator */
-template<> struct type_number<impl::mod_control> { static constexpr std::uint64_t value = 4; };
-#endif /* USE_CC_HEAP */
-
 /* globals */
 
 thread_local std::map<void *, hstore::open_pool_type *> tls_cache = {};
@@ -100,6 +91,7 @@ auto hstore::move_pool(const pool_t p) -> std::shared_ptr<open_pool_type>
   return s2;
 }
 
+#include <iostream>
 hstore::hstore(
 	unsigned debug_level_
 #if HEAP_MM
@@ -665,7 +657,7 @@ try
   if(!session) return E_FAIL;
 	/* 0 probably means that alignment is a don't care, which is the same as alignment 1 */
 	if ( alignment == 0 ) { alignment = 1; }
-#if 0 /* As with to mapstore, allocator (not hstore) deals with non-2^n alignments */
+#if 0 /* As with mapstore, allocator (not hstore) deals with non-2^n alignments */
 	if ( ( alignment & (alignment - 1) ) != 0  ) { return E_BAD_ALIGNMENT; }
 #endif
   auto r = session->lock(AK_INSTANCE TM_REF key, type, out_value, out_value_len, alignment);

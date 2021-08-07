@@ -29,17 +29,19 @@ template <typename Allocator>
 		monitor_emplace(const Allocator &a_)
 			: _a(a_)
 		{
-#if HEAP_CONSISTENT
-			_a.emplace_arm();
-#endif
+			if ( _a.pool()->is_crash_consistent() )
+			{
+				_a.emplace_arm();
+			}
 		}
 		~monitor_emplace() noexcept(! TEST_HSTORE_PERISHABLE)
 		{
 			if ( ! perishable_expiry::is_current() )
 			{
-#if HEAP_CONSISTENT
-				_a.emplace_disarm();
-#endif
+				if ( _a.pool()->is_crash_consistent() )
+				{
+					_a.emplace_disarm();
+				}
 			}
 		}
 	};

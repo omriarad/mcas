@@ -34,17 +34,17 @@ heap_rc_ephemeral::heap_rc_ephemeral(
 	, _hist_free()
 {}
 
-void heap_rc_ephemeral::add_managed_region(const byte_span r_full, const byte_span r_heap, const unsigned numa_node)
+void heap_rc_ephemeral::add_managed_region(const byte_span r_full, const byte_span r_heap)
 {
-	_heap.add_managed_region(::base(r_heap), ::size(r_heap), int(numa_node));
+	_heap.add_managed_region(::base(r_heap), ::size(r_heap), 0 /* numa_node */);
 	CPLOG(2, "%s : %p.%zx", __func__, ::base(r_heap), ::size(r_heap));
 	_managed_regions.address_map_push_back(r_full);
 	_capacity += ::size(r_heap);
 }
 
-void heap_rc_ephemeral::inject_allocation(void *p_, std::size_t sz_, unsigned numa_node_)
+void heap_rc_ephemeral::inject_allocation(void *p_, std::size_t sz_)
 {
-	_heap.inject_allocation(p_, sz_, int(numa_node_));
+	_heap.inject_allocation(p_, sz_, 0);
 	{
 		auto pc = static_cast<alloc_set_t::element_type>(p_);
 		_reconstituted.add(alloc_set_t::segment_type(pc, pc + sz_));
@@ -53,17 +53,25 @@ void heap_rc_ephemeral::inject_allocation(void *p_, std::size_t sz_, unsigned nu
 	_hist_alloc.enter(sz_);
 }
 
-void *heap_rc_ephemeral::allocate(std::size_t sz_, unsigned _numa_node_, std::size_t alignment_)
+void heap_rc_ephemeral::allocate(persistent_t<void *> &p_, std::size_t sz_, unsigned _numa_node_, std::size_t alignment_)
 {
-	auto p = _heap.alloc(sz_, int(_numa_node_), alignment_);
+	p_ = _heap.alloc(sz_, int(_numa_node_), alignment_);
 	_allocated += sz_;
 	_hist_alloc.enter(sz_);
-	return p;
 }
 
-void heap_rc_ephemeral::free(void *p_, std::size_t sz_, unsigned numa_node_)
+std::size_t heap_rc_ephemeral::free(persistent_t<void *> &p_, std::size_t sz_, unsigned numa_node_)
 {
 	_heap.free(p_, int(numa_node_), sz_);
+	p_ = nullptr;
+	_allocated -= sz_;
+	_hist_free.enter(sz_);
+	return sz_;
+}
+
+void heap_rc_ephemeral::free_tracked(const void *p_, std::size_t sz_, unsigned numa_node_)
+{
+	_heap.free(const_cast<void *>(p_), int(numa_node_), sz_);
 	_allocated -= sz_;
 	_hist_free.enter(sz_);
 }

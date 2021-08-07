@@ -53,6 +53,7 @@ namespace config
 {
 
 static constexpr const char *default_backend = "default_backend";
+static constexpr const char *mm_plugin_path = "mm_plugin_path";
 static constexpr const char *index = "index";
 static constexpr const char *addr = "addr"; /* Among other uses, a Zyre cluster attribute */
 static constexpr const char *net = "net";

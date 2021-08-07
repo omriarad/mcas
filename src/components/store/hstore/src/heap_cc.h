@@ -24,6 +24,7 @@
 #include "hop_hash_log.h"
 #include "persistent.h"
 #include "persister_nupm.h"
+#include "pin_control.h"
 #include "trace_flags.h"
 #include "valgrind_memcheck.h"
 
@@ -56,6 +57,15 @@ struct heap_cc
 	: private heap
 {
 	std::unique_ptr<heap_cc_ephemeral> _eph;
+	pin_control<heap_cc> _pin_data;
+	pin_control<heap_cc> _pin_key;
+
+	void pin_data_arm(cptr &cptr) const;
+	void pin_key_arm(cptr &cptr) const;
+	char *pin_data_get_cptr() const;
+	char *pin_key_get_cptr() const;
+	void pin_data_disarm() const;
+	void pin_key_disarm() const;
 
 public:
 	explicit heap_cc(
@@ -76,7 +86,6 @@ public:
 		, const std::unique_ptr<nupm::dax_manager_abstract> &dax_manager_
 		, string_view id
 		, string_view backing_file
-		, std::uint64_t uuid
 		, const byte_span *iov_addl_first_
 		, const byte_span *iov_addl_last_
 		, impl::allocation_state_emplace *ase
@@ -91,7 +100,6 @@ public:
 	~heap_cc();
 
 	static constexpr std::uint64_t magic_value() { return 0x7c84297de2de94a3; }
-	static void *iov_limit(byte_span r);
 
 	auto grow(
 		const std::unique_ptr<nupm::dax_manager_abstract> & dax_manager_
@@ -101,27 +109,31 @@ public:
 
 	void quiesce();
 
-	void alloc(persistent_t<void *> *p, std::size_t sz, std::size_t alignment);
-	void free(persistent_t<void *> *p, std::size_t sz);
+	void alloc(persistent_t<void *> &p, std::size_t sz, std::size_t alignment);
+	void *alloc_tracked(std::size_t sz, std::size_t alignment);
+	void inject_allocation(const void * p, std::size_t sz);
+	void free(persistent_t<void *> &p, std::size_t sz);
+	void free_tracked(const void *p, std::size_t sz);
 
 	void emplace_arm() const;
 	void emplace_disarm() const;
 
-	impl::allocation_state_pin &aspd() const;
-	impl::allocation_state_pin &aspk() const;
-	void pin_data_arm(cptr &cptr) const;
-	void pin_key_arm(cptr &cptr) const;
+	impl::allocation_state_pin *aspd() const;
+	impl::allocation_state_pin *aspk() const;
 
-	char *pin_data_get_cptr() const;
-	char *pin_key_get_cptr() const;
-	void pin_data_disarm() const;
-	void pin_key_disarm() const;
+	const pin_control<heap_cc> &pin_control_data() const { return _pin_data; }
+	const pin_control<heap_cc> &pin_control_key() const { return _pin_key; }
 	void extend_arm() const;
 	void extend_disarm() const;
 
 	unsigned percent_used() const;
 
+	bool is_reconstituted(const void *) const { return false; }
+
 	nupm::region_descriptor regions() const;
+
+	bool is_crash_consistent() const { return true; }
+	bool can_reconstitute() const { return false; }
 };
 
 #endif

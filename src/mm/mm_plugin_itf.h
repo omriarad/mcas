@@ -23,6 +23,9 @@
 
 #if defined(__cplusplus)
 #pragma GCC diagnostic ignored "-Weffc++"
+#include <common/byte_span.h>
+#include <gsl/span>
+#include <functional>
 #endif
 
 #include <stdlib.h>
@@ -126,7 +129,7 @@ extern "C"
    * @param heap Heap context
    * @param n Size of region in bytes
    * @param alignment Alignment in bytes
-   * @param out_ptr [out] Pointer to allocated region
+   * @param out_ptr Address if [in] nullptr, [out] pointer to allocated region
    * 
    * @return S_OK, E_FAIL, E_INVAL (depending on implementation)
    */
@@ -138,7 +141,8 @@ extern "C"
    * @param heap Heap context
    * @param n Size of region in bytes
    * @param alignment Alignment in bytes
-   * @param offset Unknown
+   * @param offset Offset from start of region to location within region which satisfies alignment
+   * @param out_ptr Address if [in] nullptr, [out] pointer to allocated region
    * 
    * @return 
    */
@@ -148,22 +152,22 @@ extern "C"
    * Free a previously allocated region of memory with length known
    * 
    * @param heap Heap context
-   * @param ptr Pointer to previously allocated region
+   * @param ptr Address of [in] pointer to previously allocated region, [out} nullptr
    * @param size Length of region in bytes
    *
    * @return S_OK or E_INVAL;
    */
-  status_t mm_plugin_deallocate(mm_plugin_heap_t heap, void * ptr, size_t size);
+  status_t mm_plugin_deallocate(mm_plugin_heap_t heap, void ** ptr, size_t size);
 
   /** 
    * Free previously allocated region without known length
    * 
    * @param heap Heap context
-   * @param ptr Pointer to region
+   * @param ptr Address of [in] pointer to previously allocated region, [out] nullptr
    * 
    * @return S_OK
    */
-  status_t mm_plugin_deallocate_without_size(mm_plugin_heap_t heap, void * ptr);
+  status_t mm_plugin_deallocate_without_size(mm_plugin_heap_t heap, void ** ptr);
 
   /** 
    * Allocate region and zero memory
@@ -193,14 +197,13 @@ extern "C"
    * Resize an existing allocation
    * 
    * @param heap Heap context
-   * @param ptr Pointer to existing allocated region
+   * @param in_out_ptr Address of pointer to [in] existing allocated region, [out] new reallocated region or null if unable to reallocate
    * @param size New size in bytes
-   * @param ptr [out] New reallocated region or null on unable to reallocate
    *
    * 
    * @return S_OK
    */
-  status_t mm_plugin_reallocate(mm_plugin_heap_t heap, void * ptr, size_t size, void ** out_ptr);
+  status_t mm_plugin_reallocate(mm_plugin_heap_t heap, void ** in_out_ptr, size_t size);
 
   /** 
    * Get the number of usable bytes in block pointed to by ptr.  The
@@ -234,7 +237,19 @@ extern "C"
    */
   void mm_plugin_debug(mm_plugin_heap_t heap);
 
+  /**
+   * Check for crash consistency libccpm behavior)
+   *
+   * @return non-zero iff the root_ptr parameter of mm_plugin_create is interpreted as a struct ccpm_params *.
+   */
+  int mm_plugin_is_crash_consistent(mm_plugin_heap_t heap);
 
+  /**
+   * Check for inject_allocation capability
+   *
+   * @return non-zero iff mm_plugin_inject_allocation is implemented
+   */
+  int mm_plugin_can_inject_allocation(mm_plugin_heap_t heap);
 
   /** 
    * Function pointer table for all methods
@@ -243,7 +258,8 @@ extern "C"
   typedef struct tag_mm_plugin_function_table_t
   {
     status_t (*mm_plugin_init)();
-    status_t (*mm_plugin_create)(const char * params, void * root_ptr, mm_plugin_heap_t * out_heap);
+    status_t (*mm_plugin_create)(const char * params, void * root_ptr
+			, mm_plugin_heap_t * out_heap);
     status_t (*mm_plugin_destroy)(mm_plugin_heap_t heap);
     status_t (*mm_plugin_add_managed_region)(mm_plugin_heap_t heap,
                                              void * region_base,
@@ -258,13 +274,15 @@ extern "C"
     status_t (*mm_plugin_allocate)(mm_plugin_heap_t heap, size_t n, void ** out_ptr);
     status_t (*mm_plugin_aligned_allocate)(mm_plugin_heap_t heap, size_t n, size_t alignment, void ** out_ptr);
     status_t (*mm_plugin_aligned_allocate_offset)(mm_plugin_heap_t heap, size_t n, size_t alignment, size_t offset, void ** out_ptr);
-    status_t (*mm_plugin_deallocate)(mm_plugin_heap_t heap, void * ptr, size_t size);
-    status_t (*mm_plugin_deallocate_without_size)(mm_plugin_heap_t heap, void * ptr);
+    status_t (*mm_plugin_deallocate)(mm_plugin_heap_t heap, void ** ptr, size_t size);
+    status_t (*mm_plugin_deallocate_without_size)(mm_plugin_heap_t heap, void ** ptr);
     status_t (*mm_plugin_callocate)(mm_plugin_heap_t heap, size_t n, void ** out_ptr);
-    status_t (*mm_plugin_reallocate)(mm_plugin_heap_t heap, void * ptr, size_t size, void ** out_ptr);
+    status_t (*mm_plugin_reallocate)(mm_plugin_heap_t heap, void ** in_out_ptr, size_t size);
     status_t (*mm_plugin_usable_size)(mm_plugin_heap_t heap, void * ptr, size_t * out_size);
     void     (*mm_plugin_debug)(mm_plugin_heap_t heap);
     status_t (*mm_plugin_inject_allocation)(mm_plugin_heap_t heap, void * ptr, size_t size);
+    int (*mm_plugin_is_crash_consistent)(mm_plugin_heap_t heap);
+    int (*mm_plugin_can_inject_allocation)(mm_plugin_heap_t heap);
   } mm_plugin_function_table_t;
 
 #if defined(__cplusplus)
@@ -292,8 +310,8 @@ public:
     
   MM_plugin_wrapper(const common::string_view plugin_path,
                     const common::string_view config = common::string_view(),
-                    void * root_ptr = nullptr) {
-    assert(plugin_path.empty() == false);
+                    void * root_ptr = nullptr)
+  {
     _module = dlopen(plugin_path.data(), RTLD_NOW | RTLD_NODELETE); // RTLD_DEEPBIND | 
 
     if(_module == nullptr) {
@@ -318,6 +336,8 @@ public:
     LOAD_SYMBOL(mm_plugin_debug);
     LOAD_SYMBOL(mm_plugin_destroy);
     LOAD_SYMBOL(mm_plugin_inject_allocation);
+    LOAD_SYMBOL(mm_plugin_is_crash_consistent);
+    LOAD_SYMBOL(mm_plugin_can_inject_allocation);
 
     //      dlclose(_module);
       
@@ -325,15 +345,27 @@ public:
     _ft.mm_plugin_create(config.data() ? config.data() : "", root_ptr, &_heap);
   }
 
+  MM_plugin_wrapper(const MM_plugin_wrapper &) = delete;
+
+  MM_plugin_wrapper(MM_plugin_wrapper && other) noexcept
+    : _module(std::move(other._module))
+    , _ft(std::move(other._ft))
+    , _heap(std::move(other._heap))
+  {
+    other._heap = nullptr;
+  }
+
   virtual ~MM_plugin_wrapper() noexcept {
-    _ft.mm_plugin_destroy(_heap);
+    if ( _heap )
+    {
+      _ft.mm_plugin_destroy(_heap);
+    }
   }
 
   /* forwarding in liners */
   inline status_t init() noexcept {
     return _ft.mm_plugin_init();
   }
-    
 
   inline status_t add_managed_region(void * region_base, size_t region_size) noexcept {
     return _ft.mm_plugin_add_managed_region(_heap, region_base, region_size);
@@ -359,11 +391,11 @@ public:
     return _ft.mm_plugin_aligned_allocate_offset(_heap, n, alignment, offset, out_ptr);
   }
     
-  inline status_t deallocate(void * ptr, size_t size) noexcept {
+  inline status_t deallocate(void ** ptr, size_t size) noexcept {
     return _ft.mm_plugin_deallocate(_heap, ptr, size);
   }
     
-  inline status_t deallocate_without_size(void * ptr) noexcept {
+  inline status_t deallocate_without_size(void ** ptr) noexcept {
     return _ft.mm_plugin_deallocate_without_size(_heap, ptr);
   }
     
@@ -371,8 +403,8 @@ public:
     return _ft.mm_plugin_callocate(_heap, n, out_ptr);
   }
     
-  inline status_t reallocate(void * ptr, size_t size, void ** out_ptr) noexcept {
-    return _ft.mm_plugin_reallocate(_heap, ptr, size, out_ptr);
+  inline status_t reallocate(void ** in_out_ptr, size_t size) noexcept {
+    return _ft.mm_plugin_reallocate(_heap, in_out_ptr, size);
   }
     
   inline status_t usable_size(void * ptr, size_t * out_size) noexcept {
@@ -387,10 +419,23 @@ public:
     return _ft.mm_plugin_inject_allocation(_heap, ptr, size);
   }
 
+  inline int is_crash_consistent() noexcept {
+    return _ft.mm_plugin_is_crash_consistent(_heap);
+  }
+
+  inline int can_inject_allocation() noexcept {
+    return _ft.mm_plugin_can_inject_allocation(_heap);
+  }
+
 private:
   void *                     _module;
   mm_plugin_function_table_t _ft;
-  mm_plugin_heap_t           _heap;
+#if 0
+  /* intention, but we avoid appealing to moveable_ptr */
+  common::moveable_ptr<void> _heap;
+#else
+  void *                     _heap;
+#endif
 };
 
 #include <limits>
@@ -435,7 +480,7 @@ public:
 
   void deallocate(pointer p, std::size_t n) noexcept
   {
-    _wrapper.deallocate(p, n);
+    _wrapper.deallocate(reinterpret_cast<void**>(&p), n);
   }
 
   pointer allocate(std::size_t n, const_void_pointer)

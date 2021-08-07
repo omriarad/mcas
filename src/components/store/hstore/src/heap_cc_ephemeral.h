@@ -72,16 +72,10 @@ private:
 		, string_view id
 		, string_view backing_file
 		, const std::vector<byte_span> &rv_full
-		, const byte_span pool0_heap
+		, byte_span pool0_heap
 	);
-	nupm::region_descriptor get_managed_regions() const override { return _managed_regions; }
-	nupm::region_descriptor set_managed_regions(nupm::region_descriptor n) override
-	{
-		using std::swap;
-		swap(n, _managed_regions);
-		return n;
-	}
-	std::size_t capacity() const override { return _capacity; };
+public:
+	friend struct heap_cc;
 
 	template <bool B>
 		void write_hist(const byte_span  pool_) const
@@ -106,9 +100,9 @@ private:
 			}
 		}
 public:
-	friend struct heap_cc;
-
 	using common::log_source::debug_level;
+
+	/* initial construction */
 	explicit heap_cc_ephemeral(
 		unsigned debug_level
 		, impl::allocation_state_emplace *ase
@@ -120,6 +114,8 @@ public:
 		, const std::vector<byte_span> &rv_full
 		, byte_span pool0_heap_
 	);
+
+	/* crash-consistent recovery */
 	explicit heap_cc_ephemeral(
 		unsigned debug_level
 		, impl::allocation_state_emplace *ase
@@ -132,10 +128,26 @@ public:
 		, byte_span pool0_heap
 		, ccpm::ownership_callback_t f
 	);
-	std::size_t free(persistent_t<void *> *p_, std::size_t sz_);
 	heap_cc_ephemeral(const heap_cc_ephemeral &) = delete;
 	heap_cc_ephemeral& operator=(const heap_cc_ephemeral &) = delete;
-	void add_managed_region(byte_span r_full, byte_span r_heap, unsigned numa_node) override;
+
+	std::size_t allocated() const { return _allocated; }
+	std::size_t capacity() const override { return _capacity; }
+	void add_managed_region(byte_span r_full, byte_span r_heap) override;
+	nupm::region_descriptor get_managed_regions() const override
+	{
+		return _managed_regions;
+	}
+	nupm::region_descriptor set_managed_regions(nupm::region_descriptor n) override
+	{
+		using std::swap;
+		swap(n, _managed_regions);
+		return n;
+	}
+	void allocate(persistent_t<void *> &p, std::size_t sz, std::size_t alignment);
+	std::size_t free(persistent_t<void *> &p_, std::size_t sz_);
+	void free_tracked(const void *p, std::size_t sz, unsigned numa_node);
+	bool is_crash_consistent() const { return true; }
 };
 
 #endif

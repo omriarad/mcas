@@ -186,12 +186,14 @@ public:
     , std::uint64_t key
     , context_t context
   ) override;
+
   void post_read(
     gsl::span<const ::iovec> buffers,
     std::uint64_t remote_addr,
     std::uint64_t key,
     context_t context
   ) override;
+
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_writev fail
    */
@@ -202,12 +204,14 @@ public:
     , std::uint64_t key
     , context_t context
   ) override;
+
   void post_write(
     gsl::span<const ::iovec> buffers,
     std::uint64_t remote_addr,
     std::uint64_t key,
     context_t context
   ) override;
+
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_inject fail
    */

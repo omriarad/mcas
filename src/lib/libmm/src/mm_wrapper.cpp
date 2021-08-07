@@ -23,7 +23,7 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-function"
 
-#define LOG_TO_FILE
+//#define LOG_TO_FILE
 
 #define LOAD_SYMBOL(X) __mm_funcs.X = reinterpret_cast<typeof(__mm_funcs.X)>(dlsym(__mm_plugin_module, # X)); assert(__mm_funcs.X)
 
@@ -135,14 +135,16 @@ static void __init_components(void)
   size_t slab_size = size_to_allocate();
   globals::slab_memory = mmap(reinterpret_cast<void*>(0xAA00000000),
                               slab_size,
-                              PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
+                              PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS,
                               -1, 0);
 
   __mm_funcs.mm_plugin_add_managed_region(__mm_heap,
                                           globals::slab_memory,
                                           slab_size);
 
+#ifdef LOG_TO_FILE
   globals::log = new Logger();
+#endif
   
   globals::intercept_active = true;
 }
@@ -234,7 +236,7 @@ EXPORT_C void mm_free(void* p) noexcept
     auto start = rdtsc();
 #endif
     
-    __mm_funcs.mm_plugin_deallocate_without_size(__mm_heap, p);
+    __mm_funcs.mm_plugin_deallocate_without_size(__mm_heap, &p);
 
 #ifdef LOG_TO_FILE
     globals::log->log("free", rdtsc()-start, p, 0, 0);
@@ -253,19 +255,18 @@ EXPORT_C void* mm_realloc(void* p, size_t newsize) noexcept
   if(!real::realloc) __get_os_functions();
 
   if(globals::intercept_active) {
-    void * new_ptr = nullptr;
 
 #ifdef LOG_TO_FILE
     auto start = rdtsc();
 #endif
 
-    __mm_funcs.mm_plugin_reallocate(__mm_heap, p, newsize, &new_ptr);
+    __mm_funcs.mm_plugin_reallocate(__mm_heap, &p, newsize);
 
 #ifdef LOG_TO_FILE
-    globals::log->log("realloc",rdtsc()-start, p, newsize, 0);
+    globals::log->log("realloc",rdtsc()-start, &p, newsize, 0);
 #endif
     
-    return new_ptr;
+    return p;
   }
   else {
     //return real::realloc(p, newsize);

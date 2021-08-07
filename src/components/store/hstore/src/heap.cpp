@@ -97,7 +97,7 @@ auto heap::grow(
 				for ( auto i = old_list_size; i != new_list_size; ++i )
 				{
 					const auto &r = new_region_list[i];
-					eph_->add_managed_region(r, r, _numa_node);
+					eph_->add_managed_region(r, r);
 					hop_hash_log<trace_heap_summary>::write(
 						LOG_LOCATION
 						, " pool ", ::base(r), " .. ", ::end(r)
@@ -142,7 +142,7 @@ auto heap::grow(
 					}
 					for ( const auto & r : rv )
 					{
-						eph_->add_managed_region(r, r, _numa_node);
+						eph_->add_managed_region(r, r);
 						hop_hash_log<trace_heap_summary>::write(
 							LOG_LOCATION
 							, " pool ", ::base(r), " .. ", ::end(r)

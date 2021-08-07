@@ -175,9 +175,10 @@ PUBLIC status_t mm_plugin_aligned_allocate_offset(mm_plugin_heap_t heap, size_t 
  *
  * @return S_OK or E_INVAL;
  */
-PUBLIC status_t mm_plugin_deallocate(mm_plugin_heap_t heap, void * ptr, size_t size)
+PUBLIC status_t mm_plugin_deallocate(mm_plugin_heap_t heap, void ** ptr, size_t size)
 {
-  free(ptr);
+  free(*ptr);
+  *ptr = 0;
 
   ((struct heap_t*)heap)->_free_count++;
   return S_OK;
@@ -192,9 +193,10 @@ PUBLIC status_t mm_plugin_deallocate(mm_plugin_heap_t heap, void * ptr, size_t s
  * 
  * @return S_OK
  */
-PUBLIC status_t mm_plugin_deallocate_without_size(mm_plugin_heap_t heap, void * ptr)
+PUBLIC status_t mm_plugin_deallocate_without_size(mm_plugin_heap_t heap, void ** ptr)
 {
-  free(ptr);
+  free(*ptr);
+  *ptr = 0;
   ((struct heap_t*)heap)->_free_count++;
   return S_OK;
 }
@@ -223,15 +225,14 @@ PUBLIC status_t mm_plugin_callocate(mm_plugin_heap_t heap, size_t n, void ** out
  * Resize an existing allocation
  * 
  * @param heap Heap context
- * @param ptr Pointer to existing allocated region
+ * @param in_out_ptr Address of [in] pointer to existing allocated region, [out] New reallocated region or null on unable to reallocate
  * @param size New size in bytes
- * @param ptr [out] New reallocated region or null on unable to reallocate
  * 
  * @return S_OK
  */
-PUBLIC status_t mm_plugin_reallocate(mm_plugin_heap_t heap, void * ptr, size_t size, void ** out_ptr)
+PUBLIC status_t mm_plugin_reallocate(mm_plugin_heap_t heap, void ** in_out_ptr, size_t size)
 {
-  *out_ptr = realloc(ptr, size);
+  *in_out_ptr = realloc(*in_out_ptr, size);
   return S_OK;
 }
 
@@ -252,10 +253,29 @@ PUBLIC status_t mm_plugin_usable_size(mm_plugin_heap_t heap, void * ptr, size_t 
   return S_OK;
 }
   
-
 /** 
- * Get debugging information
+ * Report whether passthru is a "crash consistent" allocator.
  * 
+ * @return false
+ */
+PUBLIC int mm_plugin_is_crash_consistent(mm_plugin_heap_t heap)
+{
+  return 0;
+}
+
+/**
+ * Report whether passthru supports "inject allocation."
+ *
+ * @return false
+ */
+PUBLIC int mm_plugin_can_inject_allocation(mm_plugin_heap_t heap)
+{
+  return 0;
+}
+
+/**
+ * Get debugging information
+ *
  * @param heap Heap context
  */
 PUBLIC void mm_plugin_debug(mm_plugin_heap_t heap)

@@ -24,6 +24,7 @@
 
 namespace ccpm
 {
+
 	struct area_top;
 
 	struct cca
@@ -31,6 +32,20 @@ namespace ccpm
 	{
 		using byte_span = common::byte_span;
 		using persist_type = gsl::not_null<persister *>;
+
+		/*
+		 * An objection arose to requiring multiple arguments for the cca constructor.
+		 * This struct allows construction from a single argument in all cases.
+		 * cca.h may not be the best place for this, as cca does not itsenf use the struct.
+		 */
+		struct ctor_args
+		{
+			persist_type persister;
+			region_span regions;
+			bool force_init;
+			ownership_callback_type callee_owns;
+		};
+
 	private:
 		using top_vec_t = std::vector<std::unique_ptr<area_top>>;
 		top_vec_t _top;
@@ -38,17 +53,17 @@ namespace ccpm
 		top_vec_t::difference_type _last_top_free;
 		persist_type _persist;
 
-		explicit cca(persist_type persist);
-
 		void init(
 			region_span regions
-			, ownership_callback_t resolver
+			, ownership_callback_type resolver
 			, bool force_init
 		);
 	public:
-		explicit cca(persist_type persist, region_span regions, ownership_callback_t resolver);
+		explicit cca(persist_type persist, region_span regions, ownership_callback_type resolver);
 
 		explicit cca(persist_type persist, region_span regions);
+
+		explicit cca(persist_type persist);
 
 		~cca();
 
@@ -57,7 +72,7 @@ namespace ccpm
 
 		bool reconstitute(
 			region_span regions
-			, ownership_callback_t resolver
+			, ownership_callback_type resolver
 			, bool force_init
 		) override;
 
@@ -67,7 +82,7 @@ namespace ccpm
 			, std::size_t alignment_
 		) override;
 
-    void * allocate(std::size_t bytes_, std::size_t alignment_) {
+    void * allocate(std::size_t bytes_, std::size_t alignment_ = 1) {
       void * ptr = nullptr;
       if(allocate(ptr, bytes_, alignment_) != 0)
         throw General_exception("ccpm::cca::allocate failed");

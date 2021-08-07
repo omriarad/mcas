@@ -436,6 +436,7 @@ public:
 
 
 private:
+  /* unused */
   template <typename MT>
   void post_send(buffer_t *iob, const MT *msg, const char *desc)
   {

@@ -64,6 +64,9 @@ public:
   using string_view_request = string_view_byte;
   using string_view_value = string_view_byte;
 
+  template <typename T>
+    using basic_string_view = std::experimental::basic_string_view<T>;
+
   static constexpr async_handle_t  ASYNC_HANDLE_INIT  = nullptr;
 
   enum {

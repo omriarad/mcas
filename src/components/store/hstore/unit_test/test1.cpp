@@ -213,6 +213,7 @@ TEST_F(KVStore_test, Instantiate)
           { +component::IKVStore_factory::k_name, "numa0"}
           , { +component::IKVStore_factory::k_dax_config, store_map::location }
           , { +component::IKVStore_factory::k_debug, debug_level() }
+          , { +component::IKVStore_factory::k_mm_plugin_path, common::env_value<const char *>("MM_PLUGIN_PATH", "no_plugin_path") }
         }
     );
 }

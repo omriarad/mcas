@@ -46,13 +46,13 @@
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	template <typename OID, typename Persist>
 		session<Handle, Allocator, Table, LockType>::session(
-			OID
+			unsigned debug_level_
+			, OID
 #if HEAP_OID
 				heap_oid_
 #endif
 			, Handle &&pop_
 			, Persist *persist_data_
-			, unsigned debug_level_
 		)
 		: session_base<Handle>(std::move(pop_), debug_level_)
 		, _heap(
@@ -66,7 +66,8 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 #endif
 			)
 		)
-		, _pin_seq(undo_redo_pin_data(_heap) || undo_redo_pin_key(_heap))
+		, _is_crash_consistent(_heap->is_crash_consistent())
+		, _pin_seq(_is_crash_consistent && (undo_redo_pin_data(_heap) || undo_redo_pin_key(_heap)))
 		, _map(persist_data_, _heap)
 		, _atomic_state(*persist_data_, _map)
 		, _iterators()
@@ -78,9 +79,9 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	session<Handle, Allocator, Table, LockType>::session(
 		AK_ACTUAL
-		Handle &&pop_
+		unsigned debug_level_
+		, Handle &&pop_
 		, construction_mode mode_
-		, unsigned debug_level_
 	)
 		: session_base<Handle>(std::move(pop_), debug_level_)
 		, _heap(
@@ -88,7 +89,8 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				this->pool()->make_heap_access()
 			)
 		)
-		, _pin_seq(undo_redo_pin_data(AK_REF _heap) || undo_redo_pin_key(AK_REF _heap))
+		, _is_crash_consistent(_heap.pool()->is_crash_consistent())
+		, _pin_seq(_is_crash_consistent && (undo_redo_pin_data(AK_REF _heap) || undo_redo_pin_key(AK_REF _heap)))
 		, _map(AK_REF &this->pool()->persist_data()._persist_map, mode_, _heap)
 		, _atomic_state(this->pool()->persist_data()._persist_atomic, _heap, mode_)
 		, _iterators()
@@ -108,15 +110,14 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		allocator_type heap_
 	)
 	{
-#if HEAP_CONSISTENT
-		auto &aspd = heap_.pool()->aspd();
-		auto armed = aspd.is_armed();
+		auto *aspd = heap_.pool()->aspd();
+		auto armed = aspd->is_armed();
 		if ( armed )
 		{
 			/* _arm_ptr points to a new cptr, within a "large", within a persist_fixed_string */
-			auto *pfs = data_type::pfs_from_cptr_ref(*aspd.arm_ptr());
+			auto *pfs = data_type::pfs_from_cptr_ref(*aspd->arm_ptr());
 
-			if ( aspd.was_callback_tested() )
+			if ( aspd->was_callback_tested() )
 			{
 				/* S_uncommitted or S_committed: allocator had an allocation in "in_doubt" state,
 				 * meaning that cptr, if not null contains an allocation address and not inline data
@@ -124,12 +125,12 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				if ( pfs->get_cptr().P )
 				{
 					/* S_committed: roll forward */
-					pfs->pin(AK_REF aspd.get_cptr(), this->allocator());
+					pfs->pin(AK_REF aspd->get_cptr(), this->allocator());
 				}
 				else
 				{
 					/* S_uncommitted: roll back */
-					pfs->set_cptr(aspd.get_cptr(), this->allocator());
+					pfs->set_cptr(aspd->get_cptr(), this->allocator());
 				}
 			}
 			else
@@ -138,20 +139,15 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				 * cptr contains null or old inline data.
 				 */
 				/* roll back */
-				pfs->set_cptr(aspd.get_cptr(), this->allocator());
+				pfs->set_cptr(aspd->get_cptr(), this->allocator());
 			}
-			aspd.disarm(this->allocator());
+			aspd->disarm(this->allocator());
 		}
 		else
 		{
 			/* S_unarmed: do nothing */
 		}
 		return armed;
-#else
-		AK_REF_VOID;
-		(void) (heap_);
-		return true;
-#endif
 	}
 
 template <typename Handle, typename Allocator, typename Table, typename LockType>
@@ -160,15 +156,14 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		allocator_type heap_
 	)
 	{
-#if HEAP_CONSISTENT
-		auto &aspk = heap_.pool()->aspk();
-		auto armed = aspk.is_armed();
+		auto *aspk = heap_.pool()->aspk();
+		auto armed = aspk->is_armed();
 		if ( armed )
 		{
 			/* _arm_ptr points to a new cptr, within a "large", within a persist_fixed_string */
-			auto *pfs = key_type::pfs_from_cptr_ref(*aspk.arm_ptr());
+			auto *pfs = key_type::pfs_from_cptr_ref(*aspk->arm_ptr());
 
-			if ( aspk.was_callback_tested() )
+			if ( aspk->was_callback_tested() )
 			{
 				/* S_uncommitted or S_committed: allocator had an allocation in "in_doubt" state,
 				 * meaning that cptr, if not null contains an allocation address and not inline data
@@ -176,12 +171,12 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				if ( pfs->get_cptr().P )
 				{
 					/* S_committed: roll forward */
-					pfs->pin(AK_REF aspk.get_cptr(), this->allocator());
+					pfs->pin(AK_REF aspk->get_cptr(), this->allocator());
 				}
 				else
 				{
 					/* S_uncommitted: roll back */
-					pfs->set_cptr(aspk.get_cptr(), this->allocator());
+					pfs->set_cptr(aspk->get_cptr(), this->allocator());
 				}
 			}
 			else
@@ -190,20 +185,15 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 				 * cptr contains null or old inline data.
 				 */
 				/* roll back */
-				pfs->set_cptr(aspk.get_cptr(), this->allocator());
+				pfs->set_cptr(aspk->get_cptr(), this->allocator());
 			}
-			aspk.disarm(this->allocator());
+			aspk->disarm(this->allocator());
 		}
 		else
 		{
 			/* S_unarmed: do nothing */
 		}
 		return armed;
-#else
-		AK_REF_VOID;
-		(void) (heap_);
-		return true;
-#endif
 	}
 
 	/* session constructor and get_pool_regions only */
@@ -239,14 +229,13 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		const std::size_t value_len = value.size();
 #endif
 
-#if HEAP_CONSISTENT
 		/* Start of an emplace. Storage allocated by this->allocator()
-		 * is to be disclaimed upon a restart unless
+		 * is to be disclaimed upon a crash-consistent restart unless
 		 *  (1) verified in-use by the map (i.e., owner bit bit set to 1), or later
 		 *  (2) forgotten by the tentative_allocation_state_emplace going out of scope, in which case the map bit has long since been set to 1.
 		 */
 		monitor_emplace<Allocator> m(this->allocator());
-#endif
+
 		++this->_writes;
 		TM_SCOPE(emplace)
 		return
@@ -428,9 +417,9 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 	) -> lock_result
 	{
 		auto & map = locate_map(key);
-#if HEAP_CONSISTENT
+
 		monitor_emplace<Allocator> me(this->allocator());
-#endif
+
 		auto it = map.find(TM_REF key);
 		if ( it == map.end() )
 		{
@@ -497,7 +486,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			if ( ! k.is_fixed() )
 			{
 				auto &km = const_cast<typename std::remove_const<key_type>::type &>(k);
-				monitor_pin_key<hstore_alloc_type<Persister>::heap_alloc_access_type> mp(km, _heap.pool());
+				monitor_pin<hstore_alloc_type<Persister>::heap_alloc_access_type> mp(km, _heap.pool(), _heap.pool()->pin_control_key());
 				/* convert k to a immovable data */
 				km.pin(AK_REF mp.get_cptr(), this->allocator());
 			}
@@ -510,7 +499,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			 */
 			if( ! d.is_fixed() )
 			{
-				monitor_pin_data<hstore_alloc_type<Persister>::heap_alloc_access_type> mp(d, _heap.pool());
+				monitor_pin<hstore_alloc_type<Persister>::heap_alloc_access_type> mp(d, _heap.pool(), _heap.pool()->pin_control_data());
 				/* convert d to a immovable data */
 				d.pin(AK_REF mp.get_cptr(), this->allocator());
 			}
@@ -613,9 +602,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			auto &d = std::get<0>(m);
 			if ( ! d.is_locked() )
 			{
-#if HEAP_CONSISTENT
 				monitor_emplace<Allocator> me(this->allocator());
-#endif
 				++this->_writes;
 				map.erase(it);
 				return S_OK;
@@ -799,11 +786,14 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		, size_t size
 	)
 	{
+#if 0
 		persistent_t<char *> p = static_cast<char *>(const_cast<void *>(addr));
-#if HEAP_CONSISTENT
-		/* ERROR: leaks memory on a crash */
-#endif
+		/* ERROR: if using a crash-consistent allocator, may leak memory on a crash */
 		allocator().deallocate_tracked(p, size);
+#else
+		/* ERROR: if using a crash-consistent allocator, may leak memory on a crash */
+		allocator().deallocate_tracked(addr, size);
+#endif
 	}
 
 template <typename Handle, typename Allocator, typename Table, typename LockType>

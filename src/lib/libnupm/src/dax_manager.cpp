@@ -83,39 +83,6 @@ const bool nupm::dax_manager::have_odp = init_have_odp();
 const int nupm::dax_manager::effective_map_locked = init_map_lock_mask();
 constexpr const char *nupm::dax_manager::_cname;
 
-nupm::path_use::path_use(path_use &&other_) noexcept
-  : common::log_source(other_)
-  , _name()
-{
-  using std::swap;
-  swap(_name, other_._name);
-}
-
-nupm::path_use::path_use(const common::log_source &ls_, const string_view &name_)
-  : common::log_source(ls_)
-  , _name(name_)
-{
-  std::lock_guard<std::mutex> g(nupm_dax_manager_mapped_lock);
-  bool inserted = nupm_dax_manager_mapped.insert(std::string(name_)).second;
-  if ( ! inserted )
-  {
-    std::ostringstream o;
-    o << __func__ << ": instance already managing path (" << name_ << ")";
-    throw std::range_error(o.str());
-  }
-  CPLOG(3, "%s (%p): name: %s", __func__, common::p_fmt(this), _name.c_str());
-}
-
-nupm::path_use::~path_use()
-{
-  if ( _name.size() )
-  {
-    std::lock_guard<std::mutex> g(nupm_dax_manager_mapped_lock);
-    nupm_dax_manager_mapped.erase(_name);
-    CPLOG(3, "%s: dax mgr instance: %s", __func__, _name.c_str());
-  }
-}
-
 std::pair<std::vector<common::byte_span>, std::size_t> get_mapping(const fs::path &path_map)
 {
 	/* A region must always be mapped to the same address, as MCAS
@@ -383,10 +350,8 @@ dax_manager::dax_manager(
   const gsl::span<const config_t> dax_configs,
   bool force_reset
 )
-  : common::log_source(ls_)
+  : range_manager_impl(ls_)
   , _nd()
-  , _address_coverage(std::make_unique<AC>())
-  , _address_fs_available(std::make_unique<AC>())
   /* space mapped by devdax */
   , _mapped_spaces()
   , _arenas()
@@ -433,18 +398,6 @@ dax_manager::dax_manager(
 dax_manager::~dax_manager()
 {
   CPLOG(0, "%s::%s", _cname, __func__);
-}
-
-void * dax_manager::locate_free_address_range(std::size_t size_)
-{
-	for ( auto i : *_address_fs_available )
-	{
-		if ( ptrdiff_t(size_) <= i.upper() - i.lower() )
-		{
-			return i.lower();
-		}
-	}
-	throw std::runtime_error(__func__ + std::string(" out of address ranges"));
 }
 
 auto dax_manager::lookup_arena(arena_id_t arena_id) -> arena *

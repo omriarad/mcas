@@ -26,8 +26,8 @@ src/fabric_transport.cpp
 src/mcas_client.cpp
 src/mcas_client_factory.cpp
 src/memory_registered.cpp
-src/mr_many.cpp
-src/wait_poll.cpp
+# src/mr_many.cpp
+# src/wait_poll.cpp
 )
 
 

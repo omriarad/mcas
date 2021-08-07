@@ -11,6 +11,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_subdirectory(./unit_test)
 
+add_compile_options("-fPIC")
 add_definitions(-DCONFIG_DEBUG) # P{LOG,DEG,INF,WRN,ERR} control
 add_definitions(-DDM_REGION_LOG_GRAIN_SIZE=${DM_REGION_LOG_GRAIN_SIZE})
 # MCAS_HSTORE_USE_PMEM_PERSIST indicates that hstore is to use use PMEM persist
@@ -18,13 +19,11 @@ add_definitions(-DDM_REGION_LOG_GRAIN_SIZE=${DM_REGION_LOG_GRAIN_SIZE})
 # std::fill etc, followed by a persist call.
 add_definitions(-DMCAS_HSTORE_USE_PMEM_PERSIST=1)
 
-set(SOURCES
+set(SOURCES_HEADER_CHECK
 	src/allocator_cc.cpp
 	src/allocator_co.cpp
 	src/alloc_key.cpp
-	src/allocator_rc.cpp
 	src/as_pin.cpp
-	src/bad_alloc_cc.cpp
 	src/bits_to_ints.cpp
 	src/bucket_aligned.cpp
 	src/bucket_control.cpp
@@ -47,7 +46,6 @@ set(SOURCES
 	src/hop_hash.cpp
 	src/hop_hash_base.cpp
 	src/hop_hash_debug.cpp
-	src/hop_hash_exceptions.cpp
 	src/hstore_alloc_type.cpp
 	src/hstore_config.cpp
 	src/hstore_kv_types.cpp
@@ -73,9 +71,7 @@ set(SOURCES
 	src/persister_nupm.cpp
 	src/pobj_bad_alloc.cpp
 	src/pointer_pobj.cpp
-	src/pool_error.cpp
 	src/pool_iterator.cpp
-	src/pool_manager.cpp
 	src/pool_path.cpp
 	src/pool_pobj.cpp
 	src/pstr_equal.cpp
@@ -85,16 +81,22 @@ set(SOURCES
 	src/segment_and_bucket.cpp
 	src/segment_count.cpp
 	src/segment_layout.cpp
+	src/session.cpp
+	src/session_base.cpp
 	src/size_control.cpp
 	src/store_root.cpp
 	src/test_flags.cpp
 	src/trace_flags.cpp
 	src/value_unstable.cpp
+)
 
+set(SOURCES
 	src/as_emplace.cpp
 	src/as_extend.cpp
+	src/bad_alloc_cc.cpp
 	src/dax_manager.cpp
-	src/heap.cpp
+ 	src/heap.cpp
+ 	src/hop_hash_exceptions.cpp
 	src/hop_hash_log.cpp
 	src/hstore.cpp
 	src/hstore_factory.cpp
@@ -102,8 +104,30 @@ set(SOURCES
 	src/owner.cpp
 	src/perishable.cpp
 	src/perishable_expiry.cpp
-	src/session.cpp
-	src/session_base.cpp
+	src/pool_error.cpp
+	src/pool_manager.cpp
+)
+
+set(SOURCES_CC
+	src/heap_cc.cpp
+	src/heap_cc_ephemeral.cpp
+)
+
+set(SOURCES_RC
+	src/heap_rc.cpp
+	src/heap_rc_ephemeral.cpp
+	src/tracked_header.cpp
+)
+
+set(SOURCES_MM
+	src/heap_mm.cpp
+	src/heap_mc_ephemeral.cpp
+	src/heap_mc_shim.cpp
+	src/heap_mm_ephemeral.cpp
+	src/heap_mr_ephemeral.cpp
+	src/heap_mr_shim.cpp
+	src/heap_mm_ephemeral.cpp
+	src/tracked_header.cpp
 )
 
 #add_custom_target(format-hstore
@@ -136,70 +160,72 @@ link_directories(${CMAKE_INSTALL_PREFIX}/lib) # cityhash tbb tbbmalloc
 
 set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
 
-# filew which include Boost 1.65 boost/icl/*.h may not use C++17
+# files which include Boost 1.65 boost/icl/*.h may not use C++17
 set_source_files_properties(src/dax_manager.cpp PROPERTIES COMPILE_FLAGS "-std=c++14")
 set_source_files_properties(src/make_dax_manager.cpp PROPERTIES COMPILE_FLAGS "-std=c++14")
 
-# filew which include Boost 1.65 boost/icl/*.h may not use C++17
+# files which include Boost 1.65 boost/icl/*.h may not use C++17
 set_source_files_properties(src/heap_rc_ephemeral.cpp PROPERTIES COMPILE_FLAGS "-std=c++14")
 set_source_files_properties(src/heap_rc.cpp PROPERTIES COMPILE_FLAGS "-std=c++14")
 set_source_files_properties(src/tracked_header.cpp PROPERTIES COMPILE_FLAGS "-std=c++14")
 
+# header checks
+add_library(${PROJECT_NAME}-header-check SHARED ${SOURCES_HEADER_CHECK} src/pool_error.cpp)
+target_compile_options(${PROJECT_NAME}-header-check PUBLIC "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:-DMCAS_HSTORE_TEST_PERISHABLE=1>")
+set_target_properties(${PROJECT_NAME}-header-check PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
+
 # common version
-add_library(${PROJECT_NAME} SHARED ${SOURCES} src/heap_rc.cpp src/heap_rc_ephemeral.cpp src/tracked_header.cpp)
-target_compile_options(${PROJECT_NAME} PUBLIC "-fPIC" "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:-DMCAS_HSTORE_TEST_PERISHABLE=1>")
-target_link_libraries(${PROJECT_NAME} common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash ccpm pmem gcov)
-#target_link_libraries(${PROJECT_NAME} common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash gcov)
+add_library(${PROJECT_NAME} SHARED ${SOURCES} ${SOURCES_RC})
+target_compile_definitions(${PROJECT_NAME} PUBLIC "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:MCAS_HSTORE_TEST_PERISHABLE=1>")
+target_link_libraries(${PROJECT_NAME} common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash gcov)
 add_dependencies(${PROJECT_NAME} common nupm)
 set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
 
 # no timestamp version
-add_library(${PROJECT_NAME}-nt SHARED ${SOURCES} src/heap_rc.cpp src/heap_rc_ephemeral.cpp src/tracked_header.cpp)
-target_compile_options(${PROJECT_NAME}-nt PUBLIC "-fPIC" "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:-DMCAS_HSTORE_TEST_PERISHABLE=1>" "-DENABLE_TIMESTAMP=0")
-target_link_libraries(${PROJECT_NAME}-nt common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash ccpm pmem)
-#target_link_libraries(${PROJECT_NAME}-nt common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash)
+add_library(${PROJECT_NAME}-nt SHARED ${SOURCES} ${SOURCES_RC})
+target_compile_definitions(${PROJECT_NAME}-nt PUBLIC "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:MCAS_HSTORE_TEST_PERISHABLE=1>" "ENABLE_TIMESTAMP=0")
+target_link_libraries(${PROJECT_NAME}-nt common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash)
 add_dependencies(${PROJECT_NAME}-nt common nupm)
 set_target_properties(${PROJECT_NAME}-nt PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
 
 # crash-consistent allocator version
-add_library(${PROJECT_NAME}-cc SHARED ${SOURCES} src/heap_cc.cpp src/heap_cc_ephemeral.cpp)
-target_compile_options(${PROJECT_NAME}-cc PUBLIC "-fPIC" "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:-DMCAS_HSTORE_TEST_PERISHABLE=1>" "-DMCAS_HSTORE_USE_CC_HEAP=4")
-target_link_libraries(${PROJECT_NAME}-cc common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash ccpm pmem)
+add_library(${PROJECT_NAME}-cc SHARED ${SOURCES} ${SOURCES_CC})
+target_compile_definitions(${PROJECT_NAME}-cc PUBLIC "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:MCAS_HSTORE_TEST_PERISHABLE=1>" "MCAS_HSTORE_USE_CC_HEAP=4")
+target_link_libraries(${PROJECT_NAME}-cc common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash ccpm)
 add_dependencies(${PROJECT_NAME}-cc common nupm)
 set_target_properties(${PROJECT_NAME}-cc PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
 
 # crash-consistent with perishable expiry
-add_library(${PROJECT_NAME}-cc-pe SHARED ${SOURCES} src/heap_cc.cpp src/heap_cc_ephemeral.cpp)
-target_compile_options(${PROJECT_NAME}-cc-pe PUBLIC "-fPIC" "-DMCAS_HSTORE_TEST_PERISHABLE=1" "-DMCAS_HSTORE_USE_CC_HEAP=4")
-target_link_libraries(${PROJECT_NAME}-cc-pe common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash ccpm pmem)
+add_library(${PROJECT_NAME}-cc-pe SHARED ${SOURCES} ${SOURCES_CC})
+target_compile_definitions(${PROJECT_NAME}-cc-pe PUBLIC "MCAS_HSTORE_TEST_PERISHABLE=1" "MCAS_HSTORE_USE_CC_HEAP=4")
+target_link_libraries(${PROJECT_NAME}-cc-pe common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash ccpm)
 add_dependencies(${PROJECT_NAME}-cc-pe common nupm)
 set_target_properties(${PROJECT_NAME}-cc-pe PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
 
 # test that all trace options compile
-add_library(${PROJECT_NAME}-cc-pe-tr SHARED ${SOURCES} src/heap_cc.cpp src/heap_cc_ephemeral.cpp)
-target_compile_options(${PROJECT_NAME}-cc-pe-tr PUBLIC "-fPIC" "-DMCAS_HSTORE_TEST_PERISHABLE=1" "-DMCAS_HSTORE_USE_CC_HEAP=4" "-DHSTORE_TRACE_ALL=1")
-target_link_libraries(${PROJECT_NAME}-cc-pe-tr common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash ccpm pmem)
+add_library(${PROJECT_NAME}-cc-pe-tr SHARED ${SOURCES} ${SOURCES_CC})
+target_compile_definitions(${PROJECT_NAME}-cc-pe-tr PUBLIC "MCAS_HSTORE_TEST_PERISHABLE=1" "MCAS_HSTORE_USE_CC_HEAP=4" "HSTORE_TRACE_ALL=1")
+target_link_libraries(${PROJECT_NAME}-cc-pe-tr common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash ccpm)
 add_dependencies(${PROJECT_NAME}-cc-pe-tr common nupm)
 set_target_properties(${PROJECT_NAME}-cc-pe-tr PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
 
-# pluggable allocator (ccpm) version
-add_library(${PROJECT_NAME}-mc SHARED ${SOURCES} src/heap_mc.cpp src/heap_mc_ephemeral.cpp)
-target_compile_options(${PROJECT_NAME}-mc PUBLIC "-fPIC" "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:-DMCAS_HSTORE_TEST_PERISHABLE=1>" "-DMCAS_HSTORE_USE_CC_HEAP=5")
-target_link_libraries(${PROJECT_NAME}-mc common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash)
-add_dependencies(${PROJECT_NAME}-mc common nupm)
-set_target_properties(${PROJECT_NAME}-mc PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
+# crash-consistent, pluggable allocator (ccpm), perishable version
+add_library(${PROJECT_NAME}-mm-pe SHARED ${SOURCES} ${SOURCES_MM})
+target_compile_definitions(${PROJECT_NAME}-mm-pe PUBLIC "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:MCAS_HSTORE_TEST_PERISHABLE=1>" "MCAS_HSTORE_USE_CC_HEAP=7")
+target_link_libraries(${PROJECT_NAME}-mm-pe common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash)
+add_dependencies(${PROJECT_NAME}-mm-pe common nupm)
+set_target_properties(${PROJECT_NAME}-mm-pe PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
 
-# pluggable allocator (rcalb) version
-add_library(${PROJECT_NAME}-mr SHARED ${SOURCES} src/heap_mr.cpp src/heap_mr_ephemeral.cpp src/tracked_header.cpp)
-target_compile_options(${PROJECT_NAME}-mr PUBLIC "-fPIC" "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:-DMCAS_HSTORE_TEST_PERISHABLE=1>" "-DMCAS_HSTORE_USE_CC_HEAP=6")
-target_link_libraries(${PROJECT_NAME}-mr common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash)
-add_dependencies(${PROJECT_NAME}-mr common nupm)
-set_target_properties(${PROJECT_NAME}-mr PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
+# generic (crash-consistent (ccpm), or reconstituting (rcalb) pluggable allocator version
+add_library(${PROJECT_NAME}-mm SHARED ${SOURCES} src/heap_mm.cpp ${SOURCES_MM})
+target_compile_definitions(${PROJECT_NAME}-mm PUBLIC "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:MCAS_HSTORE_TEST_PERISHABLE=1>" "MCAS_HSTORE_USE_CC_HEAP=7")
+target_link_libraries(${PROJECT_NAME}-mm common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash)
+add_dependencies(${PROJECT_NAME}-mm common nupm)
+set_target_properties(${PROJECT_NAME}-mm PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
 
 install(TARGETS ${PROJECT_NAME} LIBRARY DESTINATION lib)
 install(TARGETS ${PROJECT_NAME}-nt LIBRARY DESTINATION lib)
 install(TARGETS ${PROJECT_NAME}-cc LIBRARY DESTINATION lib)
 install(TARGETS ${PROJECT_NAME}-cc-pe LIBRARY DESTINATION lib)
-install(TARGETS ${PROJECT_NAME}-cc-pe-tr LIBRARY DESTINATION lib)
-install(TARGETS ${PROJECT_NAME}-mc LIBRARY DESTINATION lib)
-install(TARGETS ${PROJECT_NAME}-mr LIBRARY DESTINATION lib)
+install(TARGETS ${PROJECT_NAME}-mm LIBRARY DESTINATION lib)
+install(TARGETS ${PROJECT_NAME}-mm-pe LIBRARY DESTINATION lib)

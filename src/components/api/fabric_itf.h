@@ -353,6 +353,7 @@ class IFabric_initiator
                          std::uint64_t  remote_addr,
                          std::uint64_t  key,
                          context_t context) = 0;
+
   void post_read(const ::iovec *first,
                          const ::iovec *last,
                          void **        descriptors,

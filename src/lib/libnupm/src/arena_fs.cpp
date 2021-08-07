@@ -259,7 +259,7 @@ void arena_fs::region_resize(
 
 /* Section which could be moved inside space_registered::grow, if space_registered were specialized for fsdax */
 		std::size_t added_size = size_ - r.second;
-		auto added_base_addr = sr_->_or.range().dm()->locate_free_address_range(added_size);
+		auto added_base_addr = sr_->_or.range().rm()->locate_free_address_range(added_size);
 
 		{
 			/* Extend the file to the specified size */

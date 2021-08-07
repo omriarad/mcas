@@ -20,6 +20,7 @@
 #include <libpmem.h>
 #endif
 #include <boost/align/aligned_allocator.hpp>
+#include <gsl/pointers>
 #include <algorithm> /* copy, move */
 #include <array>
 #include <stdexcept> /* out_of_range */
@@ -42,9 +43,8 @@ template <typename Table>
 			, _tick_expired(false)
 #endif
 		{
-			if ( mode_ == construction_mode::reconstitute )
+			if ( mode_ == construction_mode::reconstitute && al_.pool()->can_reconstitute() )
 			{
-#if HEAP_RECONSTITUTE
 				/* reconstitute allocated memory */
 				_persisted->mod_key.reconstitute(allocator_type(*this));
 				_persisted->mod_mapped.reconstitute(allocator_type(*this));
@@ -55,7 +55,6 @@ template <typename Table>
 				else
 				{
 				}
-#endif
 			}
 			try
 			{
@@ -96,12 +95,12 @@ template <typename Table>
 		monitor_emplace<allocator_type> m(*this);
 
 		/* Identify the element owner for the allocations to be freed */
-#if HEAP_CONSISTENT
+		if ( _persisted->ase() )
 		{
-			auto pe = static_cast<allocator_type *>(this);
-			_persisted->ase().em_record_owner_addr_and_bitmask(&_persisted->mod_owner, 1, *pe);
+			auto pe = gsl::not_null<allocator_type *>(this);
+			_persisted->ase()->em_record_owner_addr_and_bitmask(&_persisted->mod_owner, 1, *pe);
 		}
-#endif
+
 		/* Atomic set of initiative to clear elements owned by persist->mod_owner */
 		_persisted->mod_owner = 0;
 		this->persist(&_persisted->mod_owner, sizeof _persisted->mod_owner);
@@ -283,21 +282,13 @@ template <typename Table>
 		_persisted->mod_owner = 0;
 		{
 			monitor_emplace<allocator_type> m(*this);
-#if HEAP_CONSISTENT
-			{
-				auto pe = static_cast<allocator_type *>(this);
-				_persisted->ase().em_record_owner_addr_and_bitmask(&_persisted->mod_owner, 1, *pe);
-			}
-#endif
-			_persisted->mod_key.assign(AK_REF key, lock_state::free, al_);
-/*
-no matching function for call to ‘persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >::assign(
-const string_view_key&
-, lock_state
-, impl::hop_hash_base<persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >, std::tuple<persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >, common::Timestamp<common::Timepoint> >, pstr_hash<persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> > >, pstr_equal<persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> > >, allocator_cc<std::pair<const persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >, std::tuple<persist_fixed_string<std::byte, 24, deallocator_cc<char, persister_nupm> >, common::Timestamp<common::Timepoint> > >, persister_nupm>, dummy::shared_mutex>::allocator_type&
-) const’
 
-*/
+			if ( al_.pool()->is_crash_consistent() )
+			{
+				auto pe = gsl::not_null<allocator_type *>(this);
+				_persisted->ase()->em_record_owner_addr_and_bitmask(&_persisted->mod_owner, 1, *pe);
+			}
+			_persisted->mod_key.assign(AK_REF key, lock_state::free, al_);
 			_persisted->mod_mapped.assign(AK_REF value_, zeros_extend_, alignment_, lock_, al_);
 			_persisted->map = map_;
 			this->persist(&_persisted->map, sizeof _persisted->map);
