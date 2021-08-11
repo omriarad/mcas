@@ -16,9 +16,9 @@ include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/pistache/include/)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-add_executable(${PROJECT_NAME} src/rest_server.cpp)
+add_executable(${PROJECT_NAME} src/rest_server.cpp src/handlers.cpp)
 
-target_link_libraries(${PROJECT_NAME} common ${CMAKE_BINARY_DIR}/src/lib/pistache/src/libpistache-0.0.002-git20210409.so)
+target_link_libraries(${PROJECT_NAME} common boost_program_options ${CMAKE_BINARY_DIR}/src/lib/pistache/src/libpistache-0.0.002-git20210409.so)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/lib64)
 
