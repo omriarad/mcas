@@ -1,0 +1,2 @@
+#define COMPONENT_DLL_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/lib"
+#define REST_MCAS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/src/server/rest-mcas/"

@@ -1,0 +1,1 @@
+curl https://127.0.0.1:9999 --cacert certs/rootCA/rootCA.crt --cert certs/client/client.crt --key certs/client/client.key -k -v

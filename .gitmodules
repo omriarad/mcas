@@ -11,3 +11,6 @@
 [submodule "src/lib/googletest"]
 	path = src/lib/googletest
 	url = https://github.com/dwaddington/googletest.git
+[submodule "src/lib/pistache"]
+	path = src/lib/pistache
+	url = https://github.com/dwaddington/pistache.git

@@ -10,5 +10,7 @@ if(BUILD_MCAS_SERVER)
   add_subdirectory(ado)
 endif()
 
+add_subdirectory(rest-mcas)
+
 endif(BOOTSTRAP_DEPS)
 
