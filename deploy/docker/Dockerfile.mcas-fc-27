@@ -14,6 +14,10 @@ WORKDIR /home/mcasuser/mcas/src
 RUN git clone -b pymm https://github.com/IBM/mcas.git
 WORKDIR /home/mcasuser/mcas/src/mcas
 RUN git submodule update --init --recursive
+USER root
+WORKDIR /home/mcasuser/mcas/src/mcas/deps
+RUN ./install-yum-fc27.sh
+USER mcasuser
 RUN cp /home/mcasuser/mcas/src/mcas/src/python/pymm/sample.py /home/mcasuser
 USER mcasuser
 WORKDIR /home/mcasuser/mcas/src/mcas

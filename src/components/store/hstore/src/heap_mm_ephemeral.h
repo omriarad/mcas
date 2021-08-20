@@ -14,7 +14,7 @@
 #ifndef MCAS_HSTORE_HEAP_MM_EPHEMERAL_H
 #define MCAS_HSTORE_HEAP_MM_EPHEMERAL_H
 
-#include <common/logging.h> /* log_source */
+#include "heap_ephemeral.h"
 
 #include "hstore_config.h"
 #include "histogram_log2.h"
@@ -22,6 +22,7 @@
 #include <mm_plugin_itf.h>
 #include "persistent.h"
 
+#include <ccpm/interfaces.h> /* ownership_callback, (IHeap_expandable, region_vector_t) */
 #include <common/byte_span.h>
 #include <common/string_view.h>
 #include <nupm/region_descriptor.h>
@@ -32,7 +33,7 @@
 #include <vector>
 
 struct heap_mm_ephemeral
-  : private common::log_source
+	: private heap_ephemeral
 {
 private:
 	using byte_span = common::byte_span;
@@ -51,6 +52,7 @@ private:
 	 */
 	nupm::region_descriptor _managed_regions;
 protected:
+	using heap_ephemeral::_alloc_mutex;
 	std::size_t _capacity;
 #if 0 // MM does not support allocation query
 	std::size_t _allocated;
@@ -114,6 +116,12 @@ public:
 		return n;
 	}
 	void add_managed_region(byte_span r_full, byte_span r_heap);
+	void reconstitute_managed_region(
+		const byte_span r_full
+		, const byte_span r_heap
+		, ccpm::ownership_callback_t f
+	);
+	virtual void reconstitute_managed_region_to_heap(byte_span r_heap, ccpm::ownership_callback_t f) = 0;
 	virtual bool is_crash_consistent() const = 0;
 	virtual bool can_reconstitute() const = 0;
 };
