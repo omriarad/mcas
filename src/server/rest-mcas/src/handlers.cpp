@@ -17,6 +17,9 @@
 #pragma GCC diagnostic ignored "-Wunused-parameter"
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
+#include <common/logging.h>
+#include <common/str_utils.h>
+
 #include "endpoint.h"
 
 static void print_cookies(const Http::Request& req)
@@ -44,27 +47,29 @@ void handle_ready(const Rest::Request&, Http::ResponseWriter response)
 }
 
  
-void REST_endpoint::status(const Rest::Request& request,
-                           Http::ResponseWriter response)
+void REST_endpoint::get_status(const Rest::Request& request,
+                               Http::ResponseWriter response)
 {
-  response.cookies().add(Http::Cookie("lang", "en-US"));
   response.send(Http::Code::Ok, "OK!\n");
 }
 
 
-void REST_endpoint::get_pools(const Rest::Request& /*request*/, Http::ResponseWriter response)
+void REST_endpoint::get_pool_types(const Rest::Request& request, Http::ResponseWriter response)
 {
-
   using namespace rapidjson;
+  // PLOG("get_pools");
+  // auto cookie_jar = request.cookies();
+  // for(auto cookie : cookie_jar) {
+  //   PLOG("cookie: (%s,%s)", cookie.name.c_str(), cookie.value.c_str());
+  // }
+    
+  //  PLOG("get_pools: (cookie-session=%s)",.ext["session"].c_str());
 
   Document doc;
   Document::AllocatorType& allocator = doc.GetAllocator();
   
   doc.SetArray();
-
-  // add pool names
-  //  doc.PushBack(Value().SetInt(42), allocator); // fluent API
-  //doc.PushBack(Value().SetString("foo"), allocator); // fluent API
+  doc.PushBack(Value().SetString("hstore"), allocator);
   
   StringBuffer sb;
   Writer<StringBuffer, Document::EncodingType, ASCII<> > writer(sb);
@@ -72,5 +77,17 @@ void REST_endpoint::get_pools(const Rest::Request& /*request*/, Http::ResponseWr
 
   response.send(Http::Code::Ok, sb.GetString()); //"Pools OK!\n");
 }
+
+
+void REST_endpoint::post_pool(const Rest::Request& request, Http::ResponseWriter response)
+{
+  auto name = request.param(":name").as<std::string>();
+  PLOG("post_pool: (%p,req=%p) name=%s", reinterpret_cast<void*>(this), reinterpret_cast<const void*>(&request), name.c_str());
+  //  if (request.hasParam(":name"))
+
+  response.send(Http::Code::Ok, "OK!\n");
+}
+                                
+
 
 #pragma GCC diagnostic pop

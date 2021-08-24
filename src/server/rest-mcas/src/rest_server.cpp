@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
     desc.add_options()
       ("help", "Show help")
       ("ssl","Use SSL connection (TLS)")
+      ("pmem", po::value<std::string>()->default_value("/dev/dax0.0"), "PMEM path")
       ("threads", po::value<unsigned>()->default_value(2), "Thread count")
       ("port", po::value<uint16_t>()->default_value(9999), "Network port")
       ;
@@ -43,6 +44,7 @@ int main(int argc, char *argv[])
   
   Pistache::Address addr;
   auto threads = vm["threads"].as<unsigned>();
+  auto pmem = vm["pmem"].as<std::string>();
   auto opts = Http::Endpoint::options().threads(threads);
   auto port = vm["port"].as<uint16_t>();
   addr = Pistache::Address(Pistache::Ipv4::any(), Pistache::Port(port));
@@ -51,7 +53,7 @@ int main(int argc, char *argv[])
   std::cout << "Port:" << port << "\n";
   std::cout << "Threads:" << threads << "\n";
 
-  REST_endpoint server(addr, vm.count("ssl"));
+  REST_endpoint server(addr, pmem, vm.count("ssl"));
   server.init(threads);
   server.start();
                      

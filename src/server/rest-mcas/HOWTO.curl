@@ -1,2 +1,4 @@
 curl https://127.0.0.1:9999/status --cacert certs/rootCA/rootCA.crt --cert certs/client/client.crt --key certs/client/client.key -k -v
-curl http://127.0.0.1:9999/status
+curl -c cookies  http://127.0.0.1:9999/status
+
+# -k is the same as --insecure ; does not verify server
