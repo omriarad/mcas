@@ -70,7 +70,7 @@ private:
   Backend      _store;
   
   void get_status(const Rest::Request& request, Http::ResponseWriter response);
-  void get_pool_types(const Rest::Request& request, Http::ResponseWriter response);
+  void get_pools(const Rest::Request& request, Http::ResponseWriter response);
   void post_pool(const Rest::Request& request, Http::ResponseWriter response);
 
 public:
@@ -113,7 +113,7 @@ public:
     // Routes::Get(router, "/value/:name", Routes::bind(&StatsEndpoint::doGetMetric, this));
     // Routes::Get(router, "/ready", Routes::bind(&Generic::handleReady));
     Routes::Get(_router, "/status", Routes::bind(&REST_endpoint::get_status, this));
-    Routes::Get(_router, "/pool_types", Routes::bind(&REST_endpoint::get_pool_types, this));
+    Routes::Get(_router, "/pools", Routes::bind(&REST_endpoint::get_pools, this));
     Routes::Post(_router, "/pool/:name", Routes::bind(&REST_endpoint::post_pool, this));
   }
 

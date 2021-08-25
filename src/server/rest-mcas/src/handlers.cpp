@@ -54,7 +54,7 @@ void REST_endpoint::get_status(const Rest::Request& request,
 }
 
 
-void REST_endpoint::get_pool_types(const Rest::Request& request, Http::ResponseWriter response)
+void REST_endpoint::get_pools(const Rest::Request& request, Http::ResponseWriter response)
 {
   using namespace rapidjson;
   // PLOG("get_pools");
