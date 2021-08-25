@@ -57,14 +57,12 @@ void REST_endpoint::get_status(const Rest::Request& request,
 void REST_endpoint::get_pools(const Rest::Request& request, Http::ResponseWriter response)
 {
   using namespace rapidjson;
-  // PLOG("get_pools");
-  // auto cookie_jar = request.cookies();
-  // for(auto cookie : cookie_jar) {
-  //   PLOG("cookie: (%s,%s)", cookie.name.c_str(), cookie.value.c_str());
-  // }
-    
-  //  PLOG("get_pools: (cookie-session=%s)",.ext["session"].c_str());
 
+  /* look for pools?type=xxx param */
+  // if (request.query().has("type")) {
+  //   PLOG("has type param: %s", request.query().get("type")->c_str());
+  // }
+  
   Document doc;
   Document::AllocatorType& allocator = doc.GetAllocator();
   

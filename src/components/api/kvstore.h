@@ -310,7 +310,7 @@ protected:
    * deleted
    */
   virtual status_t delete_pool(const std::string& name) = 0;
-
+  
   /**
    * Get mapped memory regions for pool.  This is used for pre-registration with
    * DMA engines.

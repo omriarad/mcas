@@ -49,12 +49,16 @@ public:
     PLOG("dax config: %s", ss.str().c_str());
 
     _itf = make_itf_ref(fact->create(debug_level,
-                         {
-                          {+component::IKVStore_factory::k_debug, std::to_string(debug_level)},
-                          {+component::IKVStore_factory::k_dax_config, ss.str()}
-                         }));
+                                     {
+                                      {+component::IKVStore_factory::k_debug, std::to_string(debug_level)},
+                                      {+component::IKVStore_factory::k_dax_config, ss.str()}
+                                     }));
 
     fact->release_ref();
+  }
+
+  auto kvstore() {
+    return _itf.get();
   }
   
 private:
@@ -91,14 +95,15 @@ public:
     setup_routes();
   }
 
-  void start()
+  void start(const std::string& server_cert_file,
+             const std::string& server_key_file,
+             const std::string& server_rootca_file)
   {
     Http::Endpoint::setHandler(_router.handler());
     
     if(_use_ssl) {
-      useSSL(REST_MCAS_SOURCE_DIR "certs/server/server.crt",
-             REST_MCAS_SOURCE_DIR "certs/server/server.key");
-      useSSLAuth(REST_MCAS_SOURCE_DIR "certs/rootCA/rootCA.crt");
+      useSSL(server_cert_file, server_key_file);
+      useSSLAuth(server_rootca_file);
       std::cout << "SSL: enabled\n";
     }
 
@@ -112,9 +117,9 @@ public:
     // Routes::Post(router, "/record/:name/:value?", Routes::bind(&StatsEndpoint::doRecordMetric, this));
     // Routes::Get(router, "/value/:name", Routes::bind(&StatsEndpoint::doGetMetric, this));
     // Routes::Get(router, "/ready", Routes::bind(&Generic::handleReady));
-    Routes::Get(_router, "/status", Routes::bind(&REST_endpoint::get_status, this));
+    //    Routes::Get(_router, "/status", Routes::bind(&REST_endpoint::get_status, this));
     Routes::Get(_router, "/pools", Routes::bind(&REST_endpoint::get_pools, this));
-    Routes::Post(_router, "/pool/:name", Routes::bind(&REST_endpoint::post_pool, this));
+    //    Routes::Post(_router, "/pool/:name", Routes::bind(&REST_endpoint::post_pool, this));
   }
 
 };

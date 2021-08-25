@@ -36,7 +36,7 @@ class Connection:
         return self._request('GET', url)
 
     def _request(self, method, url):
-        self.connection.request(method="POST", url=url, headers=request_headers, body=json.dumps(request_body_dict))
+        self.connection.request(method=method, url=url) #, headers=request_headers, body=json.dumps(request_body_dict))
         response = self.connection.getresponse()
         return response.read()
     
