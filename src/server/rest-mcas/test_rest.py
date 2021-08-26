@@ -63,8 +63,9 @@ from multiprocessing import Process
 
 if __name__ == '__main__':
     c = Connection()
-    r = c.get('/pools')
-    print(r)
+#    r = c.get('/pools')
+    print(c.post('/pools/mypool?sizemb=128'))
+
     
     
 

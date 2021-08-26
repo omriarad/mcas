@@ -2,14 +2,10 @@
 #pragma GCC diagnostic ignored "-Wshadow"
 #pragma GCC diagnostic ignored "-Weffc++"
 #pragma GCC diagnostic ignored "-Wpedantic"
-
 #include <pistache/endpoint.h>
 #include <pistache/http.h>
 #include <pistache/router.h>
 #include <pistache/serializer/rapidjson.h>
-#include <rapidjson/rapidjson.h>
-#include <rapidjson/document.h>
-
 #pragma GCC diagnostic pop
 
 #pragma GCC diagnostic push
@@ -21,6 +17,10 @@
 #include <common/str_utils.h>
 
 #include "endpoint.h"
+
+using namespace rapidjson;
+
+static constexpr size_t DEFAULT_POOL_SIZE_MB = 32;
 
 static void print_cookies(const Http::Request& req)
 {
@@ -36,17 +36,6 @@ static void print_cookies(const Http::Request& req)
 
 using namespace Pistache;
 
-namespace Generic
-{
-
-void handle_ready(const Rest::Request&, Http::ResponseWriter response)
-{
-  response.send(Http::Code::Ok, "OK!\n");
-}
-
-}
-
- 
 void REST_endpoint::get_status(const Rest::Request& request,
                                Http::ResponseWriter response)
 {
@@ -56,8 +45,6 @@ void REST_endpoint::get_status(const Rest::Request& request,
 
 void REST_endpoint::get_pools(const Rest::Request& request, Http::ResponseWriter response)
 {
-  using namespace rapidjson;
-
   /* look for pools?type=xxx param */
   // if (request.query().has("type")) {
   //   PLOG("has type param: %s", request.query().get("type")->c_str());
@@ -76,14 +63,49 @@ void REST_endpoint::get_pools(const Rest::Request& request, Http::ResponseWriter
   response.send(Http::Code::Ok, sb.GetString()); //"Pools OK!\n");
 }
 
-
-void REST_endpoint::post_pool(const Rest::Request& request, Http::ResponseWriter response)
+static std::string client_host_id(const Rest::Request& request)
 {
-  auto name = request.param(":name").as<std::string>();
-  PLOG("post_pool: (%p,req=%p) name=%s", reinterpret_cast<void*>(this), reinterpret_cast<const void*>(&request), name.c_str());
-  //  if (request.hasParam(":name"))
+  const Pistache::Address addr = request.address();
+  std::stringstream ss;
+  ss << addr.host() << ":" << static_cast<uint16_t>(addr.port());
+  return ss.str();
+}
+  
+void REST_endpoint::post_pools(const Rest::Request& request, Http::ResponseWriter response)
+{
+  auto pool_name = request.param(":name").as<std::string>();
+  PLOG("post_pool: (%p,req=%p) name=%s", reinterpret_cast<void*>(this), reinterpret_cast<const void*>(&request), pool_name.c_str());
 
-  response.send(Http::Code::Ok, "OK!\n");
+  PLOG("post_pool: client (%s)",client_host_id(request).c_str());
+
+  size_t size_mb = DEFAULT_POOL_SIZE_MB;
+  if (request.query().has("sizemb")) {
+    size_mb = std::stoul(*request.query().get("sizemb"));
+    PLOG("Has size! (%lu)", size_mb);
+  }
+
+  session_id session_cookie;
+  if(_mgr.create_or_open_pool(client_host_id(request), pool_name, size_mb, session_cookie) == S_OK) {
+
+      Document doc;
+      Document::AllocatorType& allocator = doc.GetAllocator();
+
+      doc.SetObject();
+      doc.AddMember("session", session_cookie, allocator);
+      // Value result;
+      // result.AddMember("name", "Milo", doc.GetAllocator());
+      // doc.SetArray();
+      // doc.PushBack(Value().SetString("hstore"), allocator);
+  
+      StringBuffer sb;
+      Writer<StringBuffer, Document::EncodingType, ASCII<> > writer(sb);
+      doc.Accept(writer);
+
+      response.send(Http::Code::Ok, sb.GetString()); //"Pools OK!\n");     
+      return;
+  }
+
+  response.send(Http::Code::Bad_Request, "{\"status\" : -1}");
 }
                                 
 
