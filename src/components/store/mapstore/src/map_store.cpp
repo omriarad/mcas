@@ -1160,7 +1160,7 @@ status_t Map_store::close_pool(const pool_t pid)
   delete session;
   _pool_sessions.erase(session);
   CPLOG(1, PREFIX "closed pool (%lx)", pid);
-  CPLOG(1, PREFIX "erased sescsion %p", common::p_fmt(session));
+  CPLOG(1, PREFIX "erased session %p", common::p_fmt(session));
 
   return S_OK;
 }

@@ -37,8 +37,9 @@ class Backend
 {
 public:
   Backend(const std::string& path,
-          const std::string& store = "mapstore",
-          const unsigned debug_level = 3) {
+          const unsigned debug_level = 0,
+          const std::string& store = "mapstore")
+  {
     using namespace component;
 
     std::string store_lib = "libcomponent-" + store + ".so";
@@ -77,6 +78,10 @@ public:
     else throw API_exception("unabled store type");
   }
 
+  inline void close_pool(const component::IKVStore::pool_t pool_handle) {
+    _itf->close_pool(pool_handle);
+  }
+
   auto kvstore() {
     return _itf.get();
   }
@@ -90,6 +95,7 @@ protected:
 
 using session_id_t = std::string;
 using client_id_t = std::string;
+
 class Pool_manager : private Backend
 {
 public:
@@ -98,7 +104,7 @@ public:
     component::IKVStore::pool_t pool_handle;
   };
 
-  Pool_manager(const std::string& pmem_path) : Backend(pmem_path) {
+  Pool_manager(const std::string& pmem_path, const unsigned debug_level) : Backend(pmem_path, debug_level) {
   }
 
   status_t create_or_open_pool(const std::string& client_id, const std::string& pool_name, const size_t size_mb, session_id_t& session_id) {
@@ -124,6 +130,9 @@ public:
     auto& session_set = _client_sessions[client_id];
     for(auto& session : session_set) {
       PLOG("closing pool Session (%s)", session.c_str());
+      if(_open_pools.find(session) == _open_pools.end())
+        throw General_exception("close pools cannot find session");
+      close_pool(_open_pools[session].pool_handle);
     }
     return S_OK;
   }
@@ -145,16 +154,14 @@ private:
   void post_pools(const Rest::Request& request, Http::ResponseWriter response);
 
 public:
-  explicit REST_endpoint(Address addr,
+  explicit REST_endpoint(const Address addr,
                          const std::string& pmem_path,
-                         bool use_ssl = false);
+                         const bool use_ssl,
+                         const unsigned debug_level);
 
   ~REST_endpoint();
 
-  void disconnect_hook(const std::string& client_id) {
-    PNOTICE("--> disconnect (%s)", client_id.c_str());
-    _mgr.close_pools(client_id);
-  }
+  void disconnect_hook(const std::string& client_id);
 
   void init(size_t thr = 2);
   

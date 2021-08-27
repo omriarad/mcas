@@ -30,6 +30,7 @@ int main(int argc, char *argv[])
       ("rootcafile", po::value<std::string>()->default_value(REST_MCAS_SOURCE_DIR "certs/rootCA/rootCA.crt"), "Server root CA file")
       ("pmem", po::value<std::string>()->default_value("/dev/dax0.0"), "PMEM path")
       ("threads", po::value<unsigned>()->default_value(2), "Thread count")
+      ("debug", po::value<unsigned>()->default_value(0), "Debug level")
       ("port", po::value<uint16_t>()->default_value(9999), "Network port")
       ;
 
@@ -52,13 +53,14 @@ int main(int argc, char *argv[])
   auto certfile = vm["certfile"].as<std::string>();
   auto keyfile = vm["keyfile"].as<std::string>();
   auto rootcafile = vm["rootcafile"].as<std::string>();
+  auto debug_level = vm["debug"].as<unsigned>();
   Pistache::Address addr = Pistache::Address(Pistache::Ipv4::any(), Pistache::Port(port));
 
   std::cout << "Starting MCAS REST server\n";
   std::cout << "Port:" << port << "\n";
   std::cout << "Threads:" << threads << "\n";
 
-  REST_endpoint server(addr, pmem, vm.count("ssl"));  
+  REST_endpoint server(addr, pmem, vm.count("ssl"), debug_level);  
   server.init(threads);
   server.start(certfile, keyfile, rootcafile);
                      

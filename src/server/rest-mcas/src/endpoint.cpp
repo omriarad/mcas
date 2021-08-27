@@ -94,13 +94,14 @@ using namespace Pistache;
 
 
 
-REST_endpoint::REST_endpoint(Address addr,
+REST_endpoint::REST_endpoint(const Address addr,
                              const std::string& pmem_path,
-                             bool use_ssl)
+                             const bool use_ssl,
+                             const unsigned debug_level)
   : Http::Endpoint(addr),
     _router(),
     _use_ssl(use_ssl),
-    _mgr(pmem_path)
+    _mgr(pmem_path, debug_level)
 {
   global_add_endpoint(this);
 }
@@ -220,6 +221,11 @@ void REST_endpoint::post_pools(const Rest::Request& request, Http::ResponseWrite
   response.send(Http::Code::Bad_Request, "{\"status\" : -1}");
 }
                                 
+void REST_endpoint::disconnect_hook(const std::string& client_id) {
+  PNOTICE("--> disconnect (%s)", client_id.c_str());
+  _mgr.close_pools(client_id);
+}
+
 
 
 #pragma GCC diagnostic pop
