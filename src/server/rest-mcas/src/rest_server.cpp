@@ -59,6 +59,8 @@ int main(int argc, char *argv[])
   std::cout << "Starting MCAS REST server\n";
   std::cout << "Port:" << port << "\n";
   std::cout << "Threads:" << threads << "\n";
+  if(debug_level > 0)
+    std::cout << "Debug level:" << debug_level << "\n";
 
   REST_endpoint server(addr, pmem, vm.count("ssl"), debug_level);  
   server.init(threads);

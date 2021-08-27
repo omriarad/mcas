@@ -113,6 +113,7 @@ public:
       PLOG("endpoint: opened existing pool");
     }
     else {
+      PLOG("endpoint: creating new pool");
       pool = _itf->create_pool(pool_name, MiB(size_mb));
       if(pool == component::IKVStore::POOL_ERROR)
         return E_FAIL;
@@ -133,7 +134,9 @@ public:
       if(_open_pools.find(session) == _open_pools.end())
         throw General_exception("close pools cannot find session");
       close_pool(_open_pools[session].pool_handle);
+      _open_pools.erase(session);
     }
+    _client_sessions.erase(client_id);
     return S_OK;
   }
   
