@@ -21,6 +21,7 @@
 #include <common/utils.h>
 #include <api/components.h>
 #include <api/kvstore_itf.h>
+#include <set>
 #include <city.h>
 
 #include "rest_server_config.h"
@@ -87,8 +88,8 @@ protected:
   component::Itf_ref<component::IKVStore> _itf;
 };
 
-using session_id = std::string;
-
+using session_id_t = std::string;
+using client_id_t = std::string;
 class Pool_manager : private Backend
 {
 public:
@@ -100,7 +101,7 @@ public:
   Pool_manager(const std::string& pmem_path) : Backend(pmem_path) {
   }
 
-  status_t create_or_open_pool(const std::string& client_id, const std::string& pool_name, const size_t size_mb, session_id& session) {
+  status_t create_or_open_pool(const std::string& client_id, const std::string& pool_name, const size_t size_mb, session_id_t& session_id) {
     auto pool = _itf->open_pool(pool_name);
     if(pool != component::IKVStore::POOL_ERROR) {
       PLOG("endpoint: opened existing pool");
@@ -112,13 +113,24 @@ public:
     }
     /* create session id */
     auto session_text = client_id + ":" + pool_name;
-    session = std::to_string(CityHash32(session_text.c_str(), client_id.length()));
-    _open_pools[session] = Session{pool};
+    session_id = std::to_string(CityHash32(session_text.c_str(), client_id.length()));
+    _open_pools[session_id] = Session{pool};
+    _client_sessions[client_id].insert(session_id);
+    return S_OK;
+  }
+
+  status_t close_pools(const std::string& client_id) {
+    assert(_client_sessions.count(client_id) == 1);
+    auto& session_set = _client_sessions[client_id];
+    for(auto& session : session_set) {
+      PLOG("closing pool Session (%s)", session.c_str());
+    }
     return S_OK;
   }
   
 private:
-  std::map<session_id, Session> _open_pools;
+  std::map<client_id_t, std::set<session_id_t>> _client_sessions;
+  std::map<session_id_t, Session>               _open_pools;
 };
 
 class REST_endpoint : public Http::Endpoint
@@ -135,53 +147,23 @@ private:
 public:
   explicit REST_endpoint(Address addr,
                          const std::string& pmem_path,
-                         bool use_ssl = false)
-    : Http::Endpoint(addr),
-      _router(),
-      _use_ssl(use_ssl),
-      _mgr(pmem_path)
-  {
+                         bool use_ssl = false);
+
+  ~REST_endpoint();
+
+  void disconnect_hook(const std::string& client_id) {
+    PNOTICE("--> disconnect (%s)", client_id.c_str());
+    _mgr.close_pools(client_id);
   }
 
-  void init(size_t thr = 2)
-  {
-    auto opts = Http::Endpoint::options().threads(static_cast<int>(thr));
-    Http::Endpoint::init(opts);
-    setup_routes();
-  }
-
+  void init(size_t thr = 2);
+  
   void start(const std::string& server_cert_file,
              const std::string& server_key_file,
-             const std::string& server_rootca_file)
-  {
-    Http::Endpoint::setHandler(_router.handler());
-    
-    if(_use_ssl) {
-      useSSL(server_cert_file, server_key_file);
-      useSSLAuth(server_rootca_file);
-      std::cout << "SSL: enabled\n";
-    }
+             const std::string& server_rootca_file);   
 
-    Http::Endpoint::serve();
-  }
-
-  void setup_routes()
-  {
-    using namespace Rest;
-
-    /* Example URL: /pools/myPool?sizemb=128 */
-    Routes::Post(_router, "/pools/:name", Routes::bind(&REST_endpoint::post_pools, this));
-
-    /* Example URL: /pools */
-    Routes::Get(_router, "/pools", Routes::bind(&REST_endpoint::get_pools, this));
-    
-    // Routes::Get(router, "/value/:name", Routes::bind(&StatsEndpoint::doGetMetric, this));
-    // Routes::Get(router, "/ready", Routes::bind(&Generic::handleReady));
-    //    Routes::Get(_router, "/status", Routes::bind(&REST_endpoint::get_status, this));
-
-    //    Routes::Post(_router, "/pool/:name", Routes::bind(&REST_endpoint::post_pool, this));
-  }
-
+private:
+  void setup_routes();
 };
 
 #pragma GCC diagnostic pop
