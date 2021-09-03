@@ -44,7 +44,7 @@
 #include <tbb/scalable_allocator.h>
 #pragma GCC diagnostic pop
 
-#define SANITY_CHECK 1
+#define SANITY_CHECK
 
 namespace nupm {
 
@@ -60,7 +60,7 @@ class Region : private common::log_source {
   using set_t = std::set<void *, std::less<void *>, tbb::scalable_allocator<void *>>;
 
   void mark_used(void *p) {
-#if SANITY_CHECK
+#ifdef SANITY_CHECK
     _used.push_front(p);
 #else
     (void) p;
@@ -75,7 +75,7 @@ class Region : private common::log_source {
 
   void mark_unused(void *p) {
     _free_list.push_front(p);
-#if SANITY_CHECK
+#ifdef SANITY_CHECK
 #else
     --_use_count;
 #endif
@@ -90,10 +90,10 @@ public:
         _free_set{},
         _capacity(region_size / object_size),
         _reclaim_when_empty(false)
-#ifndef SANITY_CHECK
-      , _use_count(0)
-#else
+#ifdef SANITY_CHECK
       , _used()
+#else
+      , _use_count(0)
 #endif
   {
     CPLOG(1,"new region: region_base=%p region_size=%lu objsize=%lu capacity=%lu",
@@ -142,7 +142,7 @@ public:
   }
 
   bool free(void *p) {
-#if SANITY_CHECK
+#ifdef SANITY_CHECK
     auto i = _used.begin();
 
     /* Note: considerable code here to allow implementation of the free list
@@ -150,7 +150,6 @@ public:
      */
     if (*i == p) {
       _used.pop_front();
-      PLOG("marking unused %p", p);
       mark_unused(p);
       return true;
     }
@@ -161,7 +160,6 @@ public:
     while (i != e) {
       if (*i == p) {
         _used.erase_after(last);
-        PLOG("marking unused %p", p);
         mark_unused(p);
         /* TODO: we could check for total free region */
         return true;
@@ -216,7 +214,7 @@ public:
 
   std::size_t use_count() const {
     
-#if SANITY_CHECK
+#ifdef SANITY_CHECK
     return std::distance(_used.begin(), _used.end());
 #else
     return _use_count;
@@ -235,7 +233,7 @@ public:
 
   void debug_dump(std::string *out_log = nullptr) {
     std::stringstream ss;
-#if SANITY_CHECK
+#ifdef SANITY_CHECK
     for (auto i : _used) {
       ss << "used(" << i << ")\n";
     }
@@ -269,7 +267,7 @@ private:
 
   std::size_t _capacity;
   bool _reclaim_when_empty;
-#if SANITY_CHECK
+#ifdef SANITY_CHECK
   list_t _used; /* we could do without this, but it guards against misuse */
 #else
   std::size_t _use_count;
