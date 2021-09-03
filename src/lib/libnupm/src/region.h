@@ -44,7 +44,8 @@
 #include <tbb/scalable_allocator.h>
 #pragma GCC diagnostic pop
 
-#define SANITY_CHECK 0
+#define SANITY_CHECK 1
+
 namespace nupm {
 
 /**
@@ -56,8 +57,7 @@ class Region : private common::log_source {
   Region &operator=(const Region &) = delete;
 
   using list_t = std::forward_list<void *, tbb::scalable_allocator<void *>>;
-  using set_t =
-      std::set<void *, std::less<void *>, tbb::scalable_allocator<void *>>;
+  using set_t = std::set<void *, std::less<void *>, tbb::scalable_allocator<void *>>;
 
   void mark_used(void *p) {
 #if SANITY_CHECK
@@ -89,8 +89,12 @@ public:
         _free_list{},
         _free_set{},
         _capacity(region_size / object_size),
-        _reclaim_when_empty(false),
-        _use_count(0)
+        _reclaim_when_empty(false)
+#ifndef SANITY_CHECK
+      , _use_count(0)
+#else
+      , _used()
+#endif
   {
     CPLOG(1,"new region: region_base=%p region_size=%lu objsize=%lu capacity=%lu",
           region_ptr, region_size, object_size, _capacity);
@@ -146,6 +150,7 @@ public:
      */
     if (*i == p) {
       _used.pop_front();
+      PLOG("marking unused %p", p);
       mark_unused(p);
       return true;
     }
@@ -156,6 +161,7 @@ public:
     while (i != e) {
       if (*i == p) {
         _used.erase_after(last);
+        PLOG("marking unused %p", p);
         mark_unused(p);
         /* TODO: we could check for total free region */
         return true;
@@ -209,13 +215,12 @@ public:
   }
 
   std::size_t use_count() const {
-    return
+    
 #if SANITY_CHECK
-        _used.size()
+    return std::distance(_used.begin(), _used.end());
 #else
-        _use_count
+    return _use_count;
 #endif
-            ;
   }
 
   void *base() const { return _base; }
@@ -230,13 +235,15 @@ public:
 
   void debug_dump(std::string *out_log = nullptr) {
     std::stringstream ss;
-
 #if SANITY_CHECK
-    for (auto i : _used)
-      ss << "u(" << i << ")\n";
+    for (auto i : _used) {
+      ss << "used(" << i << ")\n";
+    }
 #endif
-    for (auto i : _free_list)
-      ss << "f(" << i << ")\n";
+
+    for (auto i : _free_list) {
+      ss << "free(" << i << ")\n";
+    }
     /* dump the map, using reverse order in an attempt to match
      * the order in which elements will appear in the equivalent list.
      * Should this fail in the future (in the sense that the LB
@@ -244,13 +251,13 @@ public:
      * and the free_set.
      */
     for (auto it = _free_set.rbegin(); it != _free_set.rend(); ++it) {
-      ss << "f(" << *it << ")\n";
+      ss << "free(" << *it << ")\n";
     }
-    ss << "\n";
+
     if (out_log)
       out_log->append(ss.str());
     else
-      std::cout << ss.str() << std::endl;
+      std::cout << ss.str();
   }
 
 private:
@@ -283,6 +290,8 @@ public:
     , _arena_allocator()
     , _buckets()
   {}
+
+  inline auto& arena_allocator() { return _arena_allocator; }
 
   ~Region_map()
    {

@@ -172,7 +172,7 @@ TEST_F(Libnupm_test, RCA_LB_allocator)
 
 TEST_F(Libnupm_test, RCA_LB_allocator_issue155)
 {
-  std::size_t region_size = GB(20);
+  std::size_t region_size = GB(4);
   int numa_node = 0;
   auto v0 = std::make_unique<char[]>(region_size);
   ASSERT_NE(nullptr, v0);
@@ -182,7 +182,7 @@ TEST_F(Libnupm_test, RCA_LB_allocator_issue155)
 
   nupm::allocator_adaptor<char, nupm::Rca_LB> heap(lb);
 
-  const std::size_t COUNT = 7; /* careful, this gets mighty big, mighty fast! */
+  const std::size_t COUNT = 6; /* careful, this gets mighty big, mighty fast! */
 
   typedef struct { char* ptr; size_t len; size_t alignment; } info_t;
 
@@ -223,8 +223,8 @@ TEST_F(Libnupm_test, RCA_LB_allocator_issue155)
 
       for(unsigned i=0;i<COUNT;i++) {
         /* change to 5 to enable 1GB allocations */
-        auto j = abs(rand()) % 5; /* randomly pick, not exhaustive but hopefully enough */
-        assert(j < 5);
+        auto j = abs(rand()) % 4; /* randomly pick, not exhaustive but hopefully enough */
+        assert(j < 4);
         allocations.push_back({heap.allocate(ELEMENT_SIZES[j], ALIGNMENT_SIZES[j]), ELEMENT_SIZES[j], ALIGNMENT_SIZES[j]});
       }
 
@@ -236,6 +236,104 @@ TEST_F(Libnupm_test, RCA_LB_allocator_issue155)
     while(next_permutation(rel_order.begin(), rel_order.end()));
   }
   while(next_permutation(alloc_order.begin(), alloc_order.end()));
+}
+
+TEST_F(Libnupm_test, RCA_LB_allocator_coalescing)
+{
+  static constexpr std::size_t block_size = MB(1);
+  static constexpr std::size_t region_size = (8 * block_size) + MB(1); /* add enough to support alignment */
+
+  int numa_node = 0;
+
+  /* 1GB alignment to make it easier to visually debug */
+  //  auto v0 = reinterpret_cast<char*>(aligned_alloc(region_size,GB(1)));
+  auto v0 = reinterpret_cast<char*>(malloc(region_size));
+  ASSERT_NE(nullptr, v0);
+  /* AVL_range_allocator requires an addr_t, defined in comanche common/types.h */
+  nupm::Rca_LB lb(0);
+  lb.add_managed_region(v0, region_size, numa_node);
+
+  nupm::allocator_adaptor<char, nupm::Rca_LB> heap(lb);
+
+  std::vector<char*> allocations =
+    {
+     heap.allocate(block_size, block_size),
+     heap.allocate(block_size, block_size),
+     heap.allocate(block_size, block_size),
+     heap.allocate(block_size, block_size),
+     heap.allocate(block_size, block_size),
+     heap.allocate(block_size, block_size),
+     heap.allocate(block_size, block_size),
+     heap.allocate(block_size, block_size)
+    };
+  
+  int idx = 0;
+  void * p_last = nullptr;
+  /* check regions are adjacently allocated */
+  for(auto p : allocations) {
+    PLOG("region[%d]: %p", idx, p);
+    if(p_last) {
+      ASSERT_TRUE((reinterpret_cast<uint64_t>(p_last) + block_size) == reinterpret_cast<uint64_t>(p));
+    }
+    p_last = p;
+    idx++;    
+  }
+
+  heap.debug_dump();
+  
+#if 0
+  /* verify exhaustion */
+  bool failed = false;
+  try {
+    heap.allocate(block_size, block_size);
+  }
+  catch(...) {
+    failed = true;
+  }
+  ASSERT_TRUE(failed);
+#endif
+  
+  /* coalesce blocks 1 and 2 */
+  heap.deallocate(allocations[1], block_size);
+  heap.deallocate(allocations[2], block_size);
+  allocations[1] = heap.allocate(block_size * 2, block_size);
+  allocations[2] = nullptr;
+  ASSERT_TRUE((reinterpret_cast<uint64_t>(allocations[0]) + block_size) == reinterpret_cast<uint64_t>(allocations[1]));
+  heap.debug_dump();
+  
+  /* now coalesce block 0 */
+  PLOG("coaleascing block 0.. with 1+2.");
+  heap.deallocate(allocations[1], block_size * 2);
+  heap.deallocate(allocations[0], block_size);
+  heap.debug_dump();
+
+  PLOG("allocating (block * 3)...");
+  auto p3 = heap.allocate(block_size * 3, block_size);
+  ASSERT_TRUE(allocations[0] == p3);
+  heap.debug_dump();
+
+  PLOG("coalescing 4,5,6,..");
+  heap.deallocate(allocations[4], block_size);
+  heap.deallocate(allocations[5], block_size);
+  heap.deallocate(allocations[6], block_size);
+  heap.debug_dump();
+
+  PLOG("coalescing 7 ...");
+  heap.deallocate(allocations[7], block_size);
+  heap.debug_dump();
+
+  heap.deallocate(p3, block_size * 3);
+  heap.debug_dump();
+
+  heap.deallocate(allocations[3], block_size);
+  heap.debug_dump();
+
+  auto p9 = heap.allocate(block_size * 8, block_size);
+  heap.debug_dump();
+  
+  heap.deallocate(p9, block_size * 8);
+  heap.debug_dump();
+  ::free(v0);
 }
 
 

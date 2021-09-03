@@ -114,5 +114,9 @@ template <>
 		{
 			return pmr->free(p, int(numa_node), bytes);
 		}
+    static auto debug_dump(nupm::Rca_LB *pmr, std::string * out)
+    {
+      return pmr->debug_dump(out);
+    }
 	};
 #endif

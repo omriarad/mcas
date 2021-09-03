@@ -266,8 +266,11 @@ class AVL_node {
    * @param cmp
    * @returns
    */
-  static packed_ptr<AVL_node> remove(AVL_node *n, packed_ptr<AVL_node> &root, short &change,
-                          cmp_t cmp) {
+  static packed_ptr<AVL_node> remove(AVL_node *n,
+                                     packed_ptr<AVL_node> &root,
+                                     short &change,
+                                     cmp_t cmp)
+  {
     if (! root) {
       change = HEIGHT_NOCHANGE;
       return root;

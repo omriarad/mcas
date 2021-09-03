@@ -66,7 +66,9 @@ void Rca_LB::free(void *ptr, int numa_node, size_t size)
 
 void Rca_LB::debug_dump(std::string *out_log)
 {
-  _rmap->debug_dump(out_log);
+  std::cout << "----- Rca_LB -----------------\n";
+  _rmap->arena_allocator().debug_dump(out_log);
+  std::cout << "------------------------------\n";
 }
 
 }  // namespace nupm

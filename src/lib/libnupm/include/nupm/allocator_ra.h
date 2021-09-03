@@ -66,7 +66,7 @@ public:
 	allocator_adaptor(MR &pmr_) noexcept
 		: deallocator_type(pmr_)
 	{
-	}
+	}  
 
 	allocator_adaptor(const allocator_adaptor &a_) noexcept = default;
 
@@ -75,6 +75,11 @@ public:
 		: allocator_adaptor(*a_.pmr())
 	{
 	}
+
+  void debug_dump(std::string * out = nullptr)
+  {
+    mr_traits<MR>::debug_dump(this->pmr(), out);
+  }
 
 	allocator_adaptor &operator=(const allocator_adaptor &a_) = delete;
 

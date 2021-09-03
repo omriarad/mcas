@@ -103,11 +103,14 @@ class Rca_AVL_internal : private common::log_source {
 
   void debug_dump(std::string *out_str)
   {
-    if(_allocators[0])
-      _allocators[0]->dump_info(out_str);
+    for(auto& allocator : _allocators) {
+      allocator->show_state(out_str);
+    }
+    // if(_allocators[0])
+    //   _allocators[0]->dump_info(out_str);
 
-    if(_allocators[1])
-    _allocators[1]->dump_info(out_str);
+    // if(_allocators[1])
+    // _allocators[1]->dump_info(out_str);
   }
 
  private:

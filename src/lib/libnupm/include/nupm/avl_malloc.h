@@ -1,5 +1,5 @@
 /*
-  Copyright [2017-2019] [IBM Corporation]
+  Copyright [2017-2021] [IBM Corporation]
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
@@ -35,6 +35,7 @@
 #include <common/utils.h>
 #include <iostream>
 #include <vector>
+#include <map>
 #include <cstdlib> // exit
 
 //#define DEBUG_AVL_ALLOCATOR
@@ -50,9 +51,9 @@ class Memory_region : public core::AVL_node<Memory_region> {
   friend class AVL_range_allocator;
 
 private:
-  addr_t _addr;
-  size_t _size;
-  bool _free = true;
+  addr_t         _addr;
+  size_t         _size;
+  bool           _free = true;
   Memory_region* _next = nullptr;
   Memory_region* _prev = nullptr;
   char _padding; // packed, so 8(vft) + (8+8+2) (core::AVL_node<Memory_region>) + (8+8+1+8+8+1) = 60 bytes
@@ -82,6 +83,13 @@ public:
    */
   virtual ~Memory_region() {}
 
+  /** 
+   * Get next pointer
+   * 
+   * 
+   * @return 
+   */
+  inline addr_t next() const { return  _next ? _next->addr() : 0; }
 
   /**
    * Check that region contains address
@@ -406,6 +414,36 @@ public:
     delete _tree;
   }
 
+  void show_state(std::string * out = nullptr) {
+
+    std::map<void*, std::string> output;
+    _tree->apply_topdown([&](void* p, size_t) {
+                           Memory_region* mr = static_cast<Memory_region*>(p);
+                           assert(mr);
+                           std::stringstream ss;
+                           ss << mr->paddr() << " " << mr->size() << " " << 
+                             (mr->is_free() ? "free" : "used") <<
+                             " -->" << reinterpret_cast<void*>(mr->next()) << 
+                             std::endl;
+                           output[mr->paddr()] = ss.str();
+                         });
+    if(out) {
+      std::stringstream ss;
+      for(auto& l : output)
+        ss << l.second;
+      *out = ss.str();
+    }
+    else {
+      std::cout << "--- AVL state ---\n";
+      for(auto& l : output) {
+        std::cout << l.second;
+      }
+      std::cout << "-----------------\n";
+    }
+  }
+
+
+
   /**
    * Allocate a region of memory
    *
@@ -459,7 +497,7 @@ public:
 
         return aligned_region;
       }
-      else {
+      else { /* no suitable aligned region */
         
         /* OK, maybe there still is space, but alignment isn't there.  Now we need
            to three-way split a large enough block */
@@ -505,7 +543,7 @@ public:
         if (option_DEBUG) {
           PLOG("Right split:  %lx-%lx size=%lu", right_split_base, right_split_base + right_split_size, right_split_size);
         }
-        assert(right_split_size > 0);
+        //        assert(right_split_size > 0);
         assert(left_split_size > 0);
         assert(center_split_size > 0);
 
@@ -517,23 +555,38 @@ public:
 
         void* q = _slab.alloc();
         if (!q) throw General_exception("AVL_range_allocator: failed to allocate %ld", size);
-        Memory_region* right_node =
-          new (q) Memory_region(right_split_base, right_split_size);
+        Memory_region* right_node = nullptr;
 
         auto adjacent_right = region->_next;
 
-        region->_size = left_split_size;
-        region->_next = aligned_region;
-        aligned_region->_prev = region;
-        aligned_region->_free = false;
-        aligned_region->_next = right_node;
-        right_node->_prev = aligned_region;
-        right_node->_next = adjacent_right;
-        if(adjacent_right)
-          adjacent_right->_prev = right_node;
+        if(right_split_size > 0) {
+          right_node = new (q) Memory_region(right_split_base, right_split_size);
 
-        _tree->insert_node(aligned_region);
-        _tree->insert_node(right_node);
+          region->_size = left_split_size;
+          region->_next = aligned_region;
+          aligned_region->_prev = region;
+          aligned_region->_free = false;
+          aligned_region->_next = right_node;
+          right_node->_prev = aligned_region;
+          right_node->_next = adjacent_right;
+          if(adjacent_right)
+            adjacent_right->_prev = right_node;
+
+          _tree->insert_node(aligned_region);
+          _tree->insert_node(right_node);
+        }
+        else {
+          region->_size = left_split_size;
+          region->_next = aligned_region;
+          aligned_region->_prev = region;
+          aligned_region->_free = false;
+          aligned_region->_next = adjacent_right;
+
+          if(adjacent_right)
+            adjacent_right->_prev = region;
+              
+          _tree->insert_node(aligned_region);
+        }
 
         if(alignment > 0) {
           assert(check_aligned(aligned_region->_addr, alignment));
