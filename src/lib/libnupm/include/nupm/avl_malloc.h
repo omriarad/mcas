@@ -303,7 +303,7 @@ protected:
  */
 class AVL_range_allocator {
 private:
-  static constexpr bool option_DEBUG = false;
+  static constexpr bool option_DEBUG = true;
 
   core::slab::CRuntime<Memory_region> __default_allocator;
 
@@ -353,14 +353,14 @@ public:
         /* the first entry will be the root (at least it should be!) */
         root = reinterpret_cast<packed_ptr<core::AVL_node<core::Memory_region>>*>(reinterpret_cast<addr_t>(slab.get_first_element()));
 
-        if (option_DEBUG) PLOG("reconstructed root pointer: %p", common::p_fmt(root));
+        if (option_DEBUG) PLOG("AVL_range_allocator: reconstructed root pointer: %p", common::p_fmt(root));
       }
       else {
         /* create root pointer on slab */
         root =
           reinterpret_cast<packed_ptr<core::AVL_node<core::Memory_region>>*>(slab.alloc());
 
-        if (option_DEBUG) PLOG("new root pointer: %p", static_cast<void*>(root));
+        if (option_DEBUG) PLOG("AVL_range_allocator: new root pointer: %p", static_cast<void*>(root));
 
         *root = packed_ptr<core::AVL_node<core::Memory_region>>{};
       }
@@ -375,7 +375,7 @@ public:
           throw General_exception("AVL_range_allocator: failed to allocate from slab");
 
         if (option_DEBUG)
-          PLOG("inserting root region (%lx-%lx)", start, start + size);
+          PLOG("AVL_range_allocator: inserting root region (%lx-%lx)", start, start + size);
 
         try {
           _tree->insert_node(new (p) Memory_region(start, size));
@@ -510,19 +510,19 @@ public:
 
         assert(region->_free == true);
         if (option_DEBUG) {
-          PLOG("Region to split: %lx-%lx size=%lu (requested size=%lu, requested alignment = %lu, free=%d)",
+          PLOG("AVL_range_allocator: region to split: %lx-%lx size=%lu (requested size=%lu, requested alignment = %lu, free=%d)",
                region->_addr, region->_addr + region->_size, region->_size, size, alignment, region->_free);
           
           assert(region->_addr % alignment);
           
-          PLOG("%lx rounded up %lx", region->_addr, round_up(region->_addr, alignment));
+          PLOG("AVL_range_allocator: %lx rounded up %lx", region->_addr, round_up(region->_addr, alignment));
           assert(region->_addr % alignment);
         }
 
         /* left split */
         size_t left_split_size = round_up(region->_addr, alignment) - region->_addr;
         if (option_DEBUG) {
-          PLOG("Left split:   %lx-%lx size=%lu", region->_addr, region->_addr+left_split_size, left_split_size);
+          PLOG("AVL_range_allocator: Left split:   %lx-%lx size=%lu", region->_addr, region->_addr+left_split_size, left_split_size);
         }
 
         /* center split */
@@ -530,7 +530,7 @@ public:
         size_t center_split_size = size;
 
         if (option_DEBUG) {
-          PLOG("Center split: %lx-%lx size=%lu (remaining=%lu)",
+          PLOG("AVL_range_allocator: Center split: %lx-%lx size=%lu (remaining=%lu)",
                center_split_base, center_split_base + center_split_size,
                center_split_size, center_split_base % alignment);
           assert(center_split_base % alignment == 0);
@@ -541,7 +541,7 @@ public:
         size_t right_split_size = region->_size - left_split_size - center_split_size;
 
         if (option_DEBUG) {
-          PLOG("Right split:  %lx-%lx size=%lu", right_split_base, right_split_base + right_split_size, right_split_size);
+          PLOG("AVL_range_allocator: Right split:  %lx-%lx size=%lu", right_split_base, right_split_base + right_split_size, right_split_size);
         }
         //        assert(right_split_size > 0);
         assert(left_split_size > 0);
@@ -659,7 +659,7 @@ public:
                           addr, size);
 
     if (option_DEBUG)
-      PLOG("alloc_at (addr=0x%lx,size=%ld) found fitting region %lx-%lx:", addr,
+      PLOG("AVL_range_allocator: alloc_at (addr=0x%lx,size=%ld) found fitting region %lx-%lx:", addr,
            size, region->_addr, region->_addr + region->_size);
 
     if(region->_size < size)
