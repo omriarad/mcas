@@ -99,6 +99,7 @@ class Rca_LB : public common::Reconstituting_allocator {
 
  private:
   std::unique_ptr<Region_map> _rmap;
+  static constexpr unsigned   _debug_level = 3;
 };
 
 }  // namespace nupm
