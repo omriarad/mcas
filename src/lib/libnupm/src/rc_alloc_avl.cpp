@@ -66,6 +66,7 @@ class Rca_AVL_internal : private common::log_source {
 
   void inject_allocation(void *ptr, size_t size, const int numa_node)
   {
+    assert(numa_node== 0);
     const auto numa_node_u = boost::numeric_cast<unsigned>(numa_node);
     assert(ptr);
     assert(_allocators[numa_node_u]);
@@ -77,6 +78,7 @@ class Rca_AVL_internal : private common::log_source {
 
   void *alloc(size_t size, int numa_node, size_t alignment)
   {
+    assert(numa_node == 0);
     const auto numa_node_u = boost::numeric_cast<unsigned>(numa_node);
     try {
       auto mr = _allocators[numa_node_u]->alloc(size, alignment);
@@ -94,6 +96,7 @@ class Rca_AVL_internal : private common::log_source {
 
   void free(void *ptr, int numa_node)
   {
+    assert(numa_node == 0);
     const auto numa_node_u = boost::numeric_cast<unsigned>(numa_node);
     if (ptr == nullptr)
       throw API_exception("pointer argument to free cannot be null");
@@ -103,11 +106,12 @@ class Rca_AVL_internal : private common::log_source {
 
   void debug_dump(std::string *out_str)
   {
-    for(auto& allocator : _allocators) {
-      allocator->show_state(out_str);
-    }
-    // if(_allocators[0])
-    //   _allocators[0]->dump_info(out_str);
+    //    for(auto& allocator : _allocators) {
+    //      assert(allocator);
+    //      allocator->show_state(out_str);
+    //}
+    if(_allocators[0])
+      _allocators[0]->show_state(out_str);
 
     // if(_allocators[1])
     // _allocators[1]->dump_info(out_str);

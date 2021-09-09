@@ -419,6 +419,7 @@ public:
     std::map<void*, std::string> output;
     _tree->apply_topdown([&](void* p, size_t) {
                            Memory_region* mr = static_cast<Memory_region*>(p);
+                           if(mr == nullptr) return;
                            assert(mr);
                            std::stringstream ss;
                            ss << mr->paddr() << " " << mr->size() << " " << 
