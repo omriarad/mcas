@@ -4,6 +4,9 @@
 #include <common/str_utils.h>
 #include <common/utils.h>
 #include <common/logging.h>
+#if 0
+#include <cw/test_data.h>
+#endif
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"
@@ -118,6 +121,9 @@ static void perform_RDMA_test(void * buffer, size_t buffer_len)
   /* create instance of MCAS client session */
   auto mcas = factory->mcas_create(1 /* debug level, 0=off */,
 				   10, /* patience */
+#if CW_TEST
+                      cw::test_data(__LINE__), // test_count (number of test RDMA transfers to run)
+#endif
                                    getlogin(),
                                    "10.0.0.101:11911", /* MCAS server endpoint */
                                    "mlx5_0"); /* see mcas_client.h */

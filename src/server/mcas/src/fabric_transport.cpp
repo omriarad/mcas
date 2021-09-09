@@ -103,11 +103,20 @@ constexpr unsigned Fabric_transport::INJECT_SIZE;
 Fabric_transport::Fabric_transport(const boost::optional<std::string> &fabric,
                    const boost::optional<std::string> &fabric_provider,
                    const boost::optional<std::string> &device,
-                   unsigned                            port)
+                   unsigned                            port,
+                   unsigned                            buffer_count_
+#if CW_TEST && 0
+	, byte_span scratchpad_
+#endif
+)
   : _fabric_debug(mcas::global::debug_level > 1),
     _fabric(make_fabric(fabric, fabric_provider, device, _fabric_debug)),
     _server_factory(make_server_factory(*_fabric, boost::numeric_cast<uint16_t>(port))),
     _port(port)
+    , _buffer_count(buffer_count_)
+#if 0  && 11
+	, _scratchpad()
+#endif
 {
   if (_fabric_debug)
     PLOG("fabric_transport: (fabric=%s, provider=%s, device=%s, port=%u)", optional_print(fabric),
@@ -121,7 +130,11 @@ auto Fabric_transport::get_new_connection() -> Connection_handler *
     connection
     ? new Connection_handler(mcas::global::debug_level,
                              _server_factory.get(),
-                             std::unique_ptr<component::IFabric_endpoint_unconnected_server>(connection))
+                             std::unique_ptr<component::IFabric_endpoint_unconnected_server>(connection), _buffer_count
+#if 0 && 11
+		, _scratchpad
+#endif
+		)
     : nullptr;
 }
 

@@ -32,9 +32,21 @@ namespace common
 	/* span of a const area. No equivalent in ::iovec, so always use span */
 	using const_byte_span = span<const byte>;
 	inline const_byte_span make_const_byte_span(const void *base, std::size_t len)
-    {
-      return const_byte_span(static_cast<const_byte_span::pointer>(base), len);
-    }
+	{
+		return const_byte_span(static_cast<const_byte_span::pointer>(base), len);
+	}
+	/* make a const byte span from a collection of contiguous elements (array, vector) */
+	template <typename V>
+		const_byte_span make_const_byte_span(const V &v)
+		{
+			return make_const_byte_span(static_cast<const void *>(v.data()), v.size() * (sizeof *v.data()));
+		}
+	/* make a const byte span from a collection of contiguous elements (C array) */
+	template <typename V, size_t N>
+		const_byte_span make_const_byte_span(const V (&v)[N])
+		{
+			return const_byte_span(static_cast<const void *>(v), sizeof v);
+		}
 }
 
 namespace
@@ -42,7 +54,7 @@ namespace
 	/* Accessors: Non-member in order to match ::iovec accessors */
 	/* Start of area as a void *, for use with %p format and for conversion to an arbitrary type */
 	inline const void *base(const common::const_byte_span &r) { return r.data(); }
-    /* Length of area in bytes, for use in byte-based address calculations and comparisons */
+	/* Length of area in bytes, for use in byte-based address calculations and comparisons */
 	inline std::size_t size(const common::const_byte_span &r) { return r.size(); }
 	/* Start of area as byte *, for use in byte-based address calculations and comparisons */
 	inline const common::byte *data(const common::const_byte_span &r) { return r.data(); }
@@ -100,7 +112,20 @@ namespace common
 
 namespace common
 {
-	/* Converion from span of non-const to span of const */
+	/* make a byte span from a collection of contiguous elements (array, vector) */
+	template <typename V>
+		byte_span make_byte_span(V &v)
+		{
+			return make_byte_span(static_cast<void *>(v.data()), v.size() * (sizeof v[0]));
+		}
+	/* make a byte span from a collection of contiguous elements (C array) */
+	template <typename V, size_t N>
+		byte_span make_byte_span(V (&v)[N])
+		{
+			return make_byte_span(static_cast<void *>(v), sizeof v);
+		}
+
+	/* Conversion from span of non-const to span of const */
 	inline const_byte_span make_const_byte_span(const byte_span s) { return const_byte_span(::data(s), ::size(s)); }
 }
 

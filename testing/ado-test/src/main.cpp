@@ -20,6 +20,9 @@
 struct Options {
   unsigned debug_level;
   unsigned patience;
+#if CW_TEST
+  std::uint64_t test_count;
+#endif
   boost::optional<std::string> device;
   boost::optional<std::string> src_addr;
   std::string server;
@@ -53,6 +56,9 @@ Itf_ref<IMCAS> init(const std::string &server_hostname, int port)
   using common::string_view;
   auto mcas = make_itf_ref(fact->mcas_create_nsd(g_options.debug_level,
                                              g_options.patience,
+#if CW_TEST
+                                             g_options.test_count,
+#endif
                                              "None",
                                              g_options.device ? string_view(*g_options.device) : string_view(),
                                              g_options.src_addr ? string_view(*g_options.src_addr) : string_view(),
@@ -715,6 +721,9 @@ int main(int argc, char *argv[])
       ("port", po::value<std::uint16_t>()->default_value(0), "Server port. Default 0 (mapped to 11911 for verbs, 11921 for sockets)")
       ("debug", po::value<unsigned>()->default_value(0), "Debug level")
       ("patience", po::value<unsigned>()->default_value(30), "Patience with server (seconds)")
+#if CW_TEST
+      ("test-count", po::value<uint64_t>()->default_value(10000 + __LINE__), "RDMA test count")
+#endif
       ("async", "Use asynchronous invocation");
 
     po::variables_map vm;
@@ -746,6 +755,9 @@ int main(int argc, char *argv[])
     g_options.port        = vm["port"].as<std::uint16_t>();
     g_options.debug_level = vm["debug"].as<unsigned>();
     g_options.patience = vm["patience"].as<unsigned>();
+#if CW_TEST
+    g_options.test_count = vm["test-count"].as<std::uint64_t>();
+#endif
     g_options.async       = vm.count("async");
 
     mcas = init(g_options.server, g_options.port);

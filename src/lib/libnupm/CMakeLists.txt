@@ -30,7 +30,37 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/${C
 
 add_definitions(-DCONFIG_DEBUG)
 
-file(GLOB SOURCES src/*.c*)
+set(SOURCES
+  src/allocator_ra.cpp
+  src/arena_alloc.cpp
+  src/arena_dev.cpp
+  src/arena_fs.cpp
+  src/avl_malloc.cpp
+  src/avl_tree.cpp
+  src/bad_alloc.cpp
+  src/block_bitmap.cpp
+  src/dax_data.cpp
+  src/dax_manager.cpp
+  src/heap_allocator.cpp
+  src/lazy_region.cpp
+  src/mappers.cpp
+  src/mcas_mod.cpp
+  src/nd_utils.cpp
+  src/nupm.cpp
+  src/path_use.cpp
+  src/rampant_alloc.cpp
+  src/range_manager_impl.cpp
+  src/range_use.cpp
+  src/rc_alloc_avl.cpp
+  src/rc_alloc_lb.cpp
+  src/region.cpp
+  src/region_modifications.cpp
+  src/slab.cpp
+  src/space_opened.cpp
+  src/space_registered.cpp
+  src/stacktrace.cpp
+  src/tx_cache.cpp
+)
 
 add_library(${PROJECT_NAME} SHARED ${SOURCES})
 

@@ -29,6 +29,7 @@
 #include "fabric_server_grouped_factory.h"
 #include "fabric_str.h" /* tostr */
 #include "fabric_util.h"
+#include "fabric_enter_exit_trace.h"
 #include "hints.h"
 #include "system_fail.h"
 
@@ -117,7 +118,7 @@ namespace
   )
   try
   {
-    ::fi_info *f;
+    ::fi_info *f = nullptr; /* Although not documented as such, the fi_getinfo info parameter is in/out. */
 	if ( 0 < debug_) { PLOG("%s: node %s service %s hints* %s", __func__, node_ ? node_ : "(no node)", service_ ? service_ : "(no service)", std::string(hints_ ? tostr(*hints_) : "(no hints)" ).c_str()); }
     CHECK_FI_ERR(::fi_getinfo(version_, node_, service_, 0, hints_, &f));
     return std::shared_ptr<::fi_info>(f,::fi_freeinfo);
@@ -263,6 +264,7 @@ std::uint16_t Fabric::choose_port(std::uint16_t port_)
 
 component::IFabric_server_factory * Fabric::open_server_factory(const common::string_view json_configuration_, std::uint16_t control_port_)
 {
+	ENTER_EXIT_TRACE
   _info = parse_info(json_configuration_, _info);
   control_port_ = choose_port(control_port_);
   return new Fabric_server_factory(*this, *this, *_info, listen_addr(control_port_), control_port_);
@@ -461,6 +463,7 @@ namespace
 component::IFabric_endpoint_unconnected_client * Fabric::make_endpoint(const common::string_view json_configuration_, common::string_view remote_endpoint_, std::uint16_t port_)
 try
 {
+	ENTER_EXIT_TRACE
   _info = parse_info(json_configuration_, _info);
   return new fabric_endpoint(*this, *this, *_info, remote_endpoint_, port_);
 }
@@ -542,7 +545,7 @@ catch ( const fabric_runtime_error &e )
 
 std::shared_ptr<::fid_eq> Fabric::make_fid_eq(::fi_eq_attr &attr_, void *context_) const
 {
-  ::fid_eq *f;
+  ::fid_eq *f = nullptr; /* although not documented, the fi_getinfo info parameter is in/out. take no chances here. */
   CHECK_FI_ERR(::fi_eq_open(&*_fabric, &attr_, &f, context_));
   FABRIC_TRACE_FID(f);
   return fid_ptr(f);
@@ -550,5 +553,6 @@ std::shared_ptr<::fid_eq> Fabric::make_fid_eq(::fi_eq_attr &attr_, void *context
 
 const char *Fabric::prov_name() const noexcept
 {
+	ENTER_EXIT_TRACE
   return _info && _info->fabric_attr ? _info->fabric_attr->prov_name : nullptr;
 }

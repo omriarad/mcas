@@ -64,6 +64,8 @@ void global_signal_handler(int signal)
 
 }  // namespace
 
+#if CW_TEST /* disable zyre, in case it affects RDMA polling */
+#else
 struct zyre_run
 {
 private:
@@ -107,6 +109,7 @@ public:
   ~zyre_group_membership() { if (_zyre) { _zyre->group_leave(_group_name); } }
 };
 
+#endif
 int main(int argc, char *argv[])
 {
   namespace po = boost::program_options;
@@ -146,6 +149,8 @@ int main(int argc, char *argv[])
 
     mcas::global::debug_level = g_options.debug_level = vm["debug"].as<unsigned>();
 
+#if CW_TEST /* simplify for performance debug */
+#else
     std::unique_ptr<ADO_manager> mgr;
 
     try {
@@ -155,9 +160,11 @@ int main(int argc, char *argv[])
       std::cout << "error: bad configuration file: " << e.cause() << "\n";
       return -1;
     }
+#endif
 
     mcas::Config_file config(g_options.debug_level, g_options.config);
-
+#if CW_TEST /* simplify for performance debug */
+#else
     component::Itf_ref<component::ICluster> zyre;
 
     auto group = config.cluster_group();
@@ -202,7 +209,7 @@ int main(int argc, char *argv[])
 
     zyre_run zr(zyre.get());
     zyre_group_membership zg(zyre.get(), group);
-
+#endif
     /* launch shards */
     try
     {
@@ -214,6 +221,8 @@ int main(int argc, char *argv[])
           throw General_exception("signal call failed");
       }
 
+#if CW_TEST
+#else
       std::string msg_sender_uuid;
       std::string msg_type;
       std::string msg_content;
@@ -246,7 +255,7 @@ int main(int argc, char *argv[])
         /* should be coordinated with zyre heartbeat */
         sleep(1);
       }
-
+#endif
       launcher->wait_for_all();
     }
     catch ( const Exception &e )

@@ -211,7 +211,7 @@ protected:
   {
     if (node == nullptr) return nullptr;
 
-    common::Fixed_stack<Memory_region*> stack;
+    common::Fixed_stack<Memory_region*, 10000> stack;
     stack.push(node);
 
     while (!stack.empty()) {

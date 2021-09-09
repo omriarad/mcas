@@ -43,11 +43,11 @@
 #include <string>
 
 class Open_connection {
-  common::moveable_ptr<mcas::client::Connection_handler> _open_cnxn;
+  common::moveable_ptr<mcas::client::Connection> _open_cnxn;
 
  public:
   Open_connection() : _open_cnxn(nullptr) {}
-  Open_connection(mcas::client::Connection_handler &_connection);
+  Open_connection(mcas::client::Connection &_connection);
   Open_connection(Open_connection &&) noexcept = default;
   ~Open_connection();
 };
@@ -80,7 +80,11 @@ class MCAS_client
               const common::string_view           provider,
               const common::string_view           dest_addr,
               std::uint16_t                       port,
+              unsigned                            buffer_count,
               unsigned                            patience,
+#if CW_TEST
+              cw::test_data test_data,
+#endif
               const common::string_view           other = common::string_view() );
 
   MCAS_client(const MCAS_client &) = delete;
@@ -129,7 +133,8 @@ class MCAS_client
                              const size_t         size,
                              const unsigned int   flags              = 0,
                              const uint64_t       expected_obj_count = 0,
-                             const Addr base = Addr{0}) override;
+                             const Addr base = Addr{0}
+	) override;
 
   virtual pool_t open_pool(const string_view    name,
                            const unsigned int   flags = 0,
@@ -300,7 +305,7 @@ class MCAS_client
   std::unique_ptr<component::IFabric_endpoint_unconnected_client> _ep;
   mcas::Buffer_manager<component::IFabric_memory_control> _bm; /* IO buffer manager: must precede opening of connection, which occurs in component::IFabric_client */
   std::unique_ptr<component::IFabric_client>        _transport;
-  std::unique_ptr<mcas::client::Connection_handler> _connection;
+  std::unique_ptr<mcas::client::Connection> _connection;
   Open_connection                                   _open_connection;
 
  private:
@@ -342,6 +347,9 @@ class MCAS_client_factory : public component::IMCAS_factory {
   /* NIC/souuce/dest version of create */
   component::IMCAS *mcas_create_nsd(unsigned          debug_level,
                                 unsigned          patience,
+#if CW_TEST
+	const cw::test_data & test_data,
+#endif
                                 const string_view owner,
                                 const string_view src_nic_device,
                                 const string_view src_ip_addr,

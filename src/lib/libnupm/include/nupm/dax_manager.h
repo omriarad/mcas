@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -19,8 +19,8 @@
  *
  */
 
-#ifndef __NUPM_DAX_MANAGER_H__
-#define __NUPM_DAX_MANAGER_H__
+#ifndef MCAS_NUPM_DAX_MANAGER_H__
+#define MCAS_NUPM_DAX_MANAGER_H__
 
 #include "dax_manager_abstract.h"
 #include "range_manager_impl.h"
@@ -71,9 +71,16 @@ struct registry_memory_mapped
   virtual ~registry_memory_mapped() {}
   virtual bool enter(common::fd_locked &&fd, const string_view & id, const std::vector<byte_span> &m) = 0;
   virtual void remove(const string_view &id) = 0;
-  virtual void * locate_free_address_range(std::size_t size) = 0;
 };
 
+struct dax_manager_log_source
+	: common::log_source 
+{
+	explicit dax_manager_log_source(const common::log_source &s)
+		: common::log_source(s)
+	{}
+};
+	
 /**
  * Lowest level persisent manager for devdax devices. See dax_map.cc for static
  * configuration.
@@ -81,9 +88,15 @@ struct registry_memory_mapped
  */
 struct dax_manager
 	: public dax_manager_abstract
-	, private registry_memory_mapped
+#if 0
+	, private dax_manager_log_source
+#endif
 	, public range_manager_impl
+	, private registry_memory_mapped
 {
+#if 0
+	unsigned debug_level() const { return dax_manager_log_source::debug_level(); }
+#endif
  private:
   static constexpr const char *_cname = "dax_manager";
   using byte = common::byte;
@@ -184,9 +197,10 @@ struct dax_manager
 
   void register_range(const void *begin, std::size_t size);
   void deregister_range(const void *begin, std::size_t size);
-#if 1
+#if 0
   void * locate_free_address_range(std::size_t size) override { return range_manager_impl::locate_free_address_range(size); }
 #endif
+
  private:
   using byte_span = common::byte_span;
   space_opened map_space(const std::string &path, addr_t base_addr);
@@ -210,7 +224,6 @@ struct dax_manager
   std::unique_ptr<arena> make_arena_fs(const path &p, addr_t base, bool force_reset);
   std::unique_ptr<arena> make_arena_dev(const path &p, addr_t base, bool force_reset);
   std::unique_ptr<arena> make_arena_none(const path &p, addr_t base, bool force_reset);
-
  private:
   using guard_t = std::lock_guard<std::mutex>;
   using mapped_spaces = std::map<std::string, space_registered>;
@@ -219,8 +232,6 @@ struct dax_manager
   mapped_spaces                             _mapped_spaces;
   std::vector<std::unique_ptr<arena>>       _arenas;
   std::mutex                                _reentrant_lock;
- public:
-  friend struct nupm::range_use; /* access to _address_coverage */
 };
 }  // namespace nupm
 

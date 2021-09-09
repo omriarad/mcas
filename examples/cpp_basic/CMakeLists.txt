@@ -6,6 +6,7 @@ add_definitions(${GCC_COVERAGE_COMPILE_FLAGS} -DCONFIG_DEBUG)
 
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/GSL/include)
+include_directories(${CMAKE_SOURCE_DIR}/src/lib/cw/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/components)
 
 add_executable(example-cpp-basic cpp_basic.cpp)

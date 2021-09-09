@@ -18,7 +18,7 @@
 #include <gsl/gsl_byte>
 
 #ifndef MCAS_BYTE_USES_STD
-/* For compilcation with C++14, use gsl::byte, not C++17 std::byte */
+/* For compilation with C++14 use gsl::byte, not C++17 std::byte */
 #define MCAS_BYTE_USES_STD 0
 #endif
 

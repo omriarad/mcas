@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -11,7 +11,9 @@
    limitations under the License.
 */
 
+
 #include "space_opened.h"
+
 #include "dax_manager.h"
 #include "arena_fs.h"
 #include "filesystem.h"
@@ -51,7 +53,9 @@ namespace fs = std::filesystem;
 namespace fs = std::experimental::filesystem;
 #endif
 
-std::vector<common::memory_mapped> nupm::space_opened::map_dev(int fd, const addr_t base_addr)
+using nupm::space_opened;
+
+std::vector<common::memory_mapped> space_opened::map_dev(int fd, const addr_t base_addr, const bool map_locked)
 {
   /* cannot map if the map grain exceeds the region grain */
   assert(base_addr);
@@ -85,21 +89,21 @@ std::vector<common::memory_mapped> nupm::space_opened::map_dev(int fd, const add
   common::memory_mapped iovm(
     common::make_byte_span(base_ptr, len) /* length = 0 means whole device (contrary to man 3 mmap??) */
     , PROT_READ | PROT_WRITE
-    , MAP_SHARED_VALIDATE | MAP_FIXED | MAP_SYNC | MAP_HUGE | dax_manager::effective_map_locked
+    , MAP_SHARED_VALIDATE | MAP_FIXED | MAP_SYNC | MAP_HUGE | map_locked
     , fd
   );
-  CPLOG(1, "%s: %p = mmap(%p, 0x%zx, %s", __func__, ::base(iovm), base_ptr, ::size(iovm), dax_manager::effective_map_locked ? "MAP_SYNC|locked" : "MAP_SYNC|not locked");
+  CPLOG(0, "%s: %p = mmap(%p, 0x%zx, %s", __func__, ::base(iovm), base_ptr, ::size(iovm), map_locked ? "MAP_SYNC|locked" : "MAP_SYNC|not locked");
 
   if ( ! iovm ) {
     iovm =
       common::memory_mapped(
         common::make_byte_span(base_ptr, len) /* length = 0 means whole device (contrary to man 3 mmap??) */
         , PROT_READ | PROT_WRITE
-        , MAP_SHARED_VALIDATE | MAP_FIXED | MAP_HUGE | dax_manager::effective_map_locked
+        , MAP_SHARED_VALIDATE | MAP_FIXED | MAP_HUGE | map_locked
         , fd
       );
 
-    CPLOG(1, "%s: %p = mmap(%p, 0x%zx, %s", __func__, ::base(iovm), base_ptr, ::size(iovm), dax_manager::effective_map_locked ? "locked" : "not locked");
+    CPLOG(0, "%s: %p = mmap(%p, 0x%zx, %s", __func__, ::base(iovm), base_ptr, ::size(iovm), map_locked ? "locked" : "not locked");
   }
 
   if ( ! iovm ) {
@@ -121,22 +125,23 @@ std::vector<common::memory_mapped> nupm::space_opened::map_dev(int fd, const add
   return v;
 }
 
-std::vector<common::memory_mapped> nupm::space_opened::map_fs(int fd, const std::vector<byte_span> &mapping, ::off_t offset_)
+std::vector<common::memory_mapped> space_opened::map_fs(int fd, const std::vector<byte_span> &mapping, ::off_t offset_)
 {
   return arena_fs::fd_mmap(fd, mapping, MAP_SHARED_VALIDATE | MAP_FIXED | MAP_SYNC | MAP_HUGE, offset_);
 }
 
 /* space_opened constructor for devdax: filename, single address, unknown size */
-nupm::space_opened::space_opened(
+space_opened::space_opened(
   const common::log_source & ls_
-  , dax_manager * dm_
+  , range_manager * rm_
   , common::fd_locked &&fd_
   , const addr_t base_addr
+	, const bool map_locked_ /* dax_manager::effective_map_locked */
 )
 try
   : common::log_source(ls_)
   , _fd_locked(std::move(fd_))
-  , _range(dm_, map_dev(_fd_locked.fd(), base_addr))
+  , _range(rm_, map_dev(_fd_locked.fd(), base_addr, map_locked_))
 {
 }
 catch ( std::exception &e )
@@ -147,16 +152,16 @@ catch ( std::exception &e )
 }
 
 /* space_opened constructor for fsdax: filename, multiple mappings, unknown size */
-nupm::space_opened::space_opened(
+space_opened::space_opened(
   const common::log_source & ls_
-  , dax_manager * dm_
+  , range_manager * rm_
   , common::fd_locked &&fd_
   , const std::vector<byte_span> &mapping
 )
 try
   : common::log_source(ls_)
   , _fd_locked(std::move(fd_))
-  , _range(dm_, map_fs(_fd_locked.fd(), mapping, 0))
+  , _range(rm_, map_fs(_fd_locked.fd(), mapping, 0))
 {
 }
 catch ( std::exception &e )
@@ -166,7 +171,7 @@ catch ( std::exception &e )
 	throw;
 }
 
-void nupm::space_opened::grow(std::vector<byte_span> && mapping)
+void space_opened::grow(std::vector<byte_span> && mapping)
 try
 {
   _range.grow(map_fs(_fd_locked.fd(), mapping, _range.size()));
@@ -177,7 +182,7 @@ catch ( std::exception &e )
 	throw;
 }
 
-void nupm::space_opened::shrink(std::size_t size)
+void space_opened::shrink(std::size_t size)
 {
   _range.shrink(size);
 }

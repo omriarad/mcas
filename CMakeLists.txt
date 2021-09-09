@@ -26,6 +26,7 @@ option(CODE_COVERAGE "enable gcc code coverage" OFF)
 option(SPAN_USES_GSL "span data uses gsl::span, not iovec" OFF)
 option(BYTE_USES_STD "byte data uses std::byte, not gsl::byte" OFF)
 option(INVASIVE_PERF "enable invasive performance trace" OFF)
+option(CW_TEST "invaslive RDMA performance testing" OFF)
 option(PROFILE "profile the code" ON)
 
 set(DM_REGION_LOG_GRAIN_SIZE 25 CACHE STRING "log base 2 of the device_manager allocation granularity")
@@ -56,6 +57,10 @@ endif()
 #add_compile_options(-shared-libgcc) # for exception support when using gcc (not g++) to link
 add_compile_options(-g)
 add_definitions(-DTBB_USE_THREADING_TOOLS -DEASTL_STD_ITERATOR_CATEGORY_ENABLED)
+
+if(CW_TEST)
+	add_definitions(-DCW_TEST=1)
+endif()
 
 if(SPAN_USES_GSL)
  add_definitions(-DMCAS_SPAN_USES_GSL=1)

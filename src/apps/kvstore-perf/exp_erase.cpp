@@ -13,13 +13,13 @@ ExperimentErase::ExperimentErase(const ProgramOptions &options)
   , _i(0)
   , _start_time()
   , _latencies()
-  , _latency_stats()
+  , _latency_stats(test_name())
 {
 }
 
 void ExperimentErase::initialize_custom(unsigned /* core */)
 {
-  _latency_stats = BinStatistics(bin_count(), bin_threshold_min(), bin_threshold_max());
+  _latency_stats = BinStatistics(test_name(), bin_count(), bin_threshold_min(), bin_threshold_max());
 }
 
 bool ExperimentErase::do_work(unsigned core)

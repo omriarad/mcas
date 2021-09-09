@@ -880,7 +880,7 @@ BinStatistics Experiment::_compute_bin_statistics_from_vectors(std::vector<doubl
     PERR(PREFIX "data size %lu and data_bins size %lu aren't the same!", data.size(), data_bins.size());
   }
 
-  BinStatistics stats(bin_count, bin_min, bin_max);
+  BinStatistics stats(__func__, bin_count, bin_min, bin_max);
 
   for (std::size_t i = 0; i < elements; i++)
   {
@@ -892,7 +892,7 @@ BinStatistics Experiment::_compute_bin_statistics_from_vectors(std::vector<doubl
 
 BinStatistics Experiment::_compute_bin_statistics_from_vector(std::vector<double> data, unsigned bin_count, double bin_min, double bin_max)
 {
-  BinStatistics stats(bin_count, bin_min, bin_max);
+  BinStatistics stats(__func__, bin_count, bin_min, bin_max);
 
   for ( const auto &d : data )
   {
@@ -1015,12 +1015,12 @@ double Experiment::_calculate_current_throughput()
   return throughput;
 }
 
-void Experiment::_populate_pool_to_capacity(unsigned core, component::IKVStore::memory_handle_t memory_handle)
+void Experiment::_populate_pool_to_count(unsigned core, unsigned long count_, component::IKVStore::memory_handle_t memory_handle)
 {
   // how much space do we have?
   if (_verbose)
   {
-    std::cout << "_populate_pool_to_capacity start: _pool_num_components = " << _pool_num_objects << ", _elements_stored = " << _elements_stored << ", _pool_element_end = " << _pool_element_end << std::endl;
+    std::cout << __func__ << " start: count = " << count_ << ", _elements_stored = " << _elements_stored << ", _pool_element_end = " << _pool_element_end << std::endl;
   }
 
   auto current = _pool_element_end;  // first run: should be 0 (start index)
@@ -1035,7 +1035,7 @@ void Experiment::_populate_pool_to_capacity(unsigned core, component::IKVStore::
   }
 
   bool can_add_more_in_batch = (current - _pool_element_start) != maximum_elements;
-  bool can_add_more_overall = std::size_t(current) != _pool_num_objects;
+  bool can_add_more_overall = std::size_t(current) != count_;
 
   _element_size = g_data->value_len();
   void * readback_buffer = aligned_alloc(PAGE_SIZE,
@@ -1063,7 +1063,7 @@ void Experiment::_populate_pool_to_capacity(unsigned core, component::IKVStore::
 
       if (rc != S_OK)
       {
-	std::string e = common::to_string("put or put_direct returned ", rc, " (-55 is out of space)");
+		std::string e = common::to_string("put or put_direct returned ", rc, " (-55 is out of space)");
         PERR(PREFIX "%s: %s.", __func__, e.c_str());
         throw std::runtime_error(e);
       }
@@ -1087,13 +1087,13 @@ void Experiment::_populate_pool_to_capacity(unsigned core, component::IKVStore::
     }
     catch ( const std::exception &e )
     {
-      std::string s = common::to_string(__func__, ": ", "failed at put call ", current, "/", _pool_num_objects, ": ", e.what());
+      std::string s = common::to_string(__func__, ": ", "failed at put call ", current, "/", count_, ": ", e.what());
       PERR(PREFIX "%s", s.c_str());
       throw;
     }
     catch(...)
     {
-      std::string s = common::to_string("populate_pool_to_capacity failed at put call ", current, "/", _pool_num_objects);
+      std::string s = common::to_string("populate_pool_to_capacity failed at put call ", current, "/", count_);
       PERR(PREFIX "%s", s.c_str());
       throw;
     }
@@ -1126,7 +1126,7 @@ void Experiment::_populate_pool_to_capacity(unsigned core, component::IKVStore::
     ++current;
 
     can_add_more_in_batch = (current - _pool_element_start) != maximum_elements;
-    can_add_more_overall = std::size_t(current) != _pool_num_objects;
+    can_add_more_overall = std::size_t(current) != count_;
   }
 
   free(readback_buffer);
@@ -1161,6 +1161,11 @@ void Experiment::_populate_pool_to_capacity(unsigned core, component::IKVStore::
     _debug_print(core, range_info.str(), true);
   }
   PLOG("pool populated to capacity - OK.");
+}
+
+void Experiment::_populate_pool_to_capacity(unsigned core, component::IKVStore::memory_handle_t memory_handle)
+{
+	_populate_pool_to_count(core, _pool_num_objects, memory_handle);
 }
 
 // assumptions: i_ is tracking current element in use
@@ -1233,6 +1238,8 @@ void Experiment::_enforce_maximum_pool_size(unsigned core, std::size_t i_)
     }
   }
 }
+
+
 
 void Experiment::_erase_pool_entries_in_range(pool_entry_offset_t start, pool_entry_offset_t finish)
 {

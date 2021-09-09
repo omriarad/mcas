@@ -5,7 +5,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 . "$DIR/functions.sh"
 DELAY=8
 
-FSDAX_DIR=/mnt/pmem1
+FSDAX_DIR=$(find_fsdax)
+DEVDAX_PFX=$(find_devdax)
 
 prefix()
 {
@@ -16,7 +17,14 @@ prefix()
 run_hstore() {
   typeset ado_prereq="$1"
   shift
-  # run each test
+  # hstore unit tests: basic
+  #DAX_RESET=1 STORE=hstore ./src/components/store/hstore/unit_test/hstore-test1 # (out of space)
+  DAX_RESET=1 STORE=hstore-cc ./src/components/store/hstore/unit_test/hstore-test1
+  DAX_RESET=1 HAS_CAPACITY=0 STORE=hstore-mm MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-test1
+  # hstore unit tests: multithreaded lock/unlock
+  DAX_RESET=1 STORE=hstore-mt MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-testmt
+  DAX_RESET=1 STORE=hstore-mt MM_PLUGIN_PATH=./dist/lib/libmm-plugin-rcalb.so ./src/components/store/hstore/unit_test/hstore-testmt
+  # run performance tests
   prefix
   GOAL=140000 ELEMENT_COUNT=2000000 STORE=hstore PERFTEST=put $DIR/mcas-hstore-put-0.sh $1
   prefix
@@ -77,6 +85,7 @@ fi
 
 # default assumption: $FSDAX is not mounted. Expect disk performance (15%)
 FSDAX_FILE_SCALE=15
+
 if findmnt "$FSDAX_DIR" > /dev/null
 then :
   # found a mount. Probably pmem
@@ -91,9 +100,9 @@ then :
   BUILD_SCALE=100
 fi
 
-if has_devdax
+if test -n "$DEVDAX_PFX"
 then :
-  DAXTYPE=devdax SCALE="$BUILD_SCALE" USE_ODP=0 run_hstore has_module_mcasmod $1
+  DAX_PREFIX="$DEVDAX_PFX" SCALE="$BUILD_SCALE" USE_ODP=0 run_hstore has_module_mcasmod $1
   # Conflict test, as coded, works only for devdax, not fsdax
   # Conflict in fsdax occurs when data files exist, not when only arenas exist
   prefix
@@ -101,14 +110,15 @@ then :
 fi
 
 # DISABLE fsdax TESTS - they are failing
-if false && has_fsdax
+
+if false && -n "$FSDAX_DIR"
 then :
   FSDAX_CPU_SCALE=90
   if test -d "$FSDAX_DIR"
   then :
     rm -Rf "$FSDAX_DIR/*"
     # scale goal by build expectation (relaase vs debug), backing file expectation (disk vs pmem), and fsdax expectation (currently 100%)
-    DAXTYPE=fsdax SCALE="$BUILD_SCALE $FSDAX_FILE_SCALE $FSDAX_CPU_SCALE" USE_ODP=1 run_hstore true $1
+    DAX_PREFIX="$FSDAX_DIR" SCALE="$BUILD_SCALE $FSDAX_FILE_SCALE $FSDAX_CPU_SCALE" USE_ODP=1 run_hstore true $1
   else :
     echo "$FSDAX_DIR not present. Skipping fsdax"
   fi

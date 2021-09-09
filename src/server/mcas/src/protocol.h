@@ -47,7 +47,11 @@ enum class MSG_TYPE : uint8_t {
   HANDSHAKE       = 0x1,
   HANDSHAKE_REPLY = 0x2,
   CLOSE_SESSION   = 0x3,
+  /* Note: an INFO_REQUEST with INFO_TYPE_GET_STATS will be answered by STATS, not INFO_RESPONSE */
   STATS           = 0x4,
+  NO_MSG          = 0x5,
+  PING            = 0x6,
+  PONG            = 0x7,
   POOL_REQUEST    = 0x10,
   POOL_RESPONSE   = 0x11,
   IO_REQUEST      = 0x20,
@@ -360,9 +364,22 @@ struct Message_pool_response : public Message {
   auto data() const { return common::pointer_cast<const data_t>(this + 1); }
   auto data() { return common::pointer_cast<data_t>(this + 1); }
  public:
-  Message_pool_response(uint64_t auth_id) : Message(auth_id, (sizeof *this), id, OP_INVALID), pool_id() {}
+  Message_pool_response(uint64_t auth_id)
+		: Message(auth_id, (sizeof *this), id, OP_INVALID)
+		, pool_id()
+#if CW_TEST
+		, scratchpad_base()
+		, scratchpad_size()
+		, scratchpad_rma_key()
+#endif
+	{}
 
   uint64_t pool_id;
+#if CW_TEST
+	uint64_t scratchpad_base;
+	uint64_t scratchpad_size;
+	uint64_t scratchpad_rma_key;
+#endif
 } __attribute__((packed));
 
 ////////////////////////////////////////////////////////////////////////
@@ -711,12 +728,7 @@ struct Message_INFO_request : public Message {
   }
 
   Message_INFO_request(uint64_t auth_id, INFO_TYPE type_, uint64_t pool_id_)
-      : Message(auth_id, (sizeof *this), id, OP_INVALID),
-        _pool_id(pool_id_),
-        _type(type_),
-        pad(),
-        offset(),
-        key_len(0)
+      : Message_INFO_request(auth_id, type_, pool_id_, 0)
   {
   }
 
@@ -814,11 +826,18 @@ private:
 // HANDSHAKE
 
 struct Message_handshake : public Message {
-  Message_handshake(uint64_t auth_id, uint64_t sequence)
+  Message_handshake(uint64_t auth_id, uint64_t sequence
+#if CW_TEST
+		, std::uint64_t test_data_size_
+#endif
+  )
       : Message(auth_id, (sizeof *this), id, OP_INVALID),
         seq(sequence),
         protocol(PROTOCOL_V1),
         security_tls_auth(0)
+#if CW_TEST
+		, test_data_size(test_data_size_)
+#endif
   {
   }
 
@@ -828,6 +847,9 @@ struct Message_handshake : public Message {
   uint64_t seq;
   uint8_t  protocol;
   bool security_tls_auth  : 1;
+#if CW_TEST
+  uint64_t test_data_size;
+#endif
   /* add more fields for HMAC, encryption etc. */
 
   inline void set_as_protocol() { protocol = PROTOCOL_V2; }
@@ -858,12 +880,21 @@ struct Message_handshake_reply : public Message {
                           uint64_t       sequence,
                           uint64_t       session_id_,
                           size_t         max_message_size_,
-                          bool           start_tls_)
+                          bool           start_tls_
+#if CW_TEST
+		, uint64_t vaddr_
+		, uint64_t key_
+#endif
+	)
       : Message(auth_id, (sizeof *this), id, OP_INVALID),
         seq(sequence),
         session_id(session_id_),
         max_message_size(max_message_size_),
         start_tls(start_tls_)
+#if CW_TEST
+		, vaddr(vaddr_)
+		, key(key_)
+#endif
   {
     if (msg_len() > buffer_size)
       throw Logic_exception("%s::%s - insufficient buffer for Message_handshake_reply", +description, __func__);
@@ -874,6 +905,10 @@ struct Message_handshake_reply : public Message {
   uint64_t session_id;
   size_t   max_message_size; /* RDMA max message size in bytes */
   bool     start_tls : 1;
+#if CW_TEST
+	uint64_t vaddr; /* perf test area */
+	uint64_t key; /* perf test key */
+#endif
   /* x509_cert innediately follows */
 } __attribute__((packed));
 
@@ -905,6 +940,41 @@ struct Message_stats : public Message {
   // fields
   /* TROUBLE: the stats are not packed */
   component::IMCAS::Shard_stats stats;
+} __attribute__((packed));
+
+// Debugging: client sends "none". server ignores it.
+// Message_none
+
+struct Message_none : public Message {
+  static constexpr auto        id          = MSG_TYPE::NO_MSG;
+  static constexpr const char* description = "Message_none";
+
+  Message_none(uint64_t auth_id) : Message(auth_id, (sizeof *this), id, OP_INVALID) {}
+
+  // fields
+} __attribute__((packed));
+
+// Debugging: client sends a ping; server should respond with a pong. No data.
+// Message_ping
+
+struct Message_ping : public Message {
+  static constexpr auto        id          = MSG_TYPE::PING;
+  static constexpr const char* description = "Message_ping";
+
+  Message_ping(uint64_t auth_id) : Message(auth_id, (sizeof *this), id, OP_INVALID) {}
+
+  // fields
+} __attribute__((packed));
+
+// Message_pong
+
+struct Message_pong : public Message {
+  static constexpr auto        id          = MSG_TYPE::PONG;
+  static constexpr const char* description = "Message_pong";
+
+  Message_pong(uint64_t auth_id) : Message(auth_id, (sizeof *this), id, OP_INVALID) {}
+
+  // fields
 } __attribute__((packed));
 
 ////////////////////////////////////////////////////////////////////////

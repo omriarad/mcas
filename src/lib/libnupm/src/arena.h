@@ -1,5 +1,5 @@
 /*
-   Copyright [2020] [IBM Corporation]
+   Copyright [2020-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -27,6 +27,7 @@ namespace nupm
 {
 	struct registry_memory_mapped;
 	struct space_registered;
+	struct range_manager;
 }
 
 struct arena
@@ -35,13 +36,19 @@ struct arena
   using region_descriptor = nupm::region_descriptor;
   using registry_memory_mapped = nupm::registry_memory_mapped;
   using space_registered = nupm::space_registered;
+  using range_manager = nupm::range_manager;
   using string_view = common::string_view;
 
   arena(const common::log_source &ls) : common::log_source(ls) {}
   virtual ~arena() {}
   virtual void debug_dump() const = 0;
   virtual region_descriptor region_get(string_view id) = 0;
-  virtual region_descriptor region_create(string_view id, gsl::not_null<registry_memory_mapped *> mh, std::size_t size) = 0;
+  virtual region_descriptor region_create(
+		string_view id
+		, gsl::not_null<registry_memory_mapped *> mh
+		, gsl::not_null<const range_manager *> rm
+		, std::size_t size
+	) = 0;
   virtual void region_resize(gsl::not_null<space_registered *> mh, std::size_t size) = 0;
   /* It is unknown whether region_erase may be used on an open region.
    * arena_fs assumes that it may, just as ::unlink can be used against

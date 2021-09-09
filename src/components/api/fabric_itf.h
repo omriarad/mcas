@@ -283,7 +283,7 @@ class IFabric_memory_control {
                                           std::uint64_t key,
                                           std::uint64_t flags)
   { return register_memory(common::make_const_byte_span(contig_addr, size), key, flags); }
-  virtual memory_region_t register_memory(const_byte_span contig_,
+  virtual memory_region_t register_memory(const_byte_span contig,
                                           std::uint64_t key,
                                           std::uint64_t flags) = 0;
 
@@ -299,6 +299,10 @@ class IFabric_memory_control {
 
   virtual std::uint64_t get_memory_remote_key(memory_region_t) const noexcept = 0;
   virtual void *        get_memory_descriptor(memory_region_t) const noexcept = 0;
+  /*
+   * Return the memory region covering the specified contiguous span of bytes
+   */
+  virtual memory_region_t mr_covering(const_byte_span contig) noexcept = 0;
 
   /**
    * Asynchronously post a buffer to receive data

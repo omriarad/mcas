@@ -52,15 +52,13 @@ bool check_xpmem_kernel_module()
   return (fd != -1);
 }
 
-status_t Shard::conditional_bootstrap_ado_process(component::IKVStore*        kvs,
-                                                  Connection_handler*         handler,
+status_t Shard::conditional_bootstrap_ado_process(gsl::not_null<component::IKVStore*> kvs,
+                                                  gsl::not_null<Connection_handler*> handler,
                                                   component::IKVStore::pool_t pool_id,
                                                   component::IADO_proxy*&     ado,
                                                   pool_desc_t&                desc)
 {
   assert(pool_id);
-  assert(kvs);
-  assert(handler);
 
   /* ADO processes are instantiated on a per-pool basis.  First
      check if an ADO process already exists.
@@ -541,15 +539,13 @@ void Shard::process_ado_request(Connection_handler* handler,
   }
 }
 
-void Shard::signal_ado_async_nolock(const char * tag,
-                                    Connection_handler* handler,
+void Shard::signal_ado_async_nolock(gsl::not_null<const char *> tag,
+                                    gsl::not_null<Connection_handler*> handler,
                                     const uint64_t client_request_id,
                                     const component::IKVStore::pool_t pool,
                                     const std::string& key)
 {
   using namespace component;
-  assert(tag);
-  assert(handler);
   assert(ado_enabled());
 
   CPLOG(3, "%s: %s %lu %lu", __func__, key.c_str(), client_request_id, pool);
@@ -709,11 +705,9 @@ void Shard::process_messages_from_ado()
   /* iterate ADO process proxies */
   auto iter = _ado_pool_map.begin();
   while (iter != _ado_pool_map.end()) {
-    IADO_proxy*         ado     = std::get<0>(iter->second);
-    Connection_handler* handler = std::get<1>(iter->second);
+    gsl::not_null<IADO_proxy*> ado     = std::get<0>(iter->second);
+    Connection_handler* handler_outer = std::get<1>(iter->second);
     iter++; /* OK to do this now */
-
-    assert(ado);
 
     work_request_key_t                    request_key     = 0;
     status_t                              response_status = E_FAIL;
@@ -735,8 +729,7 @@ void Shard::process_messages_from_ado()
         throw General_exception("Shard_ado: bad work request key from ADO (0x%" PRIx64 ")", request_key);
 
       auto request_record = request_key_to_record(request_key);
-      handler             = request_record->handler;
-      assert(handler);
+      gsl::not_null<Connection_handler*> handler = request_record->handler;
 
       if (debug_level() > 2) {
         for (const auto &r : response_buffers) {
@@ -820,7 +813,7 @@ void Shard::process_messages_from_ado()
           if(rc != S_OK)
             throw Logic_exception("unable to re-lock for 'get' signal response");
 
-          memory_registered<Connection_base> mr(debug_level(), handler, value_out.iov_base, value_out.iov_len, 0, 0);
+          memory_registered<Connection_base> mr(debug_level(), handler, common::make_const_byte_span(value_out) /* .iov_base, value_out.iov_len */, 0, 0);
           auto desc = mr.desc();
           auto response = prepare_response(handler, iob, request_record->request_id, S_OK);
 
@@ -1083,8 +1076,8 @@ void Shard::process_messages_from_ado()
               size_t       pool_size          = 0;
               unsigned int pool_flags         = 0;
 
-              assert(handler);
-              handler->pool_manager().get_pool_info(ado->pool_id(), expected_obj_count, pool_size, pool_flags);
+              assert(handler_outer);
+              handler_outer->pool_manager().get_pool_info(ado->pool_id(), expected_obj_count, pool_size, pool_flags);
 
               std::vector<uint64_t> pu_attr;
               if(_i_kvstore->get_attribute(ado->pool_id(),
@@ -1147,8 +1140,8 @@ void Shard::process_messages_from_ado()
         size_t       pool_size          = 0;
         unsigned int pool_flags         = 0;
 
-        assert(handler);
-        handler->pool_manager().get_pool_info(ado->pool_id(), expected_obj_count, pool_size, pool_flags);
+        assert(handler_outer);
+        handler_outer->pool_manager().get_pool_info(ado->pool_id(), expected_obj_count, pool_size, pool_flags);
 
         std::vector<uint64_t> mt_attr;
         if (_i_kvstore->get_attribute(ado->pool_id(), IKVStore::Attribute::MEMORY_TYPE, mt_attr) != S_OK)

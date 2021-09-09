@@ -146,6 +146,9 @@ public:
 
 	bool is_crash_consistent() const;
 	bool can_reconstitute() const;
+#if CW_TEST
+	using heap::scratchpad;
+#endif
 };
 
 #endif

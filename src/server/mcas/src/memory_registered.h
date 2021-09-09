@@ -27,29 +27,36 @@ template <typename T>
 struct memory_registered : private common::log_source {
 private:
   using const_byte_span = common::const_byte_span;
-  common::moveable_ptr<T>     _t;
+  common::moveable_ptr<T>     _memory_control;
   typename T::memory_region_t _r;
+  std::uint64_t _key;
+  void * _desc;
 
  public:
-  explicit memory_registered(unsigned      debug_level_,
-                             T *           transport_,
-                             const void *  base_,
-                             std::size_t   len_,
-                             std::uint64_t key_,
-                             std::uint64_t flags_)
-      : memory_registered(debug_level_, transport_, common::make_const_byte_span(base_, len_), key_, flags_)
-  {
-  }
   explicit memory_registered(unsigned      debug_level_,
                              T *           transport_,
                              const_byte_span region_,
                              std::uint64_t key_,
                              std::uint64_t flags_)
-      : common::log_source(debug_level_),
-        _t(transport_),
-        _r(_t->register_memory(region_, key_, flags_))
+      : common::log_source(debug_level_)
+      , _memory_control(transport_)
+      , _r(_memory_control->register_memory(region_, key_, flags_))
+      , _key(_memory_control->get_memory_remote_key(_r))
+      , _desc(_memory_control->get_memory_descriptor(_r))
   {
-    CPLOG(3, "%s %p (%p:0x%zx)", __func__, common::p_fmt(_r), ::base(region_), ::size(region_));
+    CPLOG(0, "%s %p (%p:0x%zx)", __func__, common::p_fmt(_r), ::base(region_), ::size(region_));
+  }
+
+  explicit memory_registered(unsigned      debug_level_,
+                             T *           memory_control_,
+		typename T::memory_region_t r_)
+      : common::log_source(debug_level_)
+      , _memory_control(nullptr)
+      , _r(r_)
+      , _key(memory_control_->get_memory_remote_key(_r))
+      , _desc(memory_control_->get_memory_descriptor(_r))
+  {
+    CPLOG(0, "%s %p", __func__, common::p_fmt(_r));
   }
 
   memory_registered(const memory_registered &) = delete;
@@ -58,22 +65,22 @@ private:
 
   ~memory_registered()
   {
-    if (_t) {
-      CPLOG(3, "%s %p", __func__, common::p_fmt(_r));
-      _t->deregister_memory(_r);
+    if (_memory_control) {
+      CPLOG(2, "%s %p", __func__, common::p_fmt(_r));
+      _memory_control->deregister_memory(_r);
     }
   }
   auto mr() const { return _r; }
-  T *transport() const { return _t; }
-  auto desc() const { return _t->get_memory_descriptor(_r); }
-  auto key() const { return _t->get_memory_remote_key(_r); }
+  T *memory_control() const { return _memory_control; }
+  auto desc() const { return _desc; }
+  auto key() const { return _key; }
   auto get_memory_descriptor() const { return desc(); }
 };
 
 template <typename T>
   bool operator<(const memory_registered<T> &a, const memory_registered<T> &b)
   {
-    return a.transport() < b.transport() || ( a.transport() == b.transport() && a.mr() < b.mr() );
+    return a.memory_control() < b.memory_control() || ( a.memory_control() == b.memory_control() && a.mr() < b.mr() );
   }
 
 template <typename T>

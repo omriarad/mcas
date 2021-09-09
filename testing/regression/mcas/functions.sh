@@ -95,12 +95,26 @@ scale_by_transport () {
  echo $(( (base + factor - 1) / factor ))
 }
 
-has_devdax () {
- test -c /dev/dax0.0
+find_devdax () {
+ for i in 0 1
+ do	 
+  d=/dev/dax$i
+  if test -c "$d.0"
+  then echo $d
+    return
+  fi
+ done
 }
 
-has_fsdax () {
- test -d /mnt/pmem1
+find_fsdax () {
+ for i in 0 1
+ do
+  d=/mnt/pmem$i
+  if findmnt $d 2>/dev/null -a test -w $d
+  then echo $d
+   return
+  fi
+ done
 }
 
 has_module_mcasmod () {
@@ -112,15 +126,36 @@ has_module_xpmem () {
 }
 
 # Decide whether to use device DAX or FS DAX, depending on whether this system has devdax configured
-choose_dax_type() {
- if [[ -n "$DAXTYPE" ]]
- then
-  echo $DAXTYPE
- else
-  if has_devdax
-  then echo devdax
-  else echo fsdax
-  fi
+choose_dax() {
+ t="${DAX_PREFIX:-}"
+ if test -z "$t"
+ then t="$(find_devdax)"
+ fi
+ if test -z "$t"
+ then t="$(find_fsdax)"
+ fi
+ echo $t
+}
+
+dax_type() {
+ case "$1" in
+  /mnt*) echo "fsdax"
+  ;;
+  /dev/dax*) echo "devdax"
+  ;;
+  *) echo "?"
+  esac
+}
+
+# determinve numa node from DAX_PREFIX (arg 1)i: The last character of the DAX prefix.
+numa_node() {
+ echo ${1:${#1}-1:1}
+}
+
+# echo numa command to run on proper CPUs for DAX_PREFIX (arg 1)
+numa_cmd() {
+ if test -x /usr/bin/numactl
+ then echo "/usr/bin/numactl -N $(numa_node $1)"
  fi
 }
 

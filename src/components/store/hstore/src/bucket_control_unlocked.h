@@ -23,6 +23,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef> /* size_t */
+#include <sstream> /* ostringstream */
 
 
 namespace impl

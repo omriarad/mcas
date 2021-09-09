@@ -18,7 +18,7 @@ link_directories(${CMAKE_INSTALL_PREFIX}/lib64)
 
 add_definitions(-DCONFIG_DEBUG)
 
-add_executable(unit_tests_stats test_stats.cpp)
+add_executable(unit_tests_stats test_stats.cpp ../statistics.cpp)
 target_link_libraries(unit_tests_stats ${ASAN_LIB} common numa ${GTEST_LIB} pthread dl)
 
 project(unit_tests_stopwatch CXX)

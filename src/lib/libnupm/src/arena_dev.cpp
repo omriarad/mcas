@@ -1,5 +1,5 @@
 /*
-   Copyright [2020] [IBM Corporation]
+   Copyright [2020-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -48,7 +48,12 @@ auto arena_dev::region_get(const string_view id_) -> region_descriptor
   return region_descriptor(v);
 }
 
-auto arena_dev::region_create(const string_view id_, gsl::not_null<registry_memory_mapped *>, const std::size_t size) -> region_descriptor
+auto arena_dev::region_create(
+	const string_view id_
+	, gsl::not_null<registry_memory_mapped *>
+	, gsl::not_null<const range_manager *>
+	, const std::size_t size
+) -> region_descriptor
 {
   auto size_in_grains = boost::numeric_cast<nupm::DM_region::grain_offset_t>(div_round_up(size, _hdr->grain_size()));
 

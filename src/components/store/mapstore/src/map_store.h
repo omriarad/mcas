@@ -86,7 +86,8 @@ public:
   virtual pool_t create_pool(common::string_view name, const size_t size,
                              unsigned int flags = 0,
                              uint64_t expected_obj_count = 0,
-                             component::IKVStore::Addr base_addr_unused = component::IKVStore::Addr{0}) override;
+                             component::IKVStore::Addr base_addr_unused = component::IKVStore::Addr{0}
+	) override;
 
   virtual pool_t open_pool(common::string_view name,
                            unsigned int flags = 0,

@@ -370,6 +370,9 @@ int main(int argc, char* argv[])
   /* create instance of MCAS client session */
   auto mcas = factory->mcas_create(0 /* debug level, 0=off */,
                                    Options.patience,
+#if CW_TEST
+                                   10000 + __LINE__,
+#endif
                                    getlogin(),
                                    Options.addr, /* MCAS server endpoint */
                                    Options.device); /* see mcas_client.h */

@@ -16,6 +16,9 @@ execute_process( COMMAND uname -m COMMAND tr -d '\n' OUTPUT_VARIABLE ARCHITECTUR
 
 include_directories(./include)
 include_directories(../GSL/include)
+# Temp, for cw
+include_directories(../../components)
+# End temp
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # daxctl
 
 link_directories(${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})

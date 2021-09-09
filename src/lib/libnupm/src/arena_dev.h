@@ -1,5 +1,5 @@
 /*
-   Copyright [2020] [IBM Corporation]
+   Copyright [2020-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -34,7 +34,12 @@ private:
 public:
   arena_dev(const common::log_source &ls, string_view path, gsl::not_null<nupm::DM_region_header *> hdr);
   region_descriptor region_get(string_view id) override;
-  region_descriptor region_create(string_view id, gsl::not_null<registry_memory_mapped *> mh, std::size_t size) override;
+  region_descriptor region_create(
+		string_view id
+		, gsl::not_null<registry_memory_mapped *> mh
+		, gsl::not_null<const range_manager *> rm
+		, std::size_t size
+	) override;
   void region_resize(gsl::not_null<space_registered *> mh, std::size_t size) override;
   void region_erase(string_view id, gsl::not_null<registry_memory_mapped *> mh) override;
   std::size_t get_max_available() override;

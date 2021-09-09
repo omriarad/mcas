@@ -19,6 +19,7 @@
 struct Options {
   unsigned    debug_level;
   unsigned patience;
+  std::uint64_t test_count;
   boost::optional<std::string> device;
   boost::optional<std::string> src_addr;
   std::string server;
@@ -50,7 +51,12 @@ component::Itf_ref<component::IMCAS> init(const std::string &server_hostname, in
   auto mcas =
     make_itf_ref(
       fact->mcas_create_nsd(
-        g_options.debug_level, g_options.patience, "None"
+        g_options.debug_level
+, g_options.patience
+#if CW_TEST
+, g_options.test_count
+#endif
+, "None"
         , g_options.device ? string_view(*g_options.device) : string_view()
         , g_options.src_addr ? string_view(*g_options.src_addr) : string_view()
         , url.str()
@@ -321,6 +327,7 @@ void put_direct(component::Itf_ref<component::IMCAS> &mcas, make_handle_t mh_)
 
   size_t                 user_buffer_len = MiB(128);
   void *                 user_buffer     = aligned_alloc(KiB(4), user_buffer_len);
+  memset(user_buffer, 'A', user_buffer_len);
   auto mem = mh_(mcas, user_buffer, user_buffer_len);
 
   ASSERT_OK(mcas->put_direct(pool, "someLargeObject", user_buffer, user_buffer_len, mem->get()));
@@ -332,6 +339,7 @@ void put_direct(component::Itf_ref<component::IMCAS> &mcas, make_handle_t mh_)
 
   size_t                 user_buffer2_len = MiB(128);
   void *                 user_buffer2     = aligned_alloc(KiB(4), user_buffer_len);
+  memset(user_buffer2, 'B', user_buffer2_len);
   auto mem2 = mh_(mcas, user_buffer2, user_buffer2_len);
 
   ASSERT_OK(mcas->get_direct(pool, "someLargeObject", user_buffer2, user_buffer2_len, mem2->get()));
@@ -895,6 +903,9 @@ int main(int argc, char *argv[])
         ("port", po::value<std::uint16_t>()->default_value(0), "Server port. Default 0 (mapped to 11911 for verbs, 11921 for sockets)")
         ("debug", po::value<unsigned>()->default_value(0), "Debug level")
         ("patience", po::value<unsigned>()->default_value(30), "Patience with server (seconds)")
+#if CW_TEST
+        ("test-count", po::value<std::uint64_t>()->default_value(10000 + __LINE__), "RDMA test count")
+#endif
       ;
 
     po::variables_map vm;
@@ -926,6 +937,9 @@ int main(int argc, char *argv[])
     g_options.port        = vm["port"].as<uint16_t>();
     g_options.debug_level = vm["debug"].as<unsigned>();
     g_options.patience = vm["patience"].as<unsigned>();
+#if CW_TEST
+    g_options.test_count = vm["test-count"].as<std::uint64_t>();
+#endif
 
     mcas = init(g_options.server, g_options.port);
     assert(mcas);

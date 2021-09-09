@@ -265,15 +265,23 @@ auto Fabric_comm_grouped::register_memory(const_byte_span contig_,
 {
   return _conn.register_memory(contig_, key, flags);
 }
+
 void Fabric_comm_grouped::deregister_memory(memory_region_t memory_region)
 {
   return _conn.deregister_memory(memory_region);
 }
+
 std::uint64_t Fabric_comm_grouped::get_memory_remote_key(memory_region_t m) const noexcept
 {
   return _conn.get_memory_remote_key(m);
 }
+
 void * Fabric_comm_grouped::get_memory_descriptor(memory_region_t m) const noexcept
 {
   return _conn.get_memory_descriptor(m);
+}
+
+auto Fabric_comm_grouped::mr_covering(const_byte_span contig_) noexcept -> memory_region_t
+{
+  return _conn.mr_covering(contig_);
 }

@@ -32,3 +32,10 @@ std::ostream &BinStatistics::print_highest_count_bin(std::ostream &o_, unsigned 
   }
   return o_;
 }
+
+#include <iostream>
+
+BinStatistics::~BinStatistics()
+{
+	std::cout << _desc << " " << _ct.out("usec") << "\n";
+}

@@ -26,6 +26,9 @@ struct {
   std::string device;
   unsigned    debug_level;
   unsigned    patience;
+#if CW_TEST
+  std::uint64_t test_count;
+#endif
 } Options;
 
 
@@ -39,6 +42,9 @@ int main(int argc, char* argv[])
     desc.add_options()("help", "Show help")
       ("debug", po::value<unsigned>()->default_value(0), "Debug level 0-3")
       ("patience", po::value<unsigned>()->default_value(30), "Patience with server (seconds)")
+#if CW_TEST
+      ("test-count", po::value<std::uint64_t>()->default_value(10000 + __LINE__), "RDMA test count")
+#endif
       ("server", po::value<std::string>()->default_value("10.0.0.101:11911:verbs"), "Server address IP:PORT[:PROVIDER]")
       ("device", po::value<std::string>()->default_value("mlx5_0"), "Network device (e.g., mlx5_0)")
       ;
@@ -54,6 +60,9 @@ int main(int argc, char* argv[])
     Options.addr        = vm["server"].as<std::string>();
     Options.debug_level = vm["debug"].as<unsigned>();
     Options.patience    = vm["patience"].as<unsigned>();
+#if CW_TEST
+    Options.test_count  = vm["test-count"].as<std::uint64_t>();
+#endif
     Options.device      = vm["device"].as<std::string>();
   }
   catch (...) {
@@ -70,6 +79,9 @@ int main(int argc, char* argv[])
   /* create instance of MCAS client session */
   auto mcas = factory->mcas_create(1 /* debug level, 0=off */,
                                    Options.patience,
+#if CW_TEST
+                                   Options.test_count,
+#endif
                                    getlogin(),
                                    Options.addr, /* MCAS server endpoint */
                                    Options.device); /* see mcas_client.h */

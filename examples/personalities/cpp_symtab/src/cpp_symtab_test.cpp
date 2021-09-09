@@ -42,6 +42,9 @@ component::IMCAS * init(const std::string& server_hostname,  int port)
   url << g_options.server << ":" << g_options.port;
   
   IMCAS * mcas = fact->mcas_create(g_options.debug_level, g_options.patience,
+#if CW_TEST
+                                   __LINE__,
+#endif
                                    "None",
                                    url.str(),
                                    g_options.device);

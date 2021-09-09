@@ -32,7 +32,7 @@ public:
     , _start_time()
     , _latencies()
     , _exp_start_time()
-    , _latency_stats()
+    , _latency_stats(test_name())
   {
   }
   ExperimentGetDirect(const ExperimentGetDirect &) = delete;
@@ -45,7 +45,7 @@ public:
       PINF("[%u] exp_get_direct: initialize custom started", core);
     }
 
-    _latency_stats = BinStatistics(bin_count(), bin_threshold_min(), bin_threshold_max());
+    _latency_stats = BinStatistics(test_name(), bin_count(), bin_threshold_min(), bin_threshold_max());
 
     PLOG("%s", "pool seeded with values");
   }
@@ -56,7 +56,11 @@ public:
     if(_first_iter)
     {
       // seed the pool with elements from _data
+#if 1
       _populate_pool_to_capacity(core, _memory_handle.mr());
+#else
+      _populate_pool_to_count(core, 2, _memory_handle.mr());
+#endif
 
       wait_for_delayed_start(core);
 
@@ -66,7 +70,7 @@ public:
     }
 
     // end experiment if we've reached the total number of components
-    if (_i + 1 == pool_num_objects())
+    if (_i == pool_num_objects())
     {
       PINF("[%u] get_direct: reached total number of components. Exiting.", core);
       timer.stop();
@@ -95,18 +99,22 @@ public:
       StopwatchInterval si(timer);
       size_t out_val_len = expected_val_len;
 
-      auto rc = store()->get_direct(pool(), g_data->key(_i), pval, out_val_len, memory_handle);
-      if( out_val_len != expected_val_len){
-        throw General_exception("get_direct gave inconsistent out_val_len: rc=%d key(%s) expect=%lu out=%lu",
-                                  rc,
-                                  g_data->key(_i),
-                                  expected_val_len, out_val_len);
-      }
-      if (rc != S_OK)
+      auto ix = _i % 2;
+      for ( auto p = 0; p != 10; ++p )
       {
-        auto e = common::to_string("get_direct ", _i, " of ", pool_element_end(), " rc != S_OK: ", rc);
-        PERR("%s.", e.c_str());
-        throw std::runtime_error(e);
+        auto rc = store()->get_direct(pool(), g_data->key(ix), pval, out_val_len, memory_handle);
+        if( out_val_len != expected_val_len){
+          throw General_exception("get_direct gave inconsistent out_val_len: rc=%d key(%s) expect=%lu out=%lu",
+                                  rc,
+                                  g_data->key(ix),
+                                  expected_val_len, out_val_len);
+        }
+        if (rc != S_OK)
+        {
+          auto e = common::to_string("get_direct ", _i, " of ", pool_element_end(), " rc != S_OK: ", rc);
+          PERR("%s.", e.c_str());
+          throw std::runtime_error(e);
+        }
       }
     }
 
@@ -137,7 +145,11 @@ public:
     if (_i == std::size_t(pool_element_end()))
     {
       _erase_pool_entries_in_range(pool_element_start(), pool_element_end());
+#if 1
       _populate_pool_to_capacity(core, _memory_handle.mr());
+#else
+      _populate_pool_to_count(core, 2, _memory_handle.mr());
+#endif
 
       if ( is_verbose() )
       {

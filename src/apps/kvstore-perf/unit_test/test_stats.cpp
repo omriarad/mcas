@@ -90,7 +90,7 @@ TEST(RunningStatisticsTest, TenValues)
 
 TEST(BinStatisticsTests, default_init)
 {
-    BinStatistics stats;
+    BinStatistics stats(__func__);
 
     auto count = stats.getBin(0).getCount();
 
@@ -99,7 +99,7 @@ TEST(BinStatisticsTests, default_init)
 
 TEST(BinStatisticsTests, default_single)
 {
-    BinStatistics stats;
+    BinStatistics stats(__func__);
 
     double value = 1.0;
 
@@ -114,7 +114,7 @@ TEST(BinStatisticsTests, default_single)
 
 TEST(BinStatisticsTests, default_two_large)
 {
-    BinStatistics stats;
+    BinStatistics stats(__func__);
 
     double value_positive = 9999999999;
     double value_negative = -value_positive;
@@ -135,7 +135,7 @@ TEST(BinStatisticsTests, default_two_large)
 
 TEST(BinStatisticsTests, two_bins_one_value)
 {
-    BinStatistics stats(2, 0, 10);
+    BinStatistics stats(__func__, 2, 0, 10);
 
     double value = 4.0;  // should go into bin 0
 
@@ -170,7 +170,7 @@ TEST(BinStatisticsTests, two_bins_one_value)
 
 TEST(BinStatisticsTests, ten_bins_two_values)
 {
-    BinStatistics stats(10, 1, 10);
+    BinStatistics stats(__func__, 10, 1, 10);
 
     double value_1 = 4.0;  // should go into bin 4
     double value_2 = 20.0;  // should go into bin 9

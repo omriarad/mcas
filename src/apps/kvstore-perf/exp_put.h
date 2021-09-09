@@ -20,13 +20,13 @@ class ExperimentPut : public Experiment {
 
  public:
   ExperimentPut(const ProgramOptions &options)
-      : Experiment("put", options), _i(0), _start_time(), _latencies(), _latency_stats()
+      : Experiment("put", options), _i(0), _start_time(), _latencies(), _latency_stats(test_name())
   {
   }
 
   void initialize_custom(unsigned /* core */) override
   {
-    _latency_stats = BinStatistics(bin_count(), bin_threshold_min(), bin_threshold_max());
+    _latency_stats = BinStatistics(test_name(), bin_count(), bin_threshold_min(), bin_threshold_max());
   }
 
   bool do_work(unsigned core) override

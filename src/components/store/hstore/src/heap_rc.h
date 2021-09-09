@@ -55,7 +55,7 @@ namespace impl
 struct heap_rc_ephemeral;
 
 struct heap_rc
-	: private heap
+	: public heap
 {
 private:
 	tracked_header _tracked_anchor;
@@ -150,8 +150,12 @@ public:
 	bool is_reconstituted(const void * p) const;
 
     nupm::region_descriptor regions() const;
+
 	bool is_crash_consistent() const { return false; }
 	bool can_reconstitute() const { return true; }
+#if CW_TEST
+	using heap::scratchpad;
+#endif
 };
 
 #endif

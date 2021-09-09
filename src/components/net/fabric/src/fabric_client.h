@@ -16,8 +16,10 @@
 #define _FABRIC_CLIENT_H_
 
 #include <api/fabric_itf.h> /* component::IFabric_client */
-#include <common/string_view.h>
 #include "fabric_connection_client.h"
+#include "fabric_enter_exit_trace.h"
+
+#include <common/string_view.h>
 
 #include <gsl/span>
 #include <cstdint> /* uint{16,64}_t */
@@ -149,6 +151,10 @@ public:
     const memory_region_t memory_region
   ) const noexcept override;
 
+  memory_region_t mr_covering(
+    const_byte_span contig
+  ) noexcept override;
+
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_sendv fail
    */
@@ -220,10 +226,10 @@ public:
     , const std::size_t len
   ) override;
 
-  std::string get_peer_addr() override { return Fabric_connection_client::get_peer_addr(); }
-  std::string get_local_addr() override { return Fabric_connection_client::get_local_addr(); }
-  std::size_t max_message_size() const noexcept override { return Fabric_connection_client::max_message_size(); }
-  std::size_t max_inject_size() const noexcept override { return Fabric_connection_client::max_inject_size(); }
+  std::string get_peer_addr() override { ENTER_EXIT_TRACE return Fabric_connection_client::get_peer_addr(); }
+  std::string get_local_addr() override { ENTER_EXIT_TRACE return Fabric_connection_client::get_local_addr(); }
+  std::size_t max_message_size() const noexcept override { ENTER_EXIT_TRACE return Fabric_connection_client::max_message_size(); }
+  std::size_t max_inject_size() const noexcept override { ENTER_EXIT_TRACE return Fabric_connection_client::max_inject_size(); }
 };
 #pragma GCC diagnostic pop
 

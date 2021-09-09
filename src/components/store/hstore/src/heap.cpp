@@ -20,7 +20,7 @@
 
 #include <nupm/dax_manager_abstract.h>
 #include <limits> /* numeric_limits::max */
-#include <numeric> /* acccumulate */
+#include <numeric> /* accumulate */
 #include <vector>
 
 /* When used with ADO, this space apparently needs a 2MiB alignment.
@@ -37,6 +37,9 @@ heap::heap(
 	, _numa_node(numa_node_)
 	, _more_region_uuids_size(0)
 	, _more_region_uuids()
+#if CW_TEST
+	, _scratchpad()
+#endif
 {}
 
 heap::~heap()

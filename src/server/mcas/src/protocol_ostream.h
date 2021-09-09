@@ -22,10 +22,12 @@
 
 namespace
 {
-struct msg_attrs {
-  const char *desc;
-  enum category { req, rsp, other } c;
-};
+	struct msg_attrs
+	{
+		const char *desc;
+		enum category { req, rsp, other } c;
+	};
+
 static const std::map<mcas::protocol::MSG_TYPE, msg_attrs> type_map{
     {mcas::protocol::MSG_TYPE::HANDSHAKE, {"HANDSHAKE", msg_attrs::category::other}},
     {mcas::protocol::MSG_TYPE::HANDSHAKE_REPLY, {"HANDSHAKE_REPLY", msg_attrs::category::other}},
@@ -40,6 +42,9 @@ static const std::map<mcas::protocol::MSG_TYPE, msg_attrs> type_map{
     {mcas::protocol::MSG_TYPE::ADO_REQUEST, {"ADO", msg_attrs::category::req}},
     {mcas::protocol::MSG_TYPE::ADO_RESPONSE, {"ADO", msg_attrs::category::rsp}},
     {mcas::protocol::MSG_TYPE::PUT_ADO_REQUEST, {"PUT_ADO", msg_attrs::category::req}},
+    {mcas::protocol::MSG_TYPE::NO_MSG, {"NO_MSG", msg_attrs::category::other}},
+    {mcas::protocol::MSG_TYPE::PING, {"PING", msg_attrs::category::other}},
+    {mcas::protocol::MSG_TYPE::PONG, {"PONG", msg_attrs::category::other}},
 };
 
 static const std::map<mcas::protocol::OP_TYPE, const char *> op_map{
@@ -69,14 +74,16 @@ static const std::map<mcas::protocol::OP_TYPE, const char *> op_map{
     {mcas::protocol::OP_INVALID, "N/A"},
 };
 
-std::ostream &operator<<(std::ostream &o_, const mcas::protocol::OP_TYPE op_)
+}
+
+inline std::ostream &operator<<(std::ostream &o_, const mcas::protocol::OP_TYPE op_)
 {
   auto op_it = op_map.find(op_);
   o_ << (op_it == op_map.end() ? "OP??" : op_it->second);
   return o_;
 }
 
-std::ostream &operator<<(std::ostream &o_, const mcas::protocol::Message &msg)
+inline std::ostream &operator<<(std::ostream &o_, const mcas::protocol::Message &msg)
 {
   o_ << "Message ";
   auto type_it = type_map.find(msg.type_id());
@@ -102,12 +109,12 @@ std::ostream &operator<<(std::ostream &o_, const mcas::protocol::Message &msg)
   return o_;
 }
 
-std::ostream &operator<<(std::ostream &o_, const mcas::protocol::Message_numbered_request &msg)
+inline std::ostream &operator<<(std::ostream &o_, const mcas::protocol::Message_numbered_request &msg)
 {
   return o_ << static_cast<const mcas::protocol::Message &>(msg) << " id " << msg.request_id();
 }
 
-std::ostream &operator<<(std::ostream &o_, const mcas::protocol::Message_numbered_response &msg)
+inline std::ostream &operator<<(std::ostream &o_, const mcas::protocol::Message_numbered_response &msg)
 {
   boost::io::ios_flags_saver s(o_);
   return o_ << static_cast<const mcas::protocol::Message &>(msg) << " id " << msg.request_id();
@@ -124,6 +131,6 @@ inline std::ostream &operator<<(std::ostream &o_, const mcas::protocol::Message_
   return o_ << static_cast<const mcas::protocol::Message_numbered_response &>(msg) << " addr " << std::hex
             << std::showbase << msg.addr << " data_len " << msg.data_length();
 }
-}  // namespace
+// }  // namespace
 
 #endif

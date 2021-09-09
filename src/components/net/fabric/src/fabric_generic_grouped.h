@@ -79,6 +79,9 @@ public:
   void *get_memory_descriptor(
     const memory_region_t memory_region
   ) const noexcept override;
+  memory_region_t mr_covering(
+    const_byte_span contig
+  ) noexcept override;
 
   std::string get_peer_addr() override;
   std::string get_local_addr() override;

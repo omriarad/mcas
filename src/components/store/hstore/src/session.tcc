@@ -67,7 +67,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			)
 		)
 		, _is_crash_consistent(_heap->is_crash_consistent())
-		, _pin_seq(_is_crash_consistent && (undo_redo_pin_data(_heap) || undo_redo_pin_key(_heap)))
+		, _pin_seq(undo_redo_pin_data() || undo_redo_pin_key())
 		, _map(persist_data_, _heap)
 		, _atomic_state(*persist_data_, _map)
 		, _iterators()
@@ -90,7 +90,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			)
 		)
 		, _is_crash_consistent(_heap.pool()->is_crash_consistent())
-		, _pin_seq(_is_crash_consistent && (undo_redo_pin_data(AK_REF _heap) || undo_redo_pin_key(AK_REF _heap)))
+		, _pin_seq(_is_crash_consistent && (undo_redo_pin_data(AK_REF) || undo_redo_pin_key(AK_REF)))
 		, _map(AK_REF &this->pool()->persist_data()._persist_map, mode_, _heap)
 		, _atomic_state(this->pool()->persist_data()._persist_atomic, _heap, mode_)
 		, _iterators()
@@ -107,10 +107,9 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	bool session<Handle, Allocator, Table, LockType>::undo_redo_pin_data(
 		AK_ACTUAL
-		allocator_type heap_
 	)
 	{
-		auto *aspd = heap_.pool()->aspd();
+		auto *aspd = _heap.pool()->aspd();
 		auto armed = aspd->is_armed();
 		if ( armed )
 		{
@@ -153,10 +152,9 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	bool session<Handle, Allocator, Table, LockType>::undo_redo_pin_key(
 		AK_ACTUAL
-		allocator_type heap_
 	)
 	{
-		auto *aspk = heap_.pool()->aspk();
+		auto *aspk = _heap.pool()->aspk();
 		auto armed = aspk->is_armed();
 		if ( armed )
 		{
@@ -812,6 +810,14 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 	{
 		return this->pool()->percent_used();
 	}
+
+#if CW_TEST
+template <typename Handle, typename Allocator, typename Table, typename LockType>
+	auto session<Handle, Allocator, Table, LockType>::scratchpad() const -> byte_span
+	{
+		return this->pool()->scratchpad();
+	}
+#endif
 
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	auto session<Handle, Allocator, Table, LockType>::swap_keys(

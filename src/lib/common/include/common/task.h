@@ -101,7 +101,7 @@ class Per_core_tasking {
     /* wait for tasklet to signal its readiness */
     for (unsigned c = 0; c < sysconf(_SC_NPROCESSORS_ONLN); c++) {
       if (cpus.check_core(c)) {
-        while (!_tasklet[c]->ready()) usleep(100000);
+        while (!_tasklet[c]->ready()) usleep(100001);
       }
     }
 

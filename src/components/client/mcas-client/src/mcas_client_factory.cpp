@@ -16,6 +16,9 @@
 
 component::IMCAS * MCAS_client_factory::mcas_create_nsd(const unsigned debug_level,
                                                     const unsigned patience,
+#if CW_TEST
+                                                    const cw::test_data & test_data,
+#endif
                                                     const string_view,  // owner
                                                     const string_view src_device,
                                                     const string_view src_addr,
@@ -24,7 +27,6 @@ component::IMCAS * MCAS_client_factory::mcas_create_nsd(const unsigned debug_lev
 {
   try {
     std::match_results<string_view::const_iterator> m;
-
     try {
       /*
        * The mcas server uses JSON to pass complex structures. The mcas client
@@ -58,6 +60,7 @@ component::IMCAS * MCAS_client_factory::mcas_create_nsd(const unsigned debug_lev
     }
 
     try {
+		static constexpr unsigned buffer_count = NUM_SHARD_BUFFERS;
       component::IMCAS *obj =
       static_cast<component::IMCAS *>(new MCAS_client(debug_level,
                                                       src_device,
@@ -65,7 +68,11 @@ component::IMCAS * MCAS_client_factory::mcas_create_nsd(const unsigned debug_lev
                                                       provider,
                                                       dst_addr,
                                                       port,
+                                                      buffer_count,
                                                       patience,  // seconds to wait for single fabric completion
+#if CW_TEST
+			test_data,
+#endif
                                                       other
                                                       ));
       obj->add_ref();
@@ -98,6 +105,8 @@ component::IKVStore *MCAS_client_factory::create(unsigned debug_level,
 {
   std::match_results<string_view::const_iterator> m;
 
+	static constexpr unsigned buffer_count = NUM_SHARD_BUFFERS;
+	static constexpr unsigned patience = 60;
   try {
     /*
      * The mcas server uses JSON to pass complex structures. The mcas client
@@ -118,13 +127,21 @@ component::IKVStore *MCAS_client_factory::create(unsigned debug_level,
   char *               end;
   const auto           port     = uint16_t(strtoul(m[2].str().c_str(), &end, 10));
   const std::string    provider = m[3].matched ? m[3].str() : "verbs"; /* default provider */
+#if CW_TEST
+  const cw::test_data test_data(__LINE__);
+#endif
   component::IKVStore *obj      = static_cast<component::IKVStore *>(new MCAS_client(debug_level,
                                                                                      device,
                                                                                      std::string(),
                                                                                      provider,
                                                                                      ip_addr,
                                                                                      port,
-                                                                                     60));
+                                                                                     buffer_count,
+                                                                                     patience
+#if CW_TEST
+	, test_data
+#endif
+));
   /* at least one caller (kvstore-perf) expects a valid pointer or an exception
    * (and not a null pointer). */
   obj->add_ref();
@@ -152,8 +169,18 @@ component::IKVStore *MCAS_client_factory::create(unsigned debug_level, const IKV
 
   const std::uint16_t port = std::uint16_t(std::stoul(dest_port_it->second));
 
+  auto           buffer_count_it = p.find(k_buffer_count);
+  const unsigned buffer_count = buffer_count_it == p.end() ? NUM_SHARD_BUFFERS : unsigned(std::stoul(buffer_count_it->second));
+
   auto           patience_it = p.find(k_patience);
   const unsigned patience    = patience_it == p.end() ? 120 : unsigned(std::stoul(patience_it->second));
+
+#if CW_TEST
+#if 0
+  auto           test_count_it = p.find(k_test_count);
+#endif
+  const cw::test_data test_data(__LINE__);
+#endif
 
   component::IKVStore *obj = static_cast<component::IKVStore *>(new MCAS_client(debug_level,
                                                                                 src_nic_device,
@@ -161,7 +188,12 @@ component::IKVStore *MCAS_client_factory::create(unsigned debug_level, const IKV
                                                                                 provider,
                                                                                 dest_addr_it->second,
                                                                                 port,
-                                                                                patience));
+                                                                                buffer_count,
+                                                                                patience
+#if CW_TEST
+	, test_data
+#endif
+));
 
   /* at least one caller (kvstore-perf) expects a valid pointer or an exception
    * (and not a null pointer). */

@@ -13,6 +13,7 @@
 
 
 #include "fabric_client.h"
+#include "fabric_enter_exit_trace.h"
 
 #include "fabric_endpoint.h"
 
@@ -29,56 +30,67 @@ Fabric_client::~Fabric_client()
 
 std::size_t Fabric_client::poll_completions(const component::IFabric_op_completer::complete_old &completion_callback)
 {
+	ENTER_EXIT_TRACE
 	return aep()->poll_completions(completion_callback);
 }
 
 std::size_t Fabric_client::poll_completions(const component::IFabric_op_completer::complete_definite &completion_callback)
 {
+	ENTER_EXIT_TRACE
 	return aep()->poll_completions(completion_callback);
 }
 
 std::size_t Fabric_client::poll_completions_tentative(const component::IFabric_op_completer::complete_tentative &completion_callback)
 {
+	ENTER_EXIT_TRACE
 	return aep()->poll_completions_tentative(completion_callback);
 }
 
 std::size_t Fabric_client::poll_completions(const component::IFabric_op_completer::complete_param_definite &completion_callback, void *callback_param)
 {
+	ENTER_EXIT_TRACE
 	return aep()->poll_completions(completion_callback, callback_param);
 }
 
 std::size_t Fabric_client::poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &completion_callback, void *callback_param)
 {
+	ENTER_EXIT_TRACE
 	return aep()->poll_completions_tentative(completion_callback, callback_param);
 }
 
 std::size_t Fabric_client::poll_completions(const component::IFabric_op_completer::complete_param_definite_ptr_noexcept completion_callback, void *callback_param)
 {
+	ENTER_EXIT_TRACE
 	return aep()->poll_completions(completion_callback, callback_param);
 }
 
 std::size_t Fabric_client::poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative_ptr_noexcept completion_callback, void *callback_param)
 {
+	ENTER_EXIT_TRACE
 	return aep()->poll_completions_tentative(completion_callback, callback_param);
 }
 
 std::size_t Fabric_client::stalled_completion_count()
 {
+	ENTER_EXIT_TRACE
 	return aep()->stalled_completion_count();
 }
 
 void Fabric_client::wait_for_next_completion(unsigned polls_limit)
 {
+	ENTER_EXIT_TRACE
 	return aep()->wait_for_next_completion(polls_limit);
 }
 
 void Fabric_client::wait_for_next_completion(std::chrono::milliseconds timeout)
 {
+	ENTER_EXIT_TRACE
 	return aep()->wait_for_next_completion(timeout);
 }
 
 void Fabric_client::unblock_completions()
 {
+	ENTER_EXIT_TRACE
 	return aep()->unblock_completions();
 }
 
@@ -88,6 +100,7 @@ auto Fabric_client::register_memory(
 	, std::uint64_t flags
 ) -> memory_region_t
 {
+	ENTER_EXIT_TRACE
 	return aep()->register_memory(contig, key, flags);
 }
 
@@ -95,6 +108,7 @@ void Fabric_client::deregister_memory(
 	const memory_region_t memory_region
 )
 {
+	ENTER_EXIT_TRACE
 	return aep()->deregister_memory(memory_region);
 }
 
@@ -102,6 +116,7 @@ std::uint64_t Fabric_client::get_memory_remote_key(
 	const memory_region_t memory_region
 ) const noexcept
 {
+	ENTER_EXIT_TRACE
 	return aep()->get_memory_remote_key(memory_region);
 }
 
@@ -109,7 +124,16 @@ void *Fabric_client::get_memory_descriptor(
 	const memory_region_t memory_region
 ) const noexcept
 {
+	ENTER_EXIT_TRACE
 	return aep()->get_memory_descriptor(memory_region);
+}
+
+auto Fabric_client::mr_covering(
+	const const_byte_span contig_
+) noexcept -> memory_region_t
+{
+	ENTER_EXIT_TRACE
+	return aep()->mr_covering(contig_);
 }
 
 void Fabric_client::post_send(
@@ -118,6 +142,7 @@ void Fabric_client::post_send(
 	, context_t context
 )
 {
+	ENTER_EXIT_TRACE
 	return aep()->post_send(buffers, desc, context);
 }
 
@@ -126,6 +151,7 @@ void Fabric_client::post_send(
 	, context_t context
 )
 {
+	ENTER_EXIT_TRACE
 	return aep()->post_send(buffers, context);
 }
 
@@ -135,6 +161,7 @@ void Fabric_client::post_recv(
 	, context_t context
 )
 {
+	ENTER_EXIT_TRACE
 	return aep()->post_recv(buffers, desc, context);
 }
 
@@ -143,6 +170,7 @@ void Fabric_client::post_recv(
 	, context_t context
 )
 {
+	ENTER_EXIT_TRACE
 	return aep()->post_recv(buffers, context);
 }
 
@@ -154,6 +182,7 @@ void Fabric_client::post_read(
 	, context_t context
 )
 {
+	ENTER_EXIT_TRACE
 	return aep()->post_read(buffers, desc, remote_addr, key, context);
 }
 
@@ -164,6 +193,7 @@ void Fabric_client::post_read(
 	context_t context
 )
 {
+	ENTER_EXIT_TRACE
 	return aep()->post_read(buffers, remote_addr, key, context);
 }
 
@@ -175,6 +205,7 @@ void Fabric_client::post_write(
 	, context_t context
 )
 {
+	ENTER_EXIT_TRACE
 	return aep()->post_write(buffers, desc, remote_addr, key, context);
 }
 
@@ -185,6 +216,7 @@ void Fabric_client::post_write(
 	context_t context
 )
 {
+	ENTER_EXIT_TRACE
 	return aep()->post_write(buffers, remote_addr, key, context);
 }
 
@@ -193,5 +225,6 @@ void Fabric_client::inject_send(
 	, const std::size_t len
 )
 {
+	ENTER_EXIT_TRACE
 	return aep()->inject_send(buf, len);
 }

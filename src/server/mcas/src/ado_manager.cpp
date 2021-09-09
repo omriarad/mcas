@@ -10,7 +10,9 @@
 #include <random>
 
 #include <boost/tokenizer.hpp>
+#include <cassert>
 #include <string>
+#include <typeinfo>
 
 using namespace std;
 using namespace threadipc;
@@ -32,6 +34,7 @@ void ADO_manager::init()
 {
   // set up manager cpu pool
   int core = _config.get_ado_manager_core();
+	pthread_setname_np(pthread_self(), "ADO_manager");
   if (core != -1) _manager_cpu_pool.insert(unsigned(core));
 
   // setup ado cpu pool

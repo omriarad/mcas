@@ -3,6 +3,9 @@
 #include <common/logging.h>
 #include <common/errors.h>
 #include <common/utils.h>
+#if CW_TEST
+#include <cw/test_data.h>
+#endif
 #include <api/components.h>
 #include <api/mcas_itf.h>
 
@@ -34,6 +37,9 @@ extern "C" status_t mcas_open_session_ex(const char * server_addr,
     /* create instance of MCAS client session */
     mcas_session_t mcas = factory->mcas_create(debug_level /* debug level, 0=off */,
                                                patience,
+#if CW_TEST
+	cw::test_data(__LINE__), /* number __LINE__ notes which path created the MCAS */
+#endif
                                                getlogin(),
                                                server_addr, /* MCAS server endpoint, e.g. 10.0.0.101::11911 */
                                                net_device); /* e.g., mlx5_0, eth0 */

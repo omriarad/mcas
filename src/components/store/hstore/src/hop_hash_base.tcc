@@ -253,7 +253,7 @@ template <
 
 /*
  * Starting at bucket bi_, scan forward to find the next free bucket.
- 8 Throws hop_hash_full is there in free bucket.
+ * Throws hop_hash_full is there in free bucket.
  *
  * Precondition: hold owner unique lock on bi.
  * Exit with content unique lock on the free bucket (while retaining owner

@@ -13,29 +13,57 @@
 #include "connection_handler.h"
 #include "connection_state.h"
 #include "security.h"
+#include "protocol_ostream.h"
 #include "mcas_config.h"
 
+#include <common/to_string.h>
+#include <sstream>
+#if 0
+  /* Convert stream arguments to a string */
+  template <typename Args>
+    // std::string to_string(Args&&... args)
+    std::string to_string2(const Args& args)
+    {
+      std::ostringstream s;
+      (s << args);
+      return s.str();
+    }
+#endif
 /*
- * Allocating a few extra receive buffers seems to improvie performance.
+ * Allocating a few extra receive buffers seems to improve performance.
  */
 static constexpr unsigned extra_buffers = 3;
 
 namespace mcas
 {
-Connection_handler::Connection_handler(unsigned debug_level,
+Connection_handler::Connection_handler(unsigned debug_level_,
                                        gsl::not_null<Factory *> factory,
-                                       std::unique_ptr<Preconnection> && preconnection)
-  : Connection_base(debug_level, factory, std::move(preconnection)),
-    Region_manager(debug_level, transport()),
-    Connection_TLS_session(debug_level, this),
+                                       std::unique_ptr<Preconnection> && preconnection
+                                       , unsigned buffer_count_
+#if 0 && 11
+	, byte_span scratchpad_
+#endif
+)
+  : Connection_base(debug_level_, factory, std::move(preconnection), buffer_count_),
+    Region_manager(debug_level_, transport()),
+    Connection_TLS_session(debug_level_, this),
     _mr_vector{},
     _tick_count(0),
     _auth_id(0),
     _pending_msgs{},
     _pending_actions(),
     _pool_manager(),
+	_locked_values{}
+	, _spaces_shared{}
+#if CW_TEST
+	, _rm()
+#endif
+	,
     _stats{},
     _tls_buffer()
+#if CW_TEST
+	, _test_data(__LINE__)
+#endif
 {
 }
 
@@ -94,35 +122,22 @@ int Connection_handler::tick()
 
         switch (msg->type_id()) {
         case MSG_TYPE::IO_REQUEST:
-          if (option_DEBUG > 2) PMAJOR("Shard: IO_REQUEST");
-          _pending_msgs.push(iob);
-          post_recv_buffer(allocate_recv());
-          break;
-
         case MSG_TYPE::PUT_ADO_REQUEST:
         case MSG_TYPE::ADO_REQUEST:
-          if (option_DEBUG > 2) PMAJOR("Shard: ADO_REQUEST");
-          _pending_msgs.push(iob);
+        case MSG_TYPE::POOL_REQUEST:
+        case MSG_TYPE::INFO_REQUEST:
+        case MSG_TYPE::NO_MSG:
+        case MSG_TYPE::PING:
           post_recv_buffer(allocate_recv());
+          if (option_DEBUG > 2) PMAJOR("%s", common_to_string(*msg).c_str());
+          _pending_msgs.push(iob);
           break;
 
         case MSG_TYPE::CLOSE_SESSION:
-          post_recv_buffer(allocate_recv());
-          if (option_DEBUG > 2) PMAJOR("Shard: CLOSE_SESSION");
+          post_recv_buffer(allocate_recv()); /* Is this (and the subsequent free_recv_buffer) necessary? */
+          if (option_DEBUG > 2) PMAJOR("%s", common_to_string(*msg).c_str());
           free_recv_buffer();
           response = TICK_RESPONSE_CLOSE;
-          break;
-
-        case MSG_TYPE::POOL_REQUEST:
-          if (option_DEBUG > 2) PMAJOR("Shard: POOL_REQUEST");
-          _pending_msgs.push(iob);
-          post_recv_buffer(allocate_recv());
-          break;
-
-        case MSG_TYPE::INFO_REQUEST:
-          if (option_DEBUG > 2) PMAJOR("Shard: INFO_REQUEST");
-          _pending_msgs.push(iob);
-          post_recv_buffer(allocate_recv());
           break;
 
         default:
@@ -132,7 +147,7 @@ int Connection_handler::tick()
         ++_stats.recv_msg_count;
 
         if (option_DEBUG > 2)
-          PMAJOR("Shard State: %lu %p WAIT_MSG_RECV complete", _tick_count, common::p_fmt(this));
+          PMAJOR("Shard %p State: WAIT_MSG_RECV complete (%lu ticks)", common::p_fmt(this), _tick_count);
       }
     else {
       ++_stats.wait_msg_recv_misses;
@@ -144,7 +159,7 @@ int Connection_handler::tick()
     static int handshakes = 0;
     handshakes++;
     if (option_DEBUG > 2)
-      PMAJOR("Shard State: %lu %p POST_HANDSHAKE (%d)", _tick_count, common::p_fmt(this), handshakes);
+      PMAJOR("Shard %p State: POST_HANDSHAKE (%lu ticks, %d handshakes)", common::p_fmt(this), _tick_count, handshakes);
 
     /* fabric connection has allocated the first receive buffer */
 
@@ -184,8 +199,8 @@ int Connection_handler::tick()
       resp_handshakes ++;
 
       if (option_DEBUG > 2)
-        PLOG("Shard State: %lu %p WAIT_HANDSHAKE complete (%d)",
-             _tick_count, common::p_fmt(this), resp_handshakes);
+        PLOG("Shard %p State: WAIT_HANDSHAKE complete (tick count %lu, resp_handshakes %d)",
+             common::p_fmt(this), _tick_count, resp_handshakes);
 
       const auto iob = posted_recv();
       assert(iob);
@@ -197,6 +212,14 @@ int Connection_handler::tick()
 
       set_auth_id(msg->auth_id());
 
+#if CW_TEST
+      _rm =
+			cw::registered_memory(
+				Connection_base::transport()
+				, std::make_unique<cw::dram_memory>(std::max(std::uint64_t(100), msg->test_data_size))
+				, 0
+			);
+#endif
       /* if security_tls_auth bit is set, then we need to establish a
          GNU TLS side-channel as part of this session. this is
          triggered by sending the TLS port for the client to accept
@@ -237,7 +260,13 @@ void Connection_handler::configure_security(const std::string& bind_ipaddr,
   }
 }
 
-void Connection_handler::respond_to_handshake(bool start_tls)
+void Connection_handler::respond_to_handshake(
+	bool start_tls
+#if CW_TEST && 0
+	, uint64_t scratchpad_base_
+	, uint64_t scratchpad_size_
+#endif
+)
 {
   auto reply_iob = allocate_send();
   assert(reply_iob);
@@ -247,15 +276,74 @@ void Connection_handler::respond_to_handshake(bool start_tls)
                                                                              1 /* seq */,
                                                                              max_message_size(),
                                                                              reinterpret_cast<uint64_t>(this),
-                                                                             start_tls);
+                                                                             start_tls
+#if CW_TEST
+		, reinterpret_cast<std::uint64_t>(&_rm[0]) /* vaddr */
+		, _rm.key() /* key */
+#if 0
+		, reinterpret_cast<std::uint64_t>(::base(_scratchpad))
+		, ::size(_scratchpad)
+#endif
+#endif
+	);
 
   /* post response */
   reply_iob->set_length(reply_msg->msg_len());
   post_recv_buffer(allocate_recv());
   post_send_buffer(reply_iob, reply_msg, __func__);
+#if CW_TEST
+	{
+		std::cerr << "TEST SERVER vaddr " << static_cast<void *>(&_rm[0]) << " key " << _rm.key() << "\n";
+
+	}
+#endif
   set_state(Connection_state::WAIT_NEW_MSG_RECV);
 }
 
+void Connection_handler::add_locked_value(
+	const void *target
+	, memory_registered<Connection_base> &&mr
+)
+{
+	_locked_values.emplace(std::pair{target, std::move(mr)});
+}
+
+
+void Connection_handler::release_locked_value(const void *target)
+{
+	auto i = _locked_values.find(target); /* search by target address */
+	if ( i == _locked_values.end() )
+	{
+		throw Logic_exception("%s: bad target; value never locked? (%p)", __func__, target);
+	}
+
+	_locked_values.erase(i);
+}
+
+void Connection_handler::add_space_shared(const range<std::uint64_t> &range_, memory_registered<Connection_base> &&mr_)
+{
+	auto i = _spaces_shared.emplace(std::pair{range_, std::move(mr_)}).first;
+	++i->second.count;
+
+	CPLOG(2, "%s: [0x%" PRIx64 "..0x%" PRIx64 ") count %u", __func__, range_.first, range_.second, i->second.count);
+}
+
+void Connection_handler::release_space_shared(const range<std::uint64_t> &range_)
+{
+  auto i = _spaces_shared.find(range_); /* search by max offset */
+  if (i == _spaces_shared.end()) {
+    throw Logic_exception("%s: bad target; space never located? (%" PRIx64 ":%" PRIx64 ")", __func__, range_.first,
+                          range_.second);
+  }
+
+  CPLOG(2, "%s: [0x%" PRIx64 "..0x%" PRIx64 ") count %u", __func__, range_.first, range_.second, i->second.count);
+
+  --i->second.count;
+
+  if (i->second.count == 0) {
+    _spaces_shared.erase(i);
+  }
+}
 
 
 

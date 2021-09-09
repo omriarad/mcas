@@ -153,6 +153,7 @@ public:
   void deregister_memory(memory_region_t memory_region) override;
   std::uint64_t get_memory_remote_key(memory_region_t) const noexcept override;
   void *        get_memory_descriptor(memory_region_t) const noexcept override;
+  memory_region_t mr_covering(const_byte_span contig) noexcept override;
   /* END component::IFabric_communicator */
 
   fabric_types::addr_ep_t get_name() const;

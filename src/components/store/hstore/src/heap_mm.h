@@ -56,7 +56,7 @@ struct cptr;
 struct heap_mm_ephemeral;
 
 struct heap_mm
-	: private heap
+	: public heap
 {
 private:
 	using byte_span = common::byte_span;

@@ -1,5 +1,5 @@
 /*
-  Copyright [2017-2020] [IBM Corporation]
+  Copyright [2017-2021] [IBM Corporation]
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
   You may obtain a copy of the License at
@@ -27,6 +27,7 @@
 #include <rdma/fabric.h> /* fi_context2 */
 #include <sys/mman.h>
 
+#include "free_deleter.h"
 #include "mcas_config.h"
 #include "memory_registered.h"
 #include <gsl/pointers> /* not_null */
@@ -49,13 +50,16 @@ namespace
 
 namespace mcas
 {
+/* Buffer_manager is always specialized as Buffer_manager<IFabric_memory_control>,
+ * so the template is not necessary unless one anticipates specializing from
+ * something which works kind of, but not exactly, like IFabric_memory_control.
+ */
 template <class Memory>
 class Buffer_manager : private common::log_source {
 
   static constexpr const char *_cname       = "Buffer_manager";
 
 public:
-  static constexpr size_t DEFAULT_BUFFER_COUNT = NUM_SHARD_BUFFERS;
   static constexpr size_t BUFFER_LEN           = MiB(2); /* corresponds to huge page see below */
   using memory_registered_t                    = memory_registered<Memory>;
 
@@ -89,28 +93,40 @@ public:
   {
   private:
     static constexpr const char *_cname = "buffer_base";
+#if 1
+    common::byte_span _span;
+#else
     void *_base;
     std::size_t _original_length;
+#endif
     memory_registered_t _region;
     const unsigned magic;
 
   public:
     buffer_base(unsigned    debug_level_,
              Memory * transport_,
+#if 1
+             common::byte_span span_
+#else
              void *      base_,
              size_t      length_
+#endif
     )
       : common::log_source(debug_level_)
+#if 1
+      , _span(span_)
+#else
       , _base(base_)
       , _original_length(length_)
-      , _region(memory_registered_t(debug_level_, transport_, base_, length_, 0, 0))
+#endif
+      , _region(memory_registered_t(debug_level_, transport_, common::make_const_byte_span(span_), 0 /* proposed key */, 0 /* flags */))
       , magic(0xC0FFEE)
     {
-      if ( length_ <= 1 )
+      if ( size(span_) <= 1 )
       {
         throw std::domain_error("buffer length too small");
       }
-      CPLOG(3, "%s::%s %p transport %p region %p", _cname, __func__, common::p_fmt(this),
+      CPLOG(1, "%s::%s %p transport %p region %p", _cname, __func__, common::p_fmt(this),
             common::p_fmt(transport()), common::p_fmt(region()));
     }
 
@@ -121,26 +137,21 @@ public:
   protected:
     ~buffer_base()
     {
-      CPLOG(3, "%s::%s %p transport %p region %p", _cname, __func__, common::p_fmt(this),
+      CPLOG(1, "%s::%s %p transport %p region %p", _cname, __func__, common::p_fmt(this),
             common::p_fmt(transport()), common::p_fmt(region()));
     }
 
   public:
-    size_t original_length() const { return _original_length; }
-    inline gsl::not_null<void *> base() const { return _base; }
+    size_t original_length() const { return ::size(_span); }
+    inline gsl::not_null<void *> base() const { return ::base(_span); }
     auto region() const { return _region.mr(); }
-    Memory * transport() const { return _region.transport(); }
+    Memory * transport() const { return _region.memory_control(); }
 
 #if 0
     /* unused */
     inline bool check_magic() const { return magic == 0xC0FFEE; }
     unsigned int crc32() const { return common::chksum32(_base, _length); }
 #endif
-  };
-
-  struct free_deleter
-  {
-    void operator()(void *v_) { ::free(v_); }
   };
 
   struct buffer_internal
@@ -167,37 +178,44 @@ public:
              size_t              length_
     )
       : std::unique_ptr<void, free_deleter>(alloc_base(length_))
-      , buffer_base(debug_level_, transport_, std::unique_ptr<void, free_deleter>::get(), length_)
+      , buffer_base(debug_level_, transport_, common::make_byte_span(std::unique_ptr<void, free_deleter>::get(), length_))
       , iov{{this->base(), this->original_length()}, {nullptr, 0}}
       , desc{this->get_desc(), nullptr}
       , _ml(&this->iov[0])
       , completion_cb(nullptr)
       , value_adjunct(nullptr)
     {
+#if 0
+PLOG("%s: ctl %p buffer %p.%zx", __func__, static_cast<void*>(this), static_cast<void *>(get()), length_);
+#endif
     }
 
     DELETE_COPY(buffer_internal);
 
-    void set_length(size_t s) { iov->iov_len = s; }
+    void set_length(size_t s) { iov[0].iov_len = s; }
 
     inline void reset_length()
     {
       assert(this->original_length() > 1);
-      this->iov[0].iov_len  = this->original_length();
+      this->iov[0].iov_len = this->original_length();
       value_adjunct = nullptr;
       completion_cb = nullptr;
     }
 
     size_t length() const { return iov[0].iov_len; }
 
-    unsigned int crc32() const { return common::chksum32(iov->iov_base, iov->iov_len); }
+    unsigned int crc32() const { return common::chksum32(iov[0].iov_base, iov[0].iov_len); }
   };
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"  // missing initializers
   Buffer_manager(unsigned debug_level_,
                  Memory *transport,
-                 size_t buffer_count = DEFAULT_BUFFER_COUNT)
+			size_t buffer_count
+#if 0
+				 = DEFAULT_BUFFER_COUNT
+#endif
+		)
     : common::log_source(debug_level_),
       _buffer_count(buffer_count),
       _transport(transport)

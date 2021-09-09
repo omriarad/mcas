@@ -13,12 +13,23 @@
 
 #include "connection.h"
 
+#include "async_buffer_set_get_locate.h"
+#include "async_buffer_set_put_locate.h"
+#include "async_buffer_set_invoke.h"
+#include "async_buffer_set_get_direct_offset.h"
+#include "async_buffer_set_put_direct_offset.h"
+#if CW_TEST
+#include <cw/cw_common.h>
+#include <cw/cw_fabric_test.h>
+#endif
+#include "memory_registered.h"
 #include "protocol.h"
 #include "range.h"
 
 #include <city.h>
 #include <common/cycles.h>
 #include <common/delete_copy.h>
+#include <common/to_string.h>
 #include <common/utils.h>
 #include <unistd.h>
 
@@ -26,7 +37,7 @@
 #include <iostream>
 #include <memory>
 #include <numeric> /* accumulate */
-
+#include <thread> /* sleep_for */
 
 #include <rapidjson/error/en.h>
 #include <rapidjson/filereadstream.h>
@@ -81,6 +92,7 @@ namespace mcas
 {
 namespace client
 {
+#if 0
 /* The various embedded returns and throws suggest that the allocated
  * iobs should be automatically freed to avoid leaks.
  */
@@ -908,20 +920,47 @@ public:
   }
 };
 
-Connection_handler::Connection_handler(const unsigned              debug_level,
+#endif
+
+Connection::Connection(const unsigned              debug_level,
                                        Connection_base::Transport *connection,
                                        Connection_base::buffer_manager &bm_,
                                        const unsigned              patience,
-                                       const common::string_view   other)
-  : Connection_base(debug_level, connection, bm_, patience),
-#ifdef THREAD_SAFE_CLIENT
-    _api_lock{},
+#if CW_TEST
+	const cw::test_data test_data_,
 #endif
-    _exit{false},
+                                       const common::string_view   other)
+  : Connection_base(debug_level, connection, bm_, patience)
+#if CW_TEST
+	, _connection_start(clock_type::now())
+	, _connection_delta(_connection_start)
+	, _rm_out{}
+	, _rm_in{}
+	, _client{}
+	, _ct_w()
+	, _ct_wr_real_to_test()
+	, _ct_wr_test_to_real()
+	, _ct_rd_test_from_real()
+#if 0
+	, _scratchpad{}
+	, _scratchpad_rma_key{}
+#endif
+#endif
+#ifdef THREAD_SAFE_CLIENT
+    , _api_lock{}
+#endif
+    , _exit{false},
     _request_id{0},
     _max_message_size{0},
     _max_inject_size(connection->max_inject_size()),
     _options()
+	, _xcred{}
+	, _priority{}
+	, _session{}
+	, _tls_buffer{}
+#if CW_TEST
+	, _test_data(test_data_)
+#endif
 {
   char *env = ::getenv(ENVIRONMENT_VARIABLE_SC);
   if (env && env[0] == '1') {
@@ -959,31 +998,45 @@ Connection_handler::Connection_handler(const unsigned              debug_level,
 
 }
 
-Connection_handler::~Connection_handler()
+Connection::~Connection()
 {
   PLOG("%s: (%p)", __func__, common::p_fmt(this));
+#if CW_TEST
+	std::cerr << "wr " << _ct_w.out("usec") << "\n";
+	std::cerr << "wr_real_to_test " << _ct_wr_real_to_test.out("usec") << "\n";
+	std::cerr << "wr_test_to_real " << _ct_wr_test_to_real.out("usec") << "\n";
+	std::cerr << "rd_test_from_real " << _ct_rd_test_from_real.out("usec") << "\n";
+#endif
 }
 
-void Connection_handler::send_complete(void *param, buffer_t *iob)
-{
-  PLOG("%s param %p iob %p", __func__, param, common::p_fmt(iob));
-}
-void Connection_handler::recv_complete(void *param, buffer_t *iob)
-{
-  PLOG("%s param %p iob %p", __func__, param, common::p_fmt(iob));
-}
-void Connection_handler::write_complete(void *param, buffer_t *iob)
-{
-  PLOG("%s param %p iob %p", __func__, param, common::p_fmt(iob));
-}
-void Connection_handler::read_complete(void *param, buffer_t *iob)
+void Connection::send_complete(void *param, buffer_t *iob)
 {
   PLOG("%s param %p iob %p", __func__, param, common::p_fmt(iob));
 }
 
-Connection_handler::pool_t Connection_handler::open_pool(const string_view name,
+void Connection::recv_complete(void *param, buffer_t *iob)
+{
+  PLOG("%s param %p iob %p", __func__, param, common::p_fmt(iob));
+}
+
+void Connection::write_complete(void *param, buffer_t *iob)
+{
+  PLOG("%s param %p iob %p", __func__, param, common::p_fmt(iob));
+}
+
+void Connection::read_complete(void *param, buffer_t *iob)
+{
+  PLOG("%s param %p iob %p", __func__, param, common::p_fmt(iob));
+}
+
+auto Connection::open_pool(const string_view name,
                                                          const unsigned int flags,
-                                                         const addr_t base)
+                                                         const addr_t base) ->
+#if CW_TEST
+ std::tuple<Connection::pool_t, uint64_t, uint64_t>
+#else
+ Connection::pool_t
+#endif
 {
   API_LOCK();
 
@@ -1003,6 +1056,10 @@ Connection_handler::pool_t Connection_handler::open_pool(const string_view name,
   assert(iobr);
 
   IKVStore::pool_t pool_id;
+#if CW_TEST
+	uint64_t scratchpad_base {};
+	uint64_t scratchpad_rma_key {};
+#endif
 
   assert(&*iobr != &*iobs);
 
@@ -1038,6 +1095,22 @@ Connection_handler::pool_t Connection_handler::open_pool(const string_view name,
     const auto response_msg = msg_recv<const mcas::protocol::Message_pool_response>(&*iobr, __func__);
 
     pool_id = response_msg->pool_id;
+#if CW_TEST
+		scratchpad_base = response_msg->scratchpad_base;
+		scratchpad_rma_key = response_msg->scratchpad_rma_key;
+#if 0
+		scratchpad =
+			{
+				common::make_byte_span(
+					reinterpret_cast<void *>(response_msg->scratchpad_base)
+					, response_msg->scratchpad_size
+				)
+				, response_msg->scratchpad_rma_key
+			};
+		_client->set_vaddr(response_msg->scratchpad_base);
+#endif
+#endif
+
   }
   catch (const Exception &e) {
     PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
@@ -1047,19 +1120,28 @@ Connection_handler::pool_t Connection_handler::open_pool(const string_view name,
     PLOG("%s %s fail %s", __FILE__, __func__, e.what());
     pool_id = IKVStore::POOL_ERROR;
   }
+#if CW_TEST
+  return { pool_id, scratchpad_base, scratchpad_rma_key };
+#else
   return pool_id;
+#endif
 }
 
-Connection_handler::pool_t
-Connection_handler::create_pool(const string_view  name,
-                                const size_t       size,
-                                const unsigned int flags,
-                                const uint64_t     expected_obj_count,
-                                const addr_t       base)
+auto Connection::create_pool(const string_view  name_,
+                                const size_t       size_,
+                                const unsigned int flags_,
+                                const uint64_t     expected_obj_count_,
+                                const addr_t       base_
+) ->
+#if CW_TEST
+ std::tuple<Connection::pool_t, uint64_t, uint64_t>
+#else
+ Connection::pool_t
+#endif
 {
   API_LOCK();
 
-  PMAJOR("Create pool: %.*s (flags=%u, base=0x%lx)", int(name.size()), name.data(), flags, base);
+  PMAJOR("Create pool: %.*s (flags=%u, base=0x%lx)", int(name_.size()), name_.data(), flags_, base_);
 
   /* send pool request message */
   const auto iobs = make_iob_ptr_send();
@@ -1068,18 +1150,22 @@ Connection_handler::create_pool(const string_view  name,
   assert(iobr);
 
   IKVStore::pool_t pool_id;
+#if CW_TEST
+	uint64_t scratchpad_base {};
+	uint64_t scratchpad_rma_key {};
+#endif
 
   try {
     const auto msg = new (iobs->base())
       protocol::Message_pool_request(iobs->length(),
                                      auth_id(),
                                      request_id(),
-                                     size,
-                                     expected_obj_count,
+                                     size_,
+                                     expected_obj_count_,
                                      mcas::protocol::OP_CREATE,
-                                     name,
-                                     flags,
-                                     base);
+                                     name_,
+                                     flags_,
+                                     base_);
     assert(msg->op());
 
     post_recv(&*iobr);
@@ -1089,6 +1175,21 @@ Connection_handler::create_pool(const string_view  name,
     const auto response_msg = msg_recv<const mcas::protocol::Message_pool_response>(&*iobr, __func__);
 
     pool_id = response_msg->pool_id;
+#if CW_TEST
+		scratchpad_base = response_msg->scratchpad_base;
+		scratchpad_rma_key = response_msg->scratchpad_rma_key;
+#if 0
+		scratchpad =
+			{
+				common::make_byte_span(
+					reinterpret_cast<void *>(response_msg->scratchpad_base)
+					, response_msg->scratchpad_size
+				)
+				, response_msg->scratchpad_rma_key
+			};
+	_client->set_vaddr(response_msg->scratchpad_base);
+#endif
+#endif
   }
   catch (const Exception &e) {
     PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
@@ -1101,10 +1202,38 @@ Connection_handler::create_pool(const string_view  name,
 
   /* Note: most request/response pairs return status. This one returns a pool_id
    * instead. */
+#if CW_TEST
+	if ( pool_id != KVStore::POOL_ERROR )
+	{
+		{
+			/* run a performance test on the pool: read 8MiB, then write 8 Mib 10K times */
+			std::size_t sz = 1UL << 23;
+			auto base = scratchpad_base - scratchpad_base % 0x10000;
+			read_test_from_real(sz, base, scratchpad_rma_key);
+			for ( auto i = 0; i != 10000; ++i )
+			{
+				write_test_to_real(sz, base, scratchpad_rma_key);
+			}
+			std::cerr << __func__ << "perf check: wr_test_to_real aligned at " << reinterpret_cast<void *>(base) << " " << _ct_wr_test_to_real.out("usec") << "\n";
+		}
+		{
+			/* run a performance test on the pool: read 8MiB, then write 8 Mib 10K times */
+			std::size_t sz = 1UL << 23;
+			read_test_from_real(sz, scratchpad_base, scratchpad_rma_key);
+			for ( auto i = 0; i != 10000; ++i )
+			{
+				write_test_to_real(sz, scratchpad_base, scratchpad_rma_key);
+			}
+			std::cerr << __func__ << "perf check: wr_test_to_real " << _ct_wr_test_to_real.out("usec") << "\n";
+		}
+	}
+  return { pool_id, scratchpad_base, scratchpad_rma_key };
+#else
   return pool_id;
+#endif
 }
 
-status_t Connection_handler::close_pool(const pool_t pool)
+status_t Connection::close_pool(const pool_t pool)
 {
   PMAJOR("Close pool: 0x%lx", pool);
 
@@ -1135,8 +1264,7 @@ status_t Connection_handler::close_pool(const pool_t pool)
   }
 }
 
-status_t Connection_handler::delete_pool(const string_view name)
-
+status_t Connection::delete_pool(const string_view name)
 {
   if (name.empty()) return E_INVAL;
 
@@ -1175,7 +1303,7 @@ status_t Connection_handler::delete_pool(const string_view name)
   }
 }
 
-status_t Connection_handler::delete_pool(const IMCAS::pool_t pool)
+status_t Connection::delete_pool(const IMCAS::pool_t pool)
 {
   if (!pool) return E_INVAL;
 
@@ -1206,7 +1334,7 @@ status_t Connection_handler::delete_pool(const IMCAS::pool_t pool)
   }
 }
 
-status_t Connection_handler::configure_pool(const IMCAS::pool_t pool, const string_view json)
+status_t Connection::configure_pool(const IMCAS::pool_t pool, const string_view json)
 {
   API_LOCK();
 
@@ -1243,7 +1371,7 @@ status_t Connection_handler::configure_pool(const IMCAS::pool_t pool, const stri
  * Memcpy version; both key and value are copied
  *
  */
-status_t Connection_handler::put(const pool_t       pool,
+status_t Connection::put(const pool_t       pool,
                                  const string_view_key key,
                                  const void *       value,
                                  const size_t       value_len,
@@ -1300,7 +1428,7 @@ status_t Connection_handler::put(const pool_t       pool,
   return status;
 }
 
-auto Connection_handler::locate(const pool_t pool_, const std::size_t offset_, const std::size_t size_)
+auto Connection::locate(const pool_t pool_, const std::size_t offset_, const std::size_t size_)
   -> std::tuple<uint64_t, std::vector<locate_element>>
 {
   const auto iobr = make_iob_ptr_recv();
@@ -1342,7 +1470,7 @@ namespace
   }
 }
 
-IMCAS::async_handle_t Connection_handler::put_locate_async(TM_ACTUAL const pool_t                        pool,
+IMCAS::async_handle_t Connection::put_locate_async(TM_ACTUAL const pool_t                        pool,
                                             string_view_key key,
                                                            const gsl::span<const common::const_byte_span> values,
                                                            component::Registrar_memory_direct *rmd_,
@@ -1376,7 +1504,6 @@ IMCAS::async_handle_t Connection_handler::put_locate_async(TM_ACTUAL const pool_
         , rmd_
         , std::move(iobs)
         , std::move(iobr)
-        , make_iob_ptr_write()
         , make_iob_ptr_send()
         , make_iob_ptr_recv()
         , pool, auth_id()
@@ -1386,7 +1513,7 @@ IMCAS::async_handle_t Connection_handler::put_locate_async(TM_ACTUAL const pool_
     );
 }
 
-IMCAS::async_handle_t Connection_handler::get_direct_offset_async(const pool_t                        pool_,
+IMCAS::async_handle_t Connection::get_direct_offset_async(const pool_t                        pool_,
                                                                   const std::size_t                   offset_,
                                                                   void *const                         buffer_,
                                                                   std::size_t &                       len_,
@@ -1416,7 +1543,7 @@ IMCAS::async_handle_t Connection_handler::get_direct_offset_async(const pool_t  
                                                                                                          make_iob_ptr_recv(), pool_, auth_id(), offset_, buffer_, len_, desc_));
 }
 
-IMCAS::async_handle_t Connection_handler::put_direct_offset_async(const pool_t                        pool_,
+IMCAS::async_handle_t Connection::put_direct_offset_async(const pool_t                        pool_,
                                                                   const std::size_t                   offset_,
                                                                   const void *const                   buffer_,
                                                                   std::size_t &                       length_,
@@ -1447,7 +1574,7 @@ IMCAS::async_handle_t Connection_handler::put_direct_offset_async(const pool_t  
 }
 
 IMCAS::async_handle_t
-Connection_handler::get_locate_async(TM_ACTUAL const pool_t                        pool,
+Connection::get_locate_async(TM_ACTUAL const pool_t                        pool,
                                      string_view_key                     key,
                                      void *const                         value,
                                      size_t &                            value_len,
@@ -1506,12 +1633,16 @@ Connection_handler::get_locate_async(TM_ACTUAL const pool_t                     
 		return
 			static_cast<IMCAS::async_handle_t>(new async_buffer_set_get_locate(
 				TM_REF
-				debug_level(), rmd_, make_iob_ptr_read(), make_iob_ptr_send(),
+				debug_level(), rmd_
+#if 0
+				, make_iob_ptr_read()
+#endif
+				, make_iob_ptr_send(),
 				make_iob_ptr_recv(), pool, auth_id(), value, transfer_len, this, desc_, addr, memory_key));
 	}
 }
 
-status_t Connection_handler::put_direct(pool_t                               pool_,
+status_t Connection::put_direct(pool_t                               pool_,
                       const string_view_key                key_,
                       gsl::span<const common::const_byte_span> values_,
                       component::Registrar_memory_direct * rmd_,
@@ -1530,7 +1661,7 @@ status_t Connection_handler::put_direct(pool_t                               poo
   return status;
 }
 
-status_t Connection_handler::async_put(const IMCAS::pool_t    pool,
+status_t Connection::async_put(const IMCAS::pool_t    pool,
                       const string_view_key                key_,
                                        const void *           value,
                                        const size_t           value_len,
@@ -1580,7 +1711,7 @@ status_t Connection_handler::async_put(const IMCAS::pool_t    pool,
   return E_FAIL;
 }
 
-status_t Connection_handler::async_put_direct(const IMCAS::pool_t                        pool_,
+status_t Connection::async_put_direct(const IMCAS::pool_t                        pool_,
                                               const string_view_key                      key_,
                                               const gsl::span<const common::const_byte_span>   values_,
                                               component::IMCAS::async_handle_t &         out_async_handle_,
@@ -1669,7 +1800,7 @@ status_t Connection_handler::async_put_direct(const IMCAS::pool_t               
   }
 }
 
-status_t Connection_handler::async_get_direct(TM_ACTUAL const IMCAS::pool_t                        pool_,
+status_t Connection::async_get_direct(TM_ACTUAL const IMCAS::pool_t                        pool_,
                                               const string_view_key                      key_,
                                               void *const                                value_,
                                               size_t &                                   value_len_,
@@ -1716,7 +1847,7 @@ status_t Connection_handler::async_get_direct(TM_ACTUAL const IMCAS::pool_t     
   }
 }
 
-status_t Connection_handler::check_async_completion(TM_ACTUAL IMCAS::async_handle_t &handle)
+status_t Connection::check_async_completion(TM_ACTUAL IMCAS::async_handle_t &handle)
 {
   API_LOCK();
   auto bptrs = static_cast<async_buffer_set_t *>(handle);
@@ -1749,7 +1880,7 @@ status_t Connection_handler::check_async_completion(TM_ACTUAL IMCAS::async_handl
   return status;
 }
 
-status_t Connection_handler::get(const pool_t pool, const string_view_key key, std::string &value)
+status_t Connection::get(const pool_t pool, const string_view_key key, std::string &value)
 {
   TM_ROOT()
   API_LOCK();
@@ -1802,7 +1933,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
   return status;
 }
 
-  status_t Connection_handler::get(const pool_t pool, const string_view_key key, void *&value, size_t &value_len)
+  status_t Connection::get(const pool_t pool, const string_view_key key, void *&value, size_t &value_len)
   {
     TM_ROOT()
     API_LOCK();
@@ -1857,7 +1988,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
         void *desc[] = {region.get_memory_descriptor()};
 
         ::iovec iov[]{{value, data_len - 1}};
-	fi_context2 ctxt;
+	::fi_context2 ctxt;
         post_recv(iov, std::begin(desc), &ctxt);
 
         /* synchronously wait for receive to complete */
@@ -1893,7 +2024,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return status;
   }
 
-  status_t Connection_handler::get_direct(const pool_t                              pool_,
+  status_t Connection::get_direct(const pool_t                              pool_,
                                           const string_view_key                     key_,
                                           void *const                               value_,
                                           size_t &                                  value_len_,
@@ -1913,7 +2044,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return status;
   }
 
-  status_t Connection_handler::get_direct_offset(const pool_t                              pool_,
+  status_t Connection::get_direct_offset(const pool_t                              pool_,
                                                  const std::size_t                         offset_,
                                                  std::size_t &                             length_,
                                                  void *const                               buffer_,
@@ -1933,7 +2064,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return status;
   }
 
-  status_t Connection_handler::put_direct_offset(const pool_t                              pool_,
+  status_t Connection::put_direct_offset(const pool_t                              pool_,
                                                  const std::size_t                         offset_,
                                                  std::size_t &                             size_,
                                                  const void *const                         buffer_,
@@ -1953,7 +2084,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return status;
   }
 
-  status_t Connection_handler::async_get_direct_offset(const pool_t                              pool_,
+  status_t Connection::async_get_direct_offset(const pool_t                              pool_,
                                                        const std::size_t                         offset_,
                                                        std::size_t &                             length_,
                                                        void *const                               buffer_,
@@ -1990,7 +2121,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     }
   }
 
-  status_t Connection_handler::async_put_direct_offset(const pool_t                              pool_,
+  status_t Connection::async_put_direct_offset(const pool_t                              pool_,
                                                        const std::size_t                         offset_,
                                                        std::size_t &                             length_,
                                                        const void *const                         buffer_,
@@ -2024,7 +2155,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return E_FAIL;
   }
 
-  status_t Connection_handler::erase(const pool_t pool, const string_view_key key)
+  status_t Connection::erase(const pool_t pool, const string_view_key key)
   {
     API_LOCK();
 
@@ -2061,7 +2192,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return status;
   }
 
-  status_t Connection_handler::async_erase(const IMCAS::pool_t    pool,
+  status_t Connection::async_erase(const IMCAS::pool_t    pool,
                                            const string_view_key key,
                                            IMCAS::async_handle_t &out_async_handle)
   {
@@ -2102,7 +2233,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return S_OK;
   }
 
-  size_t Connection_handler::count(const pool_t pool)
+  size_t Connection::count(const pool_t pool)
   {
     API_LOCK();
 
@@ -2133,7 +2264,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     }
   }
 
-  status_t Connection_handler::get_attribute(const IKVStore::pool_t    pool,
+  status_t Connection::get_attribute(const IKVStore::pool_t    pool,
                                              const IKVStore::Attribute attr,
                                              std::vector<uint64_t> &   out_attr,
                                              const string_view_key key)
@@ -2173,7 +2304,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return status;
   }
 
-  status_t Connection_handler::get_statistics(IMCAS::Shard_stats &out_stats)
+  status_t Connection::get_statistics(IMCAS::Shard_stats &out_stats)
   {
     API_LOCK();
 
@@ -2214,7 +2345,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return status;
   }
 
-  status_t Connection_handler::find(const IMCAS::pool_t pool,
+  status_t Connection::find(const IMCAS::pool_t pool,
                                     string_view         key_expression,
                                     const offset_t      offset,
                                     offset_t &          out_matched_offset,
@@ -2263,7 +2394,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return status;
   }
 
-  status_t Connection_handler::receive_and_process_ado_response(
+  status_t Connection::receive_and_process_ado_response(
     const iob_ptr & iobr_
     , std::vector<IMCAS::ADO_response> & out_response_
   )
@@ -2307,7 +2438,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
   }
 
   template <typename MT>
-    status_t Connection_handler::invoke_ado_common(
+    status_t Connection::invoke_ado_common(
       const iob_ptr & iobs_
       , const MT *msg_
       , std::vector<IMCAS::ADO_response>& out_response_
@@ -2332,7 +2463,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
       return receive_and_process_ado_response(iobr, out_response_);
     }
 
-  status_t Connection_handler::invoke_ado(const IKVStore::pool_t            pool,
+  status_t Connection::invoke_ado(const IKVStore::pool_t            pool,
                                           const string_view_key     key,
                                           const string_view_request     request,
                                           const unsigned int                flags,
@@ -2369,7 +2500,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return status;
   }
 
-  status_t Connection_handler::invoke_ado_async(const component::IMCAS::pool_t               pool,
+  status_t Connection::invoke_ado_async(const component::IMCAS::pool_t               pool,
                                                 const string_view_key                key,
                                                 const string_view_request                request,
                                                 const component::IMCAS::ado_flags_t          flags,
@@ -2416,7 +2547,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     }
   }
 
-  status_t Connection_handler::invoke_put_ado(const IKVStore::pool_t            pool,
+  status_t Connection::invoke_put_ado(const IKVStore::pool_t            pool,
                                               const string_view_key     key,
                                               const string_view_request     request,
                                               const string_view_value     value,
@@ -2458,7 +2589,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return status;
   }
 
-  status_t Connection_handler::invoke_put_ado_async(const component::IMCAS::pool_t                  pool,
+  status_t Connection::invoke_put_ado_async(const component::IMCAS::pool_t                  pool,
                                                     const string_view_key                   key,
                                                     const string_view_request                   request,
                                                     const string_view_value                   value,
@@ -2509,32 +2640,157 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return S_OK;
   }
 
-  auto Connection_handler::make_iob_ptr(buffer_t::completion_t completion_) -> iob_ptr
+  auto Connection::make_iob_ptr(buffer_t::completion_t completion_) -> iob_ptr
   {
     return iob_ptr(allocate(completion_), this);
   }
 
-  auto Connection_handler::make_iob_ptr_recv() -> iob_ptr
+  auto Connection::make_iob_ptr_recv() -> iob_ptr
   {
     return make_iob_ptr(recv_complete);
   }
 
-  auto Connection_handler::make_iob_ptr_send() -> iob_ptr
+  auto Connection::make_iob_ptr_send() -> iob_ptr
   {
     return make_iob_ptr(send_complete);
   }
 
-  auto Connection_handler::make_iob_ptr_write() -> iob_ptr
+  auto Connection::make_iob_ptr_write() -> iob_ptr
   {
     return make_iob_ptr(write_complete);
   }
 
-  auto Connection_handler::make_iob_ptr_read() -> iob_ptr
+  auto Connection::make_iob_ptr_read() -> iob_ptr
   {
     return make_iob_ptr(read_complete);
   }
 
-  int Connection_handler::tick()
+#if CW_TEST
+	void Connection::run_intermittent_ping_pong(unsigned interval_)
+	{
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdiv-by-zero"
+		if ( interval_ && _ct_w.count() % interval_ == 0 )
+#pragma GCC diagnostic pop
+		{
+			auto iobrp = make_iob_ptr_recv();
+			auto iobsp = make_iob_ptr_send();
+
+			/* send "ping" message */
+			const auto msg = new (iobsp->base()) protocol::Message_ping(auth_id());
+			iobsp->set_length(msg->msg_len());
+			post_recv(&*iobrp);
+			sync_inject_send(&*iobsp, msg, __func__);
+			wait_for_completion(iobrp->to_context()); /* await response */
+		}
+	}
+
+	void Connection::run_test_count_rdma(common::string_view id_)
+	{
+		auto t_start = std::chrono::steady_clock::now();
+
+		for ( auto i = _test_data.count(); i != 0; --i )
+		{
+			run_one_test_element_rdma();
+		}
+		auto t_duration = std::chrono::steady_clock::now() - t_start;
+
+		auto data_size_total = _test_data.count() * _test_data.size();
+		std::cerr << "test " << id_ << ": data rate " << std::dec << data_size_total << " bytes in " << cw::double_seconds(t_duration) << " seconds " << double(data_size_total) / 1e9 / cw::double_seconds(t_duration) << " GB/sec" << "\n";
+		std::cerr << "wr " << _ct_w.out("usec") << "\n";
+		std::cerr << __func__ << " local " << _client->write_from_test_local_addr() << "-> remote " << _client->write_to_test_remote_addr() << "\n";
+	}
+
+	void Connection::run_intermittent_sleep() const
+	{
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdiv-by-zero"
+		if ( _test_data.sleep_interval() && _ct_w.count() % _test_data.sleep_interval() == 0 )
+#pragma GCC diagnostic pop
+		{
+			std::this_thread::sleep_for(_test_data.sleep_time());
+		}
+	}
+
+	void Connection::client_set_vaddr_key(uint64_t vaddr, uint64_t key)
+	{
+		run_test_count_rdma("DRAM");
+		auto old_vaddr_key = _client->set_vaddr_key(vaddr, key);
+		run_test_count_rdma("PMEM");
+		_client->set_vaddr_key(old_vaddr_key);
+		run_test_count_rdma("DRAM again");
+		_client->set_vaddr_key(vaddr, key);
+		run_test_count_rdma("PMEM again");
+	}
+
+	void Connection::run_one_test_element_rdma()
+	{
+		using namespace cw;
+		run_intermittent_ping_pong(_test_data.pre_ping_pong_interval());
+		timer t_write;
+		// auto st = client.read(fabric_fabric::data_size);
+		auto st = _client->write_uninitialized(_test_data.size());
+		if ( st != ::S_OK ) { throw std::runtime_error(__func__ + std::string(" failed")); }
+		auto tm = cw::double_seconds(t_write.elapsed());
+		_ct_w.record(tm);
+		if ( 1.0 <= tm )
+		{
+			std::cerr << __func__ << " local " << _client->write_from_test_local_addr() << "-> remote " << _client->write_to_test_remote_addr() << " (at " << connection_seconds() << " sec, delta " << connection_delta_seconds() << "): long write (" << _ct_w.count() << ") " << tm << " sec\n";
+		}
+		run_intermittent_sleep();
+		run_intermittent_ping_pong(_test_data.post_ping_pong_interval());
+	}
+
+	void Connection::write_real_to_test(void *src_, std::size_t sz_, void *desc_)
+	{
+		using namespace cw;
+		timer t_write;
+		// auto st = client.read(fabric_fabric::data_size);
+		if ( sz_ > _test_data.size()) { throw std::runtime_error(__func__ + std::string(" test dest too small")); }
+		auto st = _client->write_to_test(src_, sz_, desc_);
+		if ( st != ::S_OK ) { throw std::runtime_error(__func__ + std::string(" failed")); }
+		auto tm = double_seconds(t_write.elapsed());
+		_ct_wr_real_to_test.record(tm);
+		if ( 1.0 <= tm )
+		{
+			std::cerr << __func__ << " local " << src_ << "-> remote " << _client->write_to_test_remote_addr() << " (at " << connection_seconds() << " sec, delta " << connection_delta_seconds() << "): long write (" << _ct_wr_real_to_test.count() << ") " << tm << " sec\n";
+		}
+	}
+
+	void Connection::write_test_to_real(std::size_t sz_, std::uint64_t vaddr_, std::uint64_t key_)
+	{
+		using namespace cw;
+		timer t_write;
+		// auto st = client.read(fabric_fabric::data_size);
+		if ( sz_ > _test_data.size()) { throw std::runtime_error(__func__ + std::string(" test dest too small")); }
+		auto st = _client->write_from_test(sz_, vaddr_, key_);
+		if ( st != ::S_OK ) { throw std::runtime_error(__func__ + std::string(" failed")); }
+		auto tm = double_seconds(t_write.elapsed());
+		_ct_wr_test_to_real.record(tm);
+		if ( 1.0 <= tm )
+		{
+			std::cerr << __func__ << " remote " << reinterpret_cast<void *>(vaddr_) << " <- local " << _client->write_from_test_local_addr() <<   " (at " << connection_seconds() << " sec, delta " << connection_delta_seconds() << "): long write (" << _ct_wr_test_to_real.count() << ") " << tm << " sec\n";
+		}
+	}
+
+	void Connection::read_test_from_real(std::size_t sz_, std::uint64_t vaddr_, std::uint64_t key_)
+	{
+		using namespace cw;
+		timer t_write;
+		// auto st = client.read(fabric_fabric::data_size);
+		if ( _test_data.size() < sz_ ) { throw std::runtime_error(__func__ + common::to_string(" test dest  size ", _test_data.size(), " less than read size ", sz_)); }
+		auto st = _client->read_to_test(sz_, vaddr_, key_);
+		if ( st != ::S_OK ) { throw std::runtime_error(__func__ + std::string(" failed")); }
+		auto tm = double_seconds(t_write.elapsed());
+		_ct_rd_test_from_real.record(tm);
+		if ( 1.0 <= tm )
+		{
+			std::cerr << __func__ << " remote " << reinterpret_cast<void *>(vaddr_) << " <- local " << _client->write_from_test_local_addr() <<   " (at " << connection_seconds() << " sec, delta " << connection_delta_seconds() << "): long write (" << _ct_rd_test_from_real.count() << ") " << tm << " sec\n";
+		}
+	}
+#endif
+
+  int Connection::tick()
   {
     using namespace mcas::protocol;
 
@@ -2546,7 +2802,11 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     case HANDSHAKE_SEND: {
 
       const auto iobs = make_iob_ptr_send();
-      auto       msg = new (iobs->base()) mcas::protocol::Message_handshake(auth_id(), 1);
+      auto       msg = new (iobs->base()) mcas::protocol::Message_handshake(auth_id(), 1
+#if CW_TEST
+		, cw::test_data::memory_size()
+#endif
+        );
       msg->set_status(S_OK);
 
       /* set security options */
@@ -2577,6 +2837,69 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
       try {
         wait_for_completion(iobr->to_context());
         const auto response_msg = msg_recv<const mcas::protocol::Message_handshake_reply>(&*iobr, "handshake");
+
+#if CW_TEST
+				{
+					using namespace cw;
+					_rm_out =
+						std::make_shared<registered_memory>(
+							_transport
+#if 0
+							, _test_data.memory_size()
+#else
+							, std::make_unique<cw::dram_memory>(_test_data.memory_size())
+#endif
+							, 0
+						);
+					_rm_in =
+						std::make_shared<registered_memory>(
+							_transport
+#if 0
+							, _test_data.memory_size()
+#else
+							, std::make_unique<cw::dram_memory>(_test_data.memory_size())
+#endif
+							, 0
+						);
+
+					_client =
+						std::make_shared<remote_memory_client_connected>(
+							_rm_out
+							, _rm_in
+							, cvk_type{ _transport, response_msg->vaddr, response_msg->key }
+							, quit_option::remain
+						);
+
+					/* expect that all max messages are greater than 0, and the same */
+					assert(0U < _client->max_message_size());
+
+					// Initial count taken from server side, as that is typically local and easier to alter via env variables or parameters
+					// count = common:t_cenv_value<std::size_t>("COUNT", 10000); }
+					std::cerr << "TEST CLIENT vaddr " << reinterpret_cast<void *>(response_msg->vaddr)
+						<< " key " << response_msg->key
+						<< " size " << _test_data.size() << " count " << _test_data.count()
+						<< " pre_ping_pong interval " << _test_data.pre_ping_pong_interval()
+						<< " post_ping_pong interval " << _test_data.post_ping_pong_interval()
+						<< " sleep interval " << _test_data.sleep_interval()
+						<< " sleep time " << std::chrono::duration<double>(_test_data.sleep_time()).count() << " sec"
+						<< "\n";
+					std::cerr << __func__ << " local " << _client->write_from_test_local_addr()
+						<< "-> remote " << _client->write_to_test_remote_addr()
+						<< "\n";
+					{
+						auto t_start = std::chrono::steady_clock::now();
+						while ( _ct_w.count() < _test_data.count() )
+						{
+							run_one_test_element_rdma();
+						}
+						auto t_duration = std::chrono::steady_clock::now() - t_start;
+
+						auto data_size_total = _test_data.count() * _test_data.size();
+						std::cerr << "Data rate " << std::dec << data_size_total << " bytes in " << double_seconds(t_duration) << " seconds " << double(data_size_total) / 1e9 / double_seconds(t_duration) << " GB/sec" << "\n";
+						std::cerr << "wr " << _ct_w.out("usec") << "\n";
+					}
+				}
+#endif
 
         /* server is indicating that it wants to start TLS session */
         if(response_msg->start_tls)
@@ -2614,7 +2937,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
       // }
 
       set_state(STOPPED);
-      PLOG("Connection_handler::%s: connection %p shutdown.", __func__, common::p_fmt(this));
+      PLOG("Connection::%s: connection %p shutdown.", __func__, common::p_fmt(this));
       return 0;
     }
     case STOPPED: {
@@ -2631,7 +2954,9 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return TLS_DEBUG_LEVEL;
   }
 
-  int TLS_transport::gnutls_pull_timeout_func(gnutls_transport_ptr_t, unsigned int ms)
+  int TLS_transport::gnutls_pull_timeout_func(gnutls_transport_ptr_t
+		, unsigned int // ms
+	)
   {
     return 0;
   }
@@ -2641,7 +2966,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
   {
     assert(connection);
 
-    auto p_connection = reinterpret_cast<Connection_handler*>(connection);
+    auto p_connection = reinterpret_cast<Connection*>(connection);
 
     if(p_connection->_tls_buffer.remaining() >= buffer_size) {
 
@@ -2672,7 +2997,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
   ssize_t TLS_transport::gnutls_vec_push_func(gnutls_transport_ptr_t connection, const giovec_t * iovec, int iovec_cnt )
   {
     assert(connection);
-    auto p_connection = reinterpret_cast<Connection_handler*>(connection);
+    auto p_connection = reinterpret_cast<Connection*>(connection);
     auto iobs = p_connection->make_iob_ptr_send();
 
     void * base_v = iobs->base();
@@ -2698,7 +3023,7 @@ status_t Connection_handler::get(const pool_t pool, const string_view_key key, s
     return size;
   }
 
-  void Connection_handler::start_tls()
+  void Connection::start_tls()
   {
     if(_options.tls == false) throw Logic_exception("TLS contradiction");
 

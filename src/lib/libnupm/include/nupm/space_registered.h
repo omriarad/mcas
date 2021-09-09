@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -29,7 +29,7 @@
 
 namespace nupm
 {
-struct dax_manager;
+struct range_manager;
 
 struct space_registered
 {
@@ -42,14 +42,15 @@ public:
 public:
   space_registered(
     const common::log_source &ls
-    , dax_manager * dm
+    , range_manager * rm
     , common::fd_locked &&fd
     , const string_view &path
     , addr_t base_addr
+    , bool map_locked
   );
   space_registered(
     const common::log_source &ls
-    , dax_manager * dm
+    , range_manager * rm
     , common::fd_locked &&fd
     , const string_view &name
     , const std::vector<byte_span> &mapping

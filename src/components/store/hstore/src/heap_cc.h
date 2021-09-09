@@ -54,7 +54,7 @@ namespace impl
 struct heap_cc_ephemeral;
 
 struct heap_cc
-	: private heap
+	: public heap
 {
 	std::unique_ptr<heap_cc_ephemeral> _eph;
 	pin_control<heap_cc> _pin_data;
@@ -132,8 +132,12 @@ public:
 
 	nupm::region_descriptor regions() const;
 
+
 	bool is_crash_consistent() const { return true; }
 	bool can_reconstitute() const { return false; }
+#if CW_TEST
+	using heap::scratchpad;
+#endif
 };
 
 #endif

@@ -42,6 +42,7 @@
 
 #include <limits>
 #include <sstream>
+#include <typeinfo>
 
 volatile sig_atomic_t signals::sigint = 0;
 
@@ -93,7 +94,7 @@ struct locked_key
   }
   component::IKVStore::key_t release()
   {
-    _store.release();
+    _store.release(111);
     return _lock_handle;
   }
 };
@@ -136,7 +137,9 @@ Shard::Shard(const Config_file &config_file,
                     /* libfabric calls this "info::domain::name", and also (as a separate
                        parameter) "node" */
                     config_file.get_shard_optional(config::net, shard_index),
-                    config_file.get_shard_port(shard_index)),
+                    config_file.get_shard_port(shard_index)
+				, NUM_SHARD_BUFFERS
+	),
     common::log_source(debug_level_),
     _stats{},
     _wr_allocator{},
@@ -157,7 +160,10 @@ Shard::Shard(const Config_file &config_file,
     _locked_values_shared{},
     _locked_values_exclusive{},
     _target_keyname_map{},
+#if 0
+	/* moved to Connection_base */
     _spaces_shared{},
+#endif
     _pending_renames{},
     _tasks{},
     _outstanding_work{},
@@ -200,6 +206,7 @@ void Shard::thread_entry(const std::string& backend,
                          const char *const  profile_main_loop_,
                          const bool         triggered_profile_)
 {
+	pthread_setname_np(pthread_self(), typeid(*this).name());
   (void) _max_message_size;  // unused
   CPLOG(2, "Shard: %u worker thread entered.", _core);
 
@@ -282,6 +289,25 @@ void Shard::initialize_components(const std::string &backend,
                                      {+component::IKVStore_factory::k_mm_plugin_path, mm_plugin_path},
                                     }
                                     ));
+#if CW_TEST && 0
+			{
+				void * base;
+				std::uint64_t size;
+				{
+					std::vector <uint64_t> v;
+					auto rc = _i_kvstore->get_attribute(0, IKVStore::SCRATCHPAD_BASE, v);
+					assert(rc == S_OK);
+					base = reinterpret_cast<void *>(v[0]);
+				}     
+				{
+					std::vector<uint64_t> v;
+					auto rc = _i_kvstore->get_attribute(0, IKVStore::SCRATCHPAD_SIZE, v);
+					assert(rc == S_OK);
+					size = v[0];
+				}     
+      			_scratchpad = common::make_byte_span(base, size);
+			}
+#endif
     }
     else { /* mapstore */
       _i_kvstore.reset(fact->create(debug_level,
@@ -290,7 +316,10 @@ void Shard::initialize_components(const std::string &backend,
                                     }));
     }
   }
-
+#if CW_TEST /* disable ADO for simplification */
+	(void) ado_cores;
+	(void) ado_core_num;
+#else
   /* ADO manager proxy */
   {
     IBase *comp = load_component("libcomponent-adomgrproxy.so", ado_manager_proxy_factory);
@@ -310,6 +339,7 @@ void Shard::initialize_components(const std::string &backend,
       PMAJOR("ADO not found and thus not enabled.");
     }
   }
+#endif
 }
 
 void Shard::service_cluster_signals()
@@ -512,7 +542,7 @@ void Shard::main_loop(common::profiler &pr_)
 #endif
           case Connection_handler::action_type::ACTION_RELEASE_VALUE_LOCK_SHARED:
             CPLOG(2, "releasing shared value lock (%p)", action.parm);
-            release_locked_value_shared(action.parm);
+				release_locked_value_shared(handler, action.parm);
             break;
           default:
             throw Logic_exception("unexpected action type %d", int(action.op));
@@ -547,6 +577,12 @@ void Shard::main_loop(common::profiler &pr_)
               break;
             case MSG_TYPE::INFO_REQUEST:
               process_info_request(handler, static_cast<const protocol::Message_INFO_request *>(p_msg), pr_);
+              break;
+            case MSG_TYPE::NO_MSG:
+              process_no_request(handler, static_cast<const protocol::Message_none *>(p_msg));
+              break;
+            case MSG_TYPE::PING:
+              process_ping_request(handler, static_cast<const protocol::Message_ping *>(p_msg));
               break;
             default:
               throw General_exception("unrecognizable message type");
@@ -691,6 +727,29 @@ void Shard::process_message_pool_request(Connection_handler *handler,
           else {
             CPLOG(2, "pool region query NOT supported, using on-demand");
           }
+#if CW_TEST
+			{
+				std::vector<uint64_t> rv;
+				auto rc = _i_kvstore->get_attribute(pool, IKVStore::SCRATCHPAD_BASE, rv );
+				assert( rc == S_OK && rv.size() == 1);
+				if ( ! ( rc == S_OK && rv.size() == 1) ) ::abort();
+				response->scratchpad_base = rv[0];
+			}
+			{
+				std::vector<uint64_t> rv;
+				auto rc = _i_kvstore->get_attribute(pool, IKVStore::SCRATCHPAD_SIZE, rv );
+				assert( rc == S_OK && rv.size() == 1);
+				if ( ! ( rc == S_OK && rv.size() == 1) ) ::abort();
+				response->scratchpad_size = rv[0];
+			}
+			{
+				auto region = handler->get_memory_region(reinterpret_cast<void *>(response->scratchpad_base));
+				/* The region must be one already registered (by ondemand_register) */
+				assert(region);
+			 	memory_registered<Connection_base> mr = memory_registered<Connection_base>(debug_level(), handler, region);
+				response->scratchpad_rma_key = mr.key();
+			}
+#endif
         }
 
         if (pool && ado_enabled()) { /* if ADO is enabled start ADO process */
@@ -733,6 +792,22 @@ void Shard::process_message_pool_request(Connection_handler *handler,
           else {
             response->pool_id = pool;
             response->set_status(S_OK);
+#if CW_TEST
+			{
+				std::vector<uint64_t> rv;
+				auto rc = _i_kvstore->get_attribute(pool, IKVStore::SCRATCHPAD_BASE, rv );
+				assert( rc == S_OK && rv.size() == 1);
+				if ( ! ( rc == S_OK && rv.size() == 1) ) ::abort();
+				response->scratchpad_base = rv[0];
+			}
+			{
+				std::vector<uint64_t> rv;
+				auto rc = _i_kvstore->get_attribute(pool, IKVStore::SCRATCHPAD_SIZE, rv );
+				assert( rc == S_OK && rv.size() == 1);
+				if ( ! ( rc == S_OK && rv.size() == 1) ) ::abort();
+				response->scratchpad_size = rv[0];
+			}
+#endif
           }
         }
         CPINF(2, "POOL OPEN: pool id: %lx", pool);
@@ -868,60 +943,87 @@ void Shard::process_message_pool_request(Connection_handler *handler,
   handler->post_response(response_iob, response, __func__);
 }
 
-void Shard::add_locked_value_shared(const pool_t                         pool_id,
+void Shard::add_locked_value_shared(
+	Connection_handler *const handler_
+	, const pool_t                         pool_id,
                                     component::IKVStore::key_t           key,
                                     void *                               target,
-                                    size_t                               target_len,
-                                    memory_registered<Connection_base> &&mr)
+                                    size_t                               target_len
+	, memory_registered<Connection_base> &&mr
+)
 {
-  auto it = _locked_values_shared.emplace(std::piecewise_construct, std::forward_as_tuple(target),
-                                          std::forward_as_tuple(pool_id, key, target_len, std::move(mr)));
-  ++it.first->second.count;
+  auto it =
+		_locked_values_shared.emplace(std::piecewise_construct, std::forward_as_tuple(target),
+                                          std::forward_as_tuple(pool_id, key, target_len
+			)
+		);
+	if ( it.first->second.count == 0 )
+	{
+		handler_->add_locked_value(target, std::move(mr));
+	}
+	++it.first->second.count;
 }
 
-void Shard::add_locked_value_exclusive(const pool_t                         pool_id,
+void Shard::add_locked_value_exclusive(
+	Connection_handler *const handler_
+	, const pool_t                         pool_id,
                                        component::IKVStore::key_t           key,
                                        void *                               target,
-                                       size_t                               target_len,
-                                       memory_registered<Connection_base> &&mr)
+                                       size_t                               target_len
+	, memory_registered<Connection_base> &&mr
+)
 {
-  auto it = _locked_values_exclusive.emplace(std::piecewise_construct, std::forward_as_tuple(target),
-                                             std::forward_as_tuple(pool_id, key, target_len, std::move(mr)));
-  ++it.first->second.count;
+	auto it =
+		_locked_values_exclusive.emplace(std::piecewise_construct, std::forward_as_tuple(target),
+                                             std::forward_as_tuple(pool_id, key, target_len
+			)
+		);
+	if ( it.first->second.count == 0 )
+	{
+		handler_->add_locked_value(target, std::move(mr));
+	}
+	++it.first->second.count;
 }
 
-void Shard::release_locked_value_shared(const void *target)
+void Shard::release_locked_value_shared(
+	Connection_handler *const handler_
+	, const void *target
+)
 {
   auto i = _locked_values_shared.find(target); /* search by target address */
   if (i == _locked_values_shared.end())
     throw Logic_exception("%s: bad target; value never locked? (%p)", __func__, target);
 
-  if (i->second.count == 1) {
+	--i->second.count;
+
+  if ( i->second.count == 0 ) {
     static bool do_flush = common::env_value<bool>(flush_enable_key, true);
     _i_kvstore->unlock(i->second.pool, i->second.key, do_flush ? IKVStore::UNLOCK_FLAGS_FLUSH : 0);
     _locked_values_shared.erase(i);
-  }
-  else {
-    i->second.count--;
+	handler_->release_locked_value(target);
   }
 }
 
-void Shard::release_locked_value_exclusive(const void *target)
+void Shard::release_locked_value_exclusive(
+	Connection_handler *const handler_
+	, const void *target
+)
 {
   auto i = _locked_values_exclusive.find(target); /* search by target address */
   if (i == _locked_values_exclusive.end())
     throw Logic_exception("%s bad target; value never locked? (%p)", __func__, target);
 
-  if (i->second.count == 1) {
+	--i->second.count;
+
+  if ( i->second.count == 0 ) {
     static bool do_flush = common::env_value<bool>(flush_enable_key, true);
     _i_kvstore->unlock(i->second.pool, i->second.key, do_flush ? IKVStore::UNLOCK_FLAGS_FLUSH : 0);
     _locked_values_exclusive.erase(i);
-  }
-  else {
-    i->second.count--;
+	handler_->release_locked_value(target);
   }
 }
 
+#if 0 /* moved to Connection_handler */
 void Shard::add_space_shared(const range<std::uint64_t> &range_, memory_registered<Connection_base> &&mr_)
 {
   auto i = _spaces_shared
@@ -949,6 +1051,7 @@ void Shard::release_space_shared(const range<std::uint64_t> &range_)
     _spaces_shared.erase(i);
   }
 }
+#endif
 
 /* note, target address is used because it is unique for the shard */
 void Shard::add_pending_rename(const pool_t pool_id, const void *target, const std::string &from, const std::string &to)
@@ -1065,7 +1168,7 @@ void Shard::io_response_get_locate(Connection_handler *handler,
                                    const protocol::Message_IO_request *msg,
                                    buffer_t *iob)
 {
-  CPLOG(2, "GET_LOCATE: (%p) key=(%.*s) value_len=0z%zx request_id=%lu", common::p_fmt(this),
+  CPLOG(2, "GET_LOCATE: (%p) key=(%.*s) value_len=0x%zx request_id=%lu", common::p_fmt(this),
         static_cast<int>(msg->key().size()), msg->key().data(), msg->value_len(), msg->request_id());
 
   /* open memory */
@@ -1099,12 +1202,17 @@ void Shard::io_response_get_locate(Connection_handler *handler,
     assert(target);
     auto pool_id = msg->pool_id();
 
-    std::uint64_t key = 0;
-    try  {
-      memory_registered<Connection_base> mr(debug_level(), handler, target, target_len, 0, 0);
-      key = mr.key();
+    auto region = handler->get_memory_region(target);
+    std::uint64_t memory_key = 0;
+    try {
+      memory_registered<Connection_base> mr =
+        region
+        ? memory_registered<Connection_base>(debug_level(), handler, region)
+        : memory_registered<Connection_base>(debug_level(), handler, common::make_const_byte_span(target, target_len), memory_key, 0)
+        ;
+      memory_key = mr.key();
       /* register clean and deregister tasks for value */
-      add_locked_value_shared(pool_id, lk.release(), target, target_len, std::move(mr));
+      add_locked_value_shared(handler, pool_id, lk.release(), target, target_len, std::move(mr));
 
       /* record key for signaling */
       if (ado_signal_post_get())
@@ -1117,7 +1225,7 @@ void Shard::io_response_get_locate(Connection_handler *handler,
 
     auto response  = prepare_response(handler, iob, msg->request_id(), status);
     response->addr = reinterpret_cast<std::uint64_t>(target);
-    response->key  = key;
+    response->key  = memory_key;
     response->set_data_len_without_data(target_len);
 
     handler->post_send_buffer(iob, response, __func__);
@@ -1130,6 +1238,10 @@ void Shard::io_response_get_locate(Connection_handler *handler,
 /////////////////////////////////////////////////////////////////////////////
 //   GET RELEASE   //
 /////////////////////
+/* ERROR: If client sends OP_GET_LOCATE but closes tne connection without calling OP_GET_RELEASE,
+ * and instead closes the connection, a memory region registration can outlive the connection.
+ * This will assert.
+ */
 void Shard::io_response_get_release(Connection_handler *handler,
                                     const protocol::Message_IO_request *msg,
                                     buffer_t *iob)
@@ -1140,7 +1252,7 @@ void Shard::io_response_get_release(Connection_handler *handler,
 
   int status = S_OK;
   try {
-    release_locked_value_shared(target);
+    release_locked_value_shared(handler, target);
   }
   catch (const Logic_exception &) {
     status = E_INVAL;
@@ -1186,9 +1298,9 @@ void Shard::io_response_put_advance(Connection_handler *handler,
   else {
     auto status = S_OK;
 
-    const auto actual_key = std::string(msg->key());
+    const auto data_key = std::string(msg->key());
     std::string k("___pending_");
-    k += actual_key; /* we embed the actual key for recovery purposes */
+    k += data_key; /* we embed the data key for recovery purposes */
 
     /* create (if needed) and lock value */
     component::IKVStore::key_t key_handle;
@@ -1217,32 +1329,34 @@ void Shard::io_response_put_advance(Connection_handler *handler,
     else {
       auto pool_id = msg->pool_id();
 
-      // memory_registered<component::IFabric_connection> mr =
-      // make_memory_registered(debug_level(), handler, target, target_len, 0,
-      // 0);
-      std::uint64_t key = 0;
+      std::uint64_t memory_key = 0;
       try
-        {
-          memory_registered<Connection_base> mr(debug_level(), handler, target, target_len, 0, 0);
-          key = mr.key();
+      {
+        auto region = handler->get_memory_region(target);
+        memory_registered<Connection_base> mr =
+          region
+          ? memory_registered<Connection_base>(debug_level(), handler, region)
+          : memory_registered<Connection_base>(debug_level(), handler, common::make_const_byte_span(target, target_len), memory_key, 0 /* flags */)
+          ;
+        memory_key = mr.key();
 
-          /* register clean and rename tasks for value */
-          add_locked_value_exclusive(pool_id, lk.release(), target, target_len, std::move(mr));
-          add_pending_rename(pool_id, target, k, actual_key);
+        /* register clean and rename tasks for value */
+        add_locked_value_exclusive(handler, pool_id, lk.release(), target, target_len, std::move(mr));
+        add_pending_rename(pool_id, target, k, data_key);
 
-          /* record key for signaling */
-          if (ado_signal_post_put())
-            add_target_keyname(target, k);
-        }
+        /* record key for signaling */
+        if (ado_signal_post_put())
+          add_target_keyname(target, k);
+      }
       catch ( const std::exception &e )
-        {
-          PLOG("%s failed: %s", __func__, e.what());
-          status = E_FAIL;
-        }
+      {
+        PLOG("%s failed: %s", __func__, e.what());
+        status = E_FAIL;
+      }
 
       auto response  = prepare_response(handler, iob, msg->request_id(), status);
       response->addr = reinterpret_cast<std::uint64_t>(target);
-      response->key  = key;
+      response->key  = memory_key;
 
       handler->post_send_buffer(iob, response, __func__);
 
@@ -1267,16 +1381,16 @@ void Shard::io_response_put_locate(Connection_handler *handler,
 
   /* can't support dont stomp flag */
   if (msg->flags() & IKVStore::FLAGS_DONT_STOMP) {
-    PWRN("PUT_ADVANCE failed IKVStore::FLAGS_DONT_STOMP not viable");
+    PWRN("PUT_LOCATE failed IKVStore::FLAGS_DONT_STOMP not viable");
     _stats.op_failed_request_count++;
     respond(handler, iob, msg, E_INVAL, __func__);
   }
   else {
     auto status = S_OK;
 
-    const auto actual_key = std::string(msg->key());
+    const auto data_key = std::string(msg->key());
     std::string k("___pending_");
-    k += actual_key; /* we embed the actual key for recovery purposes */
+    k += data_key; /* we embed the data key for recovery purposes */
 
     /* create (if needed) and lock value */
     component::IKVStore::key_t key_handle;
@@ -1304,16 +1418,21 @@ void Shard::io_response_put_locate(Connection_handler *handler,
       assert(target);
       auto pool_id = msg->pool_id();
 
-      std::uint64_t key = 0;
-      try  {
-        memory_registered<Connection_base> mr(debug_level(), handler, target, target_len, 0, 0);
-        key = mr.key();
+      std::uint64_t memory_key = 0;
+      try {
+        auto region = handler->get_memory_region(target);
+        memory_registered<Connection_base> mr =
+          region
+          ? memory_registered<Connection_base>(debug_level(), handler, region)
+          : memory_registered<Connection_base>(debug_level(), handler, common::make_const_byte_span(target, target_len), memory_key, 0)
+          ;
+        memory_key = mr.key();
         /* register clean and rename tasks for value */
-        add_locked_value_exclusive(pool_id, lk.release(), target, target_len, std::move(mr));
-        add_pending_rename(pool_id, target, k, actual_key);
+        add_locked_value_exclusive(handler, pool_id, lk.release(), target, target_len, std::move(mr));
+        add_pending_rename(pool_id, target, k, data_key);
 
         if (ado_signal_post_put())
-          add_target_keyname(target, actual_key);
+          add_target_keyname(target, data_key);
       }
       catch ( const std::exception &e ) {
         PLOG("%s failed: %s", __func__, e.what());
@@ -1322,7 +1441,7 @@ void Shard::io_response_put_locate(Connection_handler *handler,
 
       auto response  = prepare_response(handler, iob, msg->request_id(), status);
       response->addr = reinterpret_cast<std::uint64_t>(target);
-      response->key  = key;
+      response->key  = memory_key;
 
       handler->post_send_buffer(iob, response, __func__);
 
@@ -1344,7 +1463,7 @@ void Shard::io_response_put_release(Connection_handler *handler, const protocol:
   int status = S_OK;
 
   try {
-    release_locked_value_exclusive(target);
+    release_locked_value_exclusive(handler, target);
     release_pending_rename(target);
   }
   catch (const Logic_exception &) {
@@ -1531,7 +1650,7 @@ void Shard::io_response_get(Connection_handler *handler, const protocol::Message
 
         if(ado_signal_post_get()) {
 
-          /* actually, this will override the memcpy optimization and
+          /* This will override the memcpy optimization and
              do a dual buffer send. */
           _i_kvstore->unlock(msg->pool_id(), lk.release(), IKVStore::UNLOCK_FLAGS_FLUSH);
 
@@ -1567,7 +1686,12 @@ void Shard::io_response_get(Connection_handler *handler, const protocol::Message
         }
         else {
           try {
-            memory_registered<Connection_base> mr(debug_level(), handler, value_out.iov_base, value_out.iov_len, 0, 0);
+            auto region = handler->get_memory_region(value_out.iov_base);
+            memory_registered<Connection_base> mr =
+              region
+              ? memory_registered<Connection_base>(debug_level(), handler, region)
+              : memory_registered<Connection_base>(debug_level(), handler, common::make_const_byte_span(value_out) /* .iov_base, value_out.iov_len */, 0, 0)
+              ;
 
             auto desc = mr.desc();
             auto response = prepare_response(handler, iob, msg->request_id(), S_OK);
@@ -1576,7 +1700,7 @@ void Shard::io_response_get(Connection_handler *handler, const protocol::Message
             assert(response->get_status() == S_OK);
 
             /* register clean up task for value */
-            add_locked_value_shared(msg->pool_id(), lk.release(), value_out.iov_base, value_out.iov_len, std::move(mr));
+            add_locked_value_shared(handler, msg->pool_id(), lk.release(), value_out.iov_base, value_out.iov_len, std::move(mr));
 
             if (!is_direct && (value_out.iov_len <= (handler->IO_buffer_size() - response->base_message_size()))) {
               CPLOG(2, "posting response header and value together");
@@ -1828,24 +1952,32 @@ void Shard::io_response_locate(Connection_handler *handler, const protocol::Mess
     const auto rb = region_breaks(regions.address_map());
     auto sgr = offset_to_sg_list(t, rb);
     /* Register the entire range */
-    std::uint64_t key = 0;
+    std::uint64_t memory_key = 0;
     try
-      {
-        memory_registered<Connection_base> mr(debug_level(),
-                                              handler,
-                                              reinterpret_cast<void *>(sgr.mr_low),
-                                              sgr.mr_high - sgr.mr_low,
-                                              0,
-                                              0);
-        key = mr.key();
-        /* register deregister task for space */
-        add_space_shared(range<std::uint64_t>(t.first, t.second - sgr.excess_length), std::move(mr));
-      }
+    {
+      auto region = handler->get_memory_region(reinterpret_cast<void *>(sgr.mr_low));
+      memory_registered<Connection_base> mr =
+        region
+        ? memory_registered<Connection_base>(debug_level(), handler, region)
+        : memory_registered<Connection_base>(
+            debug_level()
+            , handler
+            , common::make_const_byte_span(
+                reinterpret_cast<void *>(sgr.mr_low)
+                , sgr.mr_high - sgr.mr_low
+            )
+            , memory_key
+            , 0
+          );
+      memory_key = mr.key();
+      /* register deregister task for space */
+      handler->add_space_shared(range<std::uint64_t>(t.first, t.second - sgr.excess_length), std::move(mr));
+    }
     catch ( const std::exception &e )
-      {
-        PLOG("%s failed: %s", __func__, e.what());
-        status = E_FAIL;
-      }
+    {
+      PLOG("%s failed: %s", __func__, e.what());
+      status = E_FAIL;
+    }
 
     /* respond, with the scatter-gather list as "data" */
     auto response = prepare_response(handler, iob, msg->request_id(), status);
@@ -1853,7 +1985,7 @@ void Shard::io_response_locate(Connection_handler *handler, const protocol::Mess
       {
         response->copy_in_data(&sgr.sg_list.front(), sgr.sg_list.size() * sizeof *sgr.sg_list.begin());
         iob->set_length(response->msg_len());
-        response->key = key;
+        response->key = memory_key;
         handler->post_send_buffer(iob, response, __func__);
       }
     else
@@ -1880,7 +2012,7 @@ void Shard::io_response_release(Connection_handler *handler, const protocol::Mes
 
   int status = S_OK;
   try {
-    release_space_shared(t);
+    handler->release_space_shared(t);
   }
   catch (const Logic_exception &e) {
     CPLOG(2, "%s: RELEASE: (%p) [0x%" PRIx64 "..0x%" PRIx64 ") error %s", __func__, common::p_fmt(this),
@@ -1916,7 +2048,7 @@ void Shard::io_response_release_with_flush(Connection_handler *handler, const pr
           }
         }
 
-      release_space_shared(t);
+      handler->release_space_shared(t);
     }
     catch (const Logic_exception &e) {
       CPLOG(2, "%s: %s: (%p) [0x%" PRIx64 "..0x%" PRIx64 ") error %s", tag, __func__, common::p_fmt(this),
@@ -2046,6 +2178,20 @@ void Shard::process_info_request(Connection_handler *handler, const protocol::Me
   }
 
   iob->set_length(response->base_message_size());
+  handler->post_send_buffer(iob, response, __func__);
+}
+
+void Shard::process_no_request(Connection_handler *handler, const protocol::Message_none *msg)
+{
+  handler->msg_recv_log(msg, __func__);
+}
+
+void Shard::process_ping_request(Connection_handler *handler, const protocol::Message_ping *msg)
+{
+  handler->msg_recv_log(msg, __func__);
+  const auto iob = handler->allocate_send();
+  protocol::Message_pong *response = new (iob->base()) protocol::Message_pong(handler->auth_id());
+  response->set_status(S_OK);
   handler->post_send_buffer(iob, response, __func__);
 }
 

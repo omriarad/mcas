@@ -4,19 +4,20 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`/dist/lib
 DIR="$(cd "$( dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 . "$DIR/functions.sh"
 
-DAXTYPE="${DAXTYPE:-$(choose_dax_type)}"
+DAX_PREFIX="${DAX_PREFIX:-$(choose_dax)}"
 STORETYPE=hstore-mm
 MM_PLUGIN_PATH="$(pwd)/dist/lib/libmm-plugin-rcalb.so"
-TESTID="$(basename --suffix .sh -- $0)-$DAXTYPE"
+TESTID="$(basename --suffix .sh -- $0)-$(dax_type $DAX_PREFIX)"
 
 # parameters for MCAS server and client
 NODE_IP="$(node_ip)"
 DEBUG=${DEBUG:-0}
 
-CONFIG_STR="$("./dist/testing/hstore-0.py" "$STORETYPE" "$DAXTYPE" "$NODE_IP" --mm-plugin-path "${MM_PLUGIN_PATH}")"
+CONFIG_STR="$("./dist/testing/hstore-0.py" "$STORETYPE" "$DAX_PREFIX" "$NODE_IP" --mm-plugin-path "${MM_PLUGIN_PATH}")"
+NUMA_CMD=$(numa_cmd $DAX_PREFIX)
 # launch MCAS server
-[ 0 -lt $DEBUG ] && echo DAX_RESET=1 ./dist/bin/mcas --config \'"$CONFIG_STR"\' --forced-exit --debug $DEBUG
-DAX_RESET=1 ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
+[ 0 -lt $DEBUG ] && echo DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config \'"$CONFIG_STR"\' --forced-exit --debug $DEBUG
+DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
 SERVER_PID=$!
 
 sleep 3

@@ -24,6 +24,11 @@
 #include <common/string_view.h>
 #include <gsl/span>
 
+#if CW_TEST
+#include <algorithm> /* max */
+#include <chrono>
+#include <cstdint> /* uint64_t */
+#endif
 #include <array>
 #include <cstdint> /* uint16_t */
 #include <memory>
@@ -32,6 +37,24 @@
   struct Opaque_##NAME {                        \
     virtual ~Opaque_##NAME() {}                 \
   }
+
+#if CW_TEST
+namespace cw
+{
+	struct test_data
+	{
+		static constexpr std::uint64_t count() { return 10000; }
+		static constexpr std::uint64_t size() { return 8ULL << 20; }
+		static constexpr std::uint64_t memory_size() { return std::max(std::uint64_t(100), size()); }
+		/* rest after no operation, for 4 milliseconds */
+		static constexpr unsigned sleep_interval() { return 0; }
+		static constexpr auto sleep_time() { return std::chrono::milliseconds(4); }
+		static constexpr unsigned pre_ping_pong_interval() { return 1; }
+		static constexpr unsigned post_ping_pong_interval() { return 1; }
+		test_data(int) {}
+	};
+}
+#endif
 
 namespace component
 {
@@ -902,6 +925,9 @@ public:
    */
   virtual IMCAS* mcas_create_nsd(const unsigned, // debug_level
                              const unsigned, // patience with server (in seconds)
+#if CW_TEST
+                             const cw::test_data &, // test_count (number of test RDMA transfers to run)
+#endif
                              const string_view, // owner
                              const string_view, // src_nic_device
                              const string_view, // source: src_ip_addr
@@ -914,12 +940,19 @@ public:
 
   IMCAS* mcas_create(const unsigned    debug_level,
                      const unsigned    patience,
+#if CW_TEST
+                     const cw::test_data & test_data, // test_count (number of test RDMA transfers to run)
+#endif
                      const string_view owner,
                      const string_view dest_addr_with_port,
                      const string_view nic_device,
                      const string_view other = string_view())
   {
-    return mcas_create_nsd(debug_level, patience, owner, nic_device, string_view(), dest_addr_with_port, other);
+    return mcas_create_nsd(debug_level, patience
+#if CW_TEST
+      , test_data
+#endif
+      , owner, nic_device, string_view(), dest_addr_with_port, other);
   }
 };
 

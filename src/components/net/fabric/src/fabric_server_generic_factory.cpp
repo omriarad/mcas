@@ -20,6 +20,7 @@
 #include "fabric_check.h"
 #include "fabric_endpoint_server.h"
 #include "fabric_util.h" /* get_name */
+#include "fabric_enter_exit_trace.h"
 #include "fd_control.h"
 #include "system_fail.h"
 
@@ -86,11 +87,13 @@ Fabric_server_generic_factory::~Fabric_server_generic_factory()
 
 size_t Fabric_server_generic_factory::max_message_size() const noexcept
 {
+	ENTER_EXIT_TRACE
   return _info.ep_attr->max_msg_size;
 }
 
 std::string Fabric_server_generic_factory::get_provider_name() const
 {
+	ENTER_EXIT_TRACE
   return _info.fabric_attr->prov_name;
 }
 
@@ -183,6 +186,8 @@ void Fabric_server_generic_factory::listen(
 )
 try
 {
+	pthread_setname_np(pthread_self(), "fabric_listen");
+
   Fd_socket listen_fd(make_listener(ip_addr_, port_));
 
   /* The endpoint now has a name, which we can advertise. */
@@ -288,6 +293,7 @@ void Fabric_server_generic_factory::listen_loop(
 
 auto Fabric_server_generic_factory::get_new_endpoint_unconnected() -> component::IFabric_endpoint_unconnected_server *
 {
+	ENTER_EXIT_TRACE
   if ( _listen_exception )
   {
     std::cerr << __func__ << ": _listen_exception present, rethrowing\n";
@@ -306,10 +312,12 @@ void Fabric_server_generic_factory::open_connection_generic(event_expecter *c)
 
 std::vector<event_expecter *> Fabric_server_generic_factory::connections()
 {
+	ENTER_EXIT_TRACE
   return _open.enumerate();
 }
 
 void Fabric_server_generic_factory::close_connection(event_expecter * cnxn_)
 {
+	ENTER_EXIT_TRACE
   _open.remove(cnxn_);
 }

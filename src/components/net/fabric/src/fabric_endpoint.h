@@ -21,6 +21,7 @@
 #include "fabric_cq.h"
 #include "fabric_ptr.h" /* fid_unique_ptr */
 #include "fabric_types.h" /* addr_ep_t */
+#include "fabric_enter_exit_trace.h"
 #include "fd_pair.h"
 
 #include "rdma-fi_domain.h" /* fi_cq_attr, fi_cq_err_entry, fi_cq_data_entry */
@@ -44,8 +45,6 @@ struct event_producer;
 struct event_registration;
 class Fabric;
 class fabric_connection;
-
-struct mr_and_address;
 
 struct ru_flt_counter
 {
@@ -80,7 +79,8 @@ private:
    * The map is maintained because no other layer provides fi_mr values for
    * the addresses in an iovec.
    */
-  using map_addr_to_mra = std::multimap<const void *, std::unique_ptr<mr_and_address>>;
+	using mr_and_address = component::IFabric_memory_region;
+	using map_addr_to_mra = std::multimap<const void *, std::unique_ptr<mr_and_address>>;
   map_addr_to_mra _mr_addr_to_mra;
   bool _paging_test;
   ru_flt_counter _fault_counter;
@@ -95,7 +95,9 @@ private:
     , std::uint64_t flags
   ) const;
 
-  ::fid_mr *covering_mr(byte_span v);
+  auto mr_covering_it(const_byte_span v) -> map_addr_to_mra::reverse_iterator;
+  memory_region_t mr_covering_throws(const_byte_span v);
+
 #if CAN_USE_WAIT_SETS
   ::fi_wait_attr _wait_attr;
   fid_unique_ptr<::fid_wait> _wait_set; /* make_fid_wait(fid_fabric &fabric, fi_wait_attr &attr) */
@@ -163,6 +165,8 @@ private:
 		, void *context_
 		, std::uint64_t flags
 	);
+
+	void print_registry() const;
 
 protected:
   explicit fabric_endpoint(
@@ -248,6 +252,7 @@ public:
 
   std::size_t stalled_completion_count() override
   {
+	ENTER_EXIT_TRACE
     return _rxcq.stalled_completion_count() + _txcq.stalled_completion_count();
   }
   /*
@@ -269,12 +274,12 @@ public:
     gsl::span<const ::iovec> buffers
     , void **desc
     , context_t context
-  );
+  ) override;
 
   void post_send(
     gsl::span<const ::iovec> buffers
     , context_t context
-  );
+  ) override;
 
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_recvv fail
@@ -283,12 +288,12 @@ public:
     gsl::span<const ::iovec> buffers
     , void **desc
     , context_t context
-  );
+  ) override;
 
   void post_recv(
     gsl::span<const ::iovec> buffers
     , context_t context
-  );
+  ) override;
 
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_readv fail
@@ -299,14 +304,14 @@ public:
     , std::uint64_t remote_addr
     , std::uint64_t key
     , context_t context
-  );
+  ) override;
 
   void post_read(
     gsl::span<const ::iovec> buffers
     , std::uint64_t remote_addr
     , std::uint64_t key
     , context_t context
-  );
+  ) override;
 
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_writev fail
@@ -317,19 +322,19 @@ public:
     , std::uint64_t remote_addr
     , std::uint64_t key
     , context_t context
-  );
+  ) override;
 
   void post_write(
     gsl::span<const ::iovec> buffers
     , std::uint64_t remote_addr
     , std::uint64_t key
     , context_t context
-  );
+  ) override;
 
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_inject fail
    */
-  void inject_send(const void *buf, std::size_t len);
+  void inject_send(const void *buf, std::size_t len) override;
 
   fabric_types::addr_ep_t get_name() const;
 
@@ -355,7 +360,7 @@ public:
    * @throw std::logic_error - inconsistent memory address tables
    * @throw fabric_runtime_error : std::runtime_error : ::fi_mr_reg fail
    */
-  memory_region_t register_memory(const_byte_span contig_addr, std::uint64_t key, std::uint64_t flags) override;
+  memory_region_t register_memory(const_byte_span contig, std::uint64_t key, std::uint64_t flags) override;
   /**
    * @throw std::range_error - address not registered
    * @throw std::logic_error - inconsistent memory address tables
@@ -363,6 +368,7 @@ public:
   void deregister_memory(const memory_region_t memory_region) override;
   std::uint64_t get_memory_remote_key(const memory_region_t memory_region) const noexcept override;
   void *get_memory_descriptor(const memory_region_t memory_region) const noexcept override;
+  memory_region_t mr_covering(const_byte_span v) noexcept override;
   /* END component::IFabric_memory_control */
 
   std::vector<void *> populated_desc(gsl::span<const ::iovec> buffers);

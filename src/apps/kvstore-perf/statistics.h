@@ -1,9 +1,12 @@
 #ifndef __STATISTICS_H__
 #define __STATISTICS_H__
 
+#include <common/histogram.h>
 #include <common/logging.h>
+#include <common/string_view.h>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <iosfwd>
 #include <limits>
@@ -119,17 +122,19 @@ private:
 class BinStatistics
 {
 public:
-    BinStatistics()
-      : BinStatistics(1, std::numeric_limits<double>::min(), std::numeric_limits<double>::max())
+    BinStatistics(common::string_view desc_)
+      : BinStatistics(desc_, 1, std::numeric_limits<double>::min(), std::numeric_limits<double>::max())
     {
     }
 
-    BinStatistics(unsigned bins, double threshold_min, double threshold_max)
-      : _bin_count(bins)
+    BinStatistics(common::string_view desc_, unsigned bins, double threshold_min, double threshold_max)
+      : _desc(desc_)
+      , _bin_count(bins)
       , _increment((threshold_max - threshold_min) / std::max(1U, bins))
       , _min(threshold_min)
       , _max(threshold_max)
       , _bins(bins)
+      , _ct()
     {
       if (bins == 0)
       {
@@ -147,6 +152,8 @@ public:
       }
     }
 
+	~BinStatistics();
+
   public:
 
     void update(double value)
@@ -154,6 +161,7 @@ public:
         auto bin = find_bin_from_value(value);
 
         _bins[bin].add_value(value);
+			_ct.record(value*_ct_min);
     }
 
     void update_value_for_bin(double value, double bin_calc_value)
@@ -181,11 +189,14 @@ public:
     std::ostream &print_highest_count_bin(std::ostream &, unsigned core) const;
 
 private:
+	std::string _desc;
     unsigned _bin_count;
     double _increment;
     double _min;
     double _max;
     std::vector<RunningStatistics> _bins;
+	static constexpr double _ct_min = 1e6; /* element 0 is [0..2) microsecond */
+	common::hist_log2 _ct;
 
     unsigned find_bin_from_value(double value) const
     {

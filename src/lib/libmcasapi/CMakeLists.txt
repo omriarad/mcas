@@ -12,6 +12,7 @@ include(../../../mk/clang-dev-tools.cmake)
 include_directories(${CMAKE_SOURCE_DIR}/src/components)
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/src")
 include_directories("../common/include")
+include_directories("../cw/include")
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # daxctl
 
 set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}")

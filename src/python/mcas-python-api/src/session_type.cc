@@ -5,6 +5,9 @@
 #include <common/logging.h>
 #include <api/mcas_itf.h>
 #include <api/kvstore_itf.h>
+#if CW_TEST
+#include <cw/test_data.h>
+#endif
 #include <Python.h>
 #include <structmember.h>
 
@@ -132,21 +135,15 @@ static int Session_init(Session *self, PyObject *args, PyObject *kwds)
     PLOG("Session: about to call mcas_create");
 
   try {
-    if(p_ext) {
       self->_mcas = fact->mcas_create(debug_level,
                                       30, /* patience */
+#if CW_TEST
+                      cw::test_data(__LINE__), // test_count (number of test RDMA transfers to run)
+#endif
                                       user_name,
                                       addr.str(),
                                       device,
-                                      p_ext);
-    }
-    else {
-      self->_mcas = fact->mcas_create(debug_level,
-                                      30, /* patience */
-                                      user_name,
-                                      addr.str(),
-                                      device);
-    }
+                                      p_ext ? common::string_view(p_ext) : common::string_view());
   }
   catch(...) {
     if(global::debug_level > 0)

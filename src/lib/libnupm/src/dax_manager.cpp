@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -26,9 +26,11 @@
 #include <common/memory_mapped.h>
 #include <common/utils.h>
 
-#include <fcntl.h>
+#include <fcntl.h> /* O_RDWR */
 #include <sys/mman.h> /* MAP_LOCKED */
+#if 0
 #include <boost/icl/split_interval_map.hpp>
+#endif
 #include <cinttypes>
 #include <fstream>
 #include <mutex>
@@ -44,11 +46,10 @@ namespace fs = std::filesystem;
 namespace fs = std::experimental::filesystem;
 #endif
 
+using nupm::dax_manager;
+
 namespace
 {
-	std::set<std::string> nupm_dax_manager_mapped;
-	std::mutex nupm_dax_manager_mapped_lock;
-
 	bool init_have_odp()
 	{
 		/* env variable USE_ODP to indicate On Demand Paging */
@@ -72,16 +73,15 @@ namespace
 		return odp;
 	}
 
-	int init_map_lock_mask()
+	int init_map_lock_mask(const bool have_odp_)
 	{
-		/* On Demand Paging iimplies that mapped memory need not be pinned */
-		return nupm::dax_manager::have_odp ? 0 : MAP_LOCKED;
+		/* On Demand Paging implies that mapped memory need not be pinned */
+		return have_odp_ ? 0 : MAP_LOCKED;
 	}
 }
 
-const bool nupm::dax_manager::have_odp = init_have_odp();
-const int nupm::dax_manager::effective_map_locked = init_map_lock_mask();
-constexpr const char *nupm::dax_manager::_cname;
+const bool dax_manager::have_odp = init_have_odp();
+const int dax_manager::effective_map_locked = init_map_lock_mask(dax_manager::have_odp);
 
 std::pair<std::vector<common::byte_span>, std::size_t> get_mapping(const fs::path &path_map)
 {
@@ -107,11 +107,10 @@ std::pair<std::vector<common::byte_span>, std::size_t> get_mapping(const fs::pat
 	}
 	return { m, covered };
 }
-
 std::vector<common::byte_span> get_mapping(const fs::path &path_map, const std::size_t expected_size)
 {
 	auto r = get_mapping(path_map);
-    if ( r.second != expected_size )
+	if ( r.second != expected_size )
 	{
 		std::ostringstream o;
 		o << __func__ << ": map file " << path_map << std::hex << std::showbase << " expected to cover " << expected_size << " bytes, but covers " << r.second << " bytes";
@@ -120,7 +119,7 @@ std::vector<common::byte_span> get_mapping(const fs::path &path_map, const std::
 	return r.first;
 }
 
-void nupm::dax_manager::data_map_remove(const fs::directory_entry &e, const std::string &)
+void dax_manager::data_map_remove(const fs::directory_entry &e, const std::string &)
 {
 	if (
 #if _NUPM_FILESYSTEM_STD_
@@ -161,7 +160,7 @@ void nupm::dax_manager::data_map_remove(const fs::directory_entry &e, const std:
 	}
 }
 
-void nupm::dax_manager::map_register(const fs::directory_entry &de, const std::string &origin)
+void dax_manager::map_register(const fs::directory_entry &de, const std::string &origin)
 {
 	if (
 #if _NUPM_FILESYSTEM_STD_
@@ -194,7 +193,7 @@ void nupm::dax_manager::map_register(const fs::directory_entry &de, const std::s
 					_mapped_spaces.insert(
 						mapped_spaces::value_type(
 							id
-							, space_registered(*this, this, common::fd_locked(pd.c_str(), O_RDWR, 0666), id, r.first)
+							, space_registered(/* static_cast<dax_manager_log_source &> */(*this), this, common::fd_locked(pd.c_str(), O_RDWR, 0666), id, r.first)
 						)
 					);
 				if ( ! itb.second )
@@ -211,7 +210,7 @@ void nupm::dax_manager::map_register(const fs::directory_entry &de, const std::s
 	}
 }
 
-void nupm::dax_manager::files_scan(const path &p, const std::string &origin, void (dax_manager::*action)(const directory_entry &, const std::string &))
+void dax_manager::files_scan(const path &p, const std::string &origin, void (dax_manager::*action)(const directory_entry &, const std::string &))
 {
 	std::error_code ec;
 	auto ir = fs::directory_iterator(p, fs::directory_options::skip_permission_denied, ec);
@@ -234,7 +233,7 @@ void nupm::dax_manager::files_scan(const path &p, const std::string &origin, voi
 	}
 }
 
-std::unique_ptr<arena> nupm::dax_manager::make_arena_fs(
+std::unique_ptr<arena> dax_manager::make_arena_fs(
 	const path &p
 	, addr_t // base
 	, bool force_reset
@@ -253,12 +252,12 @@ std::unique_ptr<arena> nupm::dax_manager::make_arena_fs(
 	files_scan(p, p.string(), force_reset ? &dax_manager::data_map_remove : &dax_manager::map_register);
 	return
 		std::make_unique<arena_fs>(
-			static_cast<log_source &>(*this)
+			static_cast<common::log_source &>(*this)
 			, p
 		);
 }
 
-std::unique_ptr<arena> nupm::dax_manager::make_arena_none(
+std::unique_ptr<arena> dax_manager::make_arena_none(
 	const path &p
 	, addr_t // base
 	, bool // force_reset
@@ -268,7 +267,7 @@ std::unique_ptr<arena> nupm::dax_manager::make_arena_none(
 	throw std::runtime_error(std::string(p.c_str()) + " is unsuitable as an arena: neither a character file nor a directory");
 }
 
-std::unique_ptr<arena> nupm::dax_manager::make_arena_dev(const path &p, addr_t base_, bool force_reset)
+std::unique_ptr<arena> dax_manager::make_arena_dev(const path &p, addr_t base_, bool force_reset)
 {
 	/* Create and insert a space_registered.
 	 *   path_use : tracks usage of the path name to ensure no duplicate uses
@@ -282,7 +281,7 @@ std::unique_ptr<arena> nupm::dax_manager::make_arena_dev(const path &p, addr_t b
 			_mapped_spaces.insert(
 				mapped_spaces::value_type(
 					id
-					, space_registered(*this, this, common::fd_locked(p.c_str(), O_RDWR, 0666), id, base_)
+					, space_registered(/* static_cast<dax_manager_log_source &> */(*this), this, common::fd_locked(p.c_str(), O_RDWR, 0666), id, base_, effective_map_locked)
 				)
 			);
 		if ( ! itb.second )
@@ -306,7 +305,7 @@ std::unique_ptr<arena> nupm::dax_manager::make_arena_dev(const path &p, addr_t b
 	}
 }
 
-bool nupm::dax_manager::enter(
+bool dax_manager::enter(
 	common::fd_locked && fd_
 	, const string_view & id_
 	, const std::vector<byte_span> &m_
@@ -316,7 +315,7 @@ bool nupm::dax_manager::enter(
 		_mapped_spaces.insert(
 			mapped_spaces::value_type(
 				std::string(id_)
-				, space_registered(*this, this, std::move(fd_), id_, m_)
+				, space_registered(/* static_cast<dax_manager_log_source &>*/ (*this), this, std::move(fd_), id_, m_)
 			)
 		);
 	if ( ! itb.second )
@@ -327,7 +326,7 @@ bool nupm::dax_manager::enter(
 	return itb.second;
 }
 
-void nupm::dax_manager::remove(const string_view & id_)
+void dax_manager::remove(const string_view & id_)
 {
 	auto itb = _mapped_spaces.find(std::string(id_));
 	if ( itb != _mapped_spaces.end() )
@@ -342,21 +341,24 @@ void nupm::dax_manager::remove(const string_view & id_)
 	}
 }
 
-namespace nupm
-{
-
 dax_manager::dax_manager(
   const common::log_source &ls_,
   const gsl::span<const config_t> dax_configs,
   bool force_reset
 )
-  : range_manager_impl(ls_)
-  , _nd()
+	:
+#if 0
+	  dax_manager_log_source(ls_)
+	,
+#endif
+	  range_manager_impl(ls_)
+	, _nd()
   /* space mapped by devdax */
   , _mapped_spaces()
   , _arenas()
   , _reentrant_lock()
 {
+#if 0
   /* Maximum expected need is about 6 TiB (12 512GiB DIMMs).
    * Start, arbitrarily, at 0x10000000000
    */
@@ -364,7 +366,7 @@ dax_manager::dax_manager(
   auto free_address_end    = free_address_begin + (std::size_t(1) << 40);
   auto i = boost::icl::interval<nupm::range_manager::byte *>::right_open(free_address_begin, free_address_end);
   _address_fs_available->insert(i);
-
+#endif
   /* set up each configuration */
   for(const auto& config: dax_configs) {
 
@@ -397,14 +399,14 @@ dax_manager::dax_manager(
 
 dax_manager::~dax_manager()
 {
-  CPLOG(0, "%s::%s", _cname, __func__);
+  CPLOG(0, "%s::%s", typeid(*this).name(), __func__);
 }
 
 auto dax_manager::lookup_arena(arena_id_t arena_id) -> arena *
 {
   if ( _arenas.size() <= arena_id )
   {
-    throw Logic_exception("%s::%s: could not find header for region (%d)", _cname, __func__,
+    throw Logic_exception("%s::%s: could not find header for region (%d)", typeid(*this).name(), __func__,
                         arena_id);
   }
   return _arenas[arena_id].get();
@@ -437,7 +439,7 @@ auto dax_manager::create_region(
   CPLOG(1, "%s: %s size %zu arena_id %u", __func__, name_.begin(), size_, arena_id_);
   try
   {
-    auto r = arena->region_create(name_, this, size_);
+    auto r = arena->region_create(name_, this, this, size_);
     CPLOG(0, "%s: path %s id  %.*s size req 0x%zx created at %p:%zx", __func__, arena->describe().data(), int(name_.size()), name_.begin(),  size_, ::base(r.address_map()[0]), ::size(r.address_map()[0]));
     return r;
   }
@@ -495,17 +497,15 @@ auto dax_manager::recover_metadata(const byte_span iov_,
   DM_region_header *rh = static_cast<DM_region_header *>(::base(iov_));
 
   if ( force_rebuild || ! rh->check_magic() ) {
-    PLOG("%s::%s: creating.", _cname, __func__);
+    PLOG("%s::%s: creating.", typeid(*this).name(), __func__);
     rh = new (::base(iov_)) DM_region_header(::size(iov_));
-    PLOG("%s::%s: created.", _cname, __func__);
+    PLOG("%s::%s: created.", typeid(*this).name(), __func__);
   }
   else {
-    PLOG("%s::%s: recovering.", _cname, __func__);
+    PLOG("%s::%s: recovering.", typeid(*this).name(), __func__);
     rh->check_undo_logs();
-    PLOG("%s::%s: recovered.", _cname, __func__);
+    PLOG("%s::%s: recovered.", typeid(*this).name(), __func__);
   }
 
   return rh;
 }
-
-}  // namespace nupm

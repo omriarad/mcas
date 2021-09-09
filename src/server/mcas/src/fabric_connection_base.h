@@ -22,6 +22,9 @@
 #include <algorithm>
 #include <list>
 #include <queue>
+#if 1
+#include <set>
+#endif
 
 namespace mcas
 {
@@ -105,6 +108,7 @@ private:
   std::list<buffer_t *> _completed_recv_buffers;
 
   open_connection _oc;
+	std::multiset<memory_region_t> _mrs;
  protected:
   size_t                             _max_message_size;
 
@@ -122,7 +126,8 @@ private:
   explicit Fabric_connection_base( //
     unsigned                           debug_level_,
     gsl::not_null<component::IFabric_server_factory *>factory,
-    std::unique_ptr<Preconnection> && preconnection);
+    std::unique_ptr<Preconnection> && preconnection
+    , unsigned buffer_count);
 
   Fabric_connection_base(const Fabric_connection_base &) = delete;
   Fabric_connection_base &operator=(const Fabric_connection_base &) = delete;
@@ -274,12 +279,20 @@ private:
    *
    */
  public:
-  inline auto register_memory(common::const_byte_span region, std::uint64_t key, std::uint64_t flags)
-  {
-    return transport()->register_memory(region, key, flags); /* flags not supported for verbs */
-  }
+	auto register_memory(common::const_byte_span span, std::uint64_t key, std::uint64_t flags, int line = -1)
+	{
+		auto mr = transport()->register_memory((PLOG("%s: B register %p.%zx", __func__, base(span), size(span)),span), key, flags); /* flags not supported for verbs */
+		CPLOG(1, "%s (%d) %p ... as %p", __func__, line, base(span), common::p_fmt(mr));
+		_mrs.insert(mr);
+		return mr;
+	}
 
-  inline void deregister_memory(memory_region_t region) { return transport()->deregister_memory(region); }
+	void deregister_memory(memory_region_t mr)
+	{
+		CPLOG(1, "%s %p", __func__, common::p_fmt(mr));
+		_mrs.erase(mr);
+		return transport()->deregister_memory(mr);
+	}
 
   inline void *get_memory_descriptor(memory_region_t region) { return transport()->get_memory_descriptor(region); }
 

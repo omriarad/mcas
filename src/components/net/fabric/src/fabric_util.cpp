@@ -24,6 +24,7 @@
 
 #include "rdma-fi_cm.h" /* fi_getname */
 
+#include <common/logging.h>
 #include <map>
 #include <memory> /* shared_ptr */
 
@@ -39,6 +40,7 @@ std::shared_ptr<::fi_info> make_fi_info()
   {
     throw fabric_bad_alloc("fi_info (alloc)");
   }
+	PLOG("%s info at %p", __func__, static_cast<void *>(info.get()));
   return info;
 }
 
@@ -49,6 +51,7 @@ std::shared_ptr<::fi_info> make_fi_infodup(const ::fi_info &info_, const std::st
   {
     throw fabric_bad_alloc("fi_info (dup for " + why_ + ")");
   }
+	PLOG("%s info at %p duplicated from %p", __func__, static_cast<const void *>(&info_), static_cast<void *>(info.get()));
 
   return info;
 }

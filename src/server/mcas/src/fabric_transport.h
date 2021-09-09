@@ -17,6 +17,7 @@
 #include <api/fabric_itf.h>
 
 #include <boost/optional.hpp>
+#include <common/byte_span.h>
 
 #include "buffer_manager.h"
 #include <memory>  // unique_ptr
@@ -29,6 +30,9 @@ class Connection_handler;
 class Fabric_transport {
   bool _fabric_debug;
 
+#if 0 && 11
+	using byte_span = common::byte_span;
+#endif
  public:
   static constexpr unsigned INJECT_SIZE = 128;
 
@@ -38,7 +42,9 @@ class Fabric_transport {
   Fabric_transport(const boost::optional<std::string> &fabric,
                    const boost::optional<std::string> &fabric_provider,
                    const boost::optional<std::string> &device,
-                   unsigned                            port);
+                   unsigned                            port,
+                   unsigned                            buffer_count
+);
 
   Connection_handler *get_new_connection();
 
@@ -48,6 +54,11 @@ class Fabric_transport {
   std::unique_ptr<component::IFabric>                _fabric;
   std::unique_ptr<component::IFabric_server_factory> _server_factory;
   unsigned                                           _port;
+  unsigned                                           _buffer_count;
+#if 0 && 11
+protected:
+	byte_span _scratchpad;
+#endif
 };
 
 }  // namespace mcas

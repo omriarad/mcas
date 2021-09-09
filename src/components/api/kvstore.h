@@ -140,6 +140,10 @@ protected:
                                      written or locked with STORE_LOCK_WRITE */
     MEMORY_TYPE              = 7, /* type of memory */
     MEMORY_SIZE              = 8, /* size of pool or store in bytes */
+#if CW_TEST
+		SCRATCHPAD_BASE = 9,
+		SCRATCHPAD_SIZE = 10,
+#endif
   };
 
   enum {
@@ -286,12 +290,14 @@ public:
                              const size_t       size,
                              flags_t            flags              = 0,
                              uint64_t           expected_obj_count = 0,
-                             const Addr         base_addr = Addr{0})
+                             const Addr         base_addr = Addr{0}
+	)
   {
     PERR("create_pool not implemented");
     return error_value(POOL_ERROR, pool_name, size, flags, expected_obj_count, base_addr);
   }
 
+#if 0
   virtual pool_t create_pool(const string_view path,
                              const string_view name,
                              const size_t       size,
@@ -301,6 +307,7 @@ public:
   {
     return create_pool(std::string(path) + std::string(name), size, flags, expected_obj_count, base_addr_unused);
   }
+#endif
 
   /**
    * Open an existing pool.
@@ -318,7 +325,7 @@ public:
   {
     return error_value(POOL_ERROR, pool_name, flags, base_addr_unused);
   }
-
+#if 0
   virtual pool_t open_pool(const string_view path,
                            const string_view name,
                            flags_t flags = 0,
@@ -326,7 +333,7 @@ public:
   {
     return open_pool(std::string(path) + std::string(name), flags, base_addr_unused);
   }
-
+#endif
   /**
    * Close pool handle
    *
@@ -962,6 +969,7 @@ public:
    *
    * @return S_OK, E_POOL_NOT_FOUND
    */
+
   virtual status_t map_keys(const pool_t pool, std::function<int(string_view_key key)> function)
   {
     return error_value(E_NOT_SUPPORTED, pool, function);

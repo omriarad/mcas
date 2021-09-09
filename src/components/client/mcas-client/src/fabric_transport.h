@@ -23,6 +23,11 @@
 #include <gsl/span>
 #include <iterator> /* begin, end */
 
+#if 1 /* testing only */
+class async_buffer_set_get_locate;
+class async_buffer_set_put_locate;
+#endif
+
 namespace mcas
 {
 using memory_registered_fabric = memory_registered<component::IFabric_client>;
@@ -151,13 +156,13 @@ class Fabric_transport : protected common::log_source {
    */
   void sync_inject_send(buffer_t *iob, std::size_t len)
   {
-    iob->set_length(len);
     if (len <= _max_inject_size) {
       /* when this returns, iob is ready for immediate reuse */
-      _transport->inject_send(iob->base(), iob->length());
+      _transport->inject_send(iob->base(), len);
     }
     else {
       /* too big for inject, do plain send */
+      iob->set_length(len);
       post_send({iob->iov, iob->iov + 1}, iob->desc, iob->to_context());
       wait_for_completion(iob->to_context());
     }
@@ -225,8 +230,8 @@ class Fabric_transport : protected common::log_source {
     //   throw API_exception("register_direct_memory: region should be
     //   aligned");
 
-    auto buffer = new buffer_external(debug_level(), _transport, const_cast<void *>(::base(region)), ::size(region));
-    CPLOG(0, "register_direct_memory (%p, %lu, mr=%p)", ::base(region), ::size(region), common::p_fmt(buffer->region()));
+    auto buffer = new buffer_external(debug_level(), _transport, common::make_byte_span(const_cast<void *>(base(region)), size(region)));
+    CPLOG(2, "register_direct_memory (%p, %lu, mr=%p)", ::base(region), ::size(region), common::p_fmt(buffer->region()));
     return buffer;
   }
 
@@ -238,10 +243,12 @@ class Fabric_transport : protected common::log_source {
 
   inline auto allocate(buffer_t::completion_t c) { return _bm.allocate(c); }
   inline void free_buffer(buffer_t *buffer) { _bm.free(buffer); }
-#if 11
-  Transport *               transport() const { return _transport; }
-#endif
 
+  Transport *               transport() const { return _transport; }
+#if CW_TEST
+	friend class ::async_buffer_set_get_locate;
+	friend class ::async_buffer_set_put_locate;
+#endif
  protected:
   Transport *               _transport;
   size_t                    _max_inject_size;

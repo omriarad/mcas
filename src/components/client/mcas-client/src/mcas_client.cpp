@@ -94,21 +94,29 @@ MCAS_client::MCAS_client(const unsigned                      debug_level,
                          const common::string_view           provider,
                          const common::string_view           dest_addr,
                          std::uint16_t                       port,
+	const unsigned buffer_count_,
                          const unsigned                      patience_,
+#if CW_TEST
+	const cw::test_data test_data_,
+#endif
                          const common::string_view           other_)
 : common::log_source(debug_level),
   _factory(load_factory()),
   _fabric(make_fabric_sip(*_factory, debug_level, src_addr, src_device, provider)),
   _ep(_fabric->make_endpoint(common::json::serializer<common::json::dummy_writer>::object{}.str(), dest_addr, port)),
-  _bm(debug_level, _ep.get()),
+  _bm(debug_level, _ep.get(), buffer_count_),
   _transport(_ep->make_open_client()),
-  _connection(std::make_unique<mcas::client::Connection_handler>(debug_level, _transport.get(), _bm, patience_, other_)),
+  _connection(std::make_unique<mcas::client::Connection>(debug_level, _transport.get(), _bm, patience_
+#if CW_TEST
+, test_data_
+#endif
+, other_)),
   _open_connection(*_connection)
 {
   CPLOG(3, "Extra config: %s", other_.data());
 }
 
-Open_connection::Open_connection(mcas::client::Connection_handler &_connection)
+Open_connection::Open_connection(mcas::client::Connection &_connection)
     : _open_cnxn((_connection.bootstrap(), &_connection))
 {
 }
@@ -152,16 +160,43 @@ IKVStore::pool_t MCAS_client::create_pool(const string_view  name,
                                           const size_t         size,
                                           const uint32_t       flags,
                                           const uint64_t       expected_obj_count,
-                                          const IKVStore::Addr base)
+                                          const IKVStore::Addr base
+)
 {
+#if CW_TEST
+	auto r = _connection->create_pool(name, size, flags, expected_obj_count, base.addr);
+#if 0
+	_connection->_scratchpad = std::get<0>(std::get<1>(r));
+	_connection->_scratchpad_rma_key = std::get<1>(std::get<1>(r));
+#endif
+	_connection->client_set_vaddr_key(
+		std::get<1>(r) /* scratchpad base */
+		, std::get<2>(r) /* scratchpad rma key */
+	);
+	return std::get<0>(r);
+#else
   return _connection->create_pool(name, size, flags, expected_obj_count, base.addr);
+#endif
 }
 
 IKVStore::pool_t MCAS_client::open_pool(const string_view  name,
                                         const uint32_t       flags,
                                         const IKVStore::Addr base)
 {
+#if CW_TEST
+	auto r = _connection->open_pool(name, flags, base.addr);
+#if 0
+	_connection->_scratchpad = std::get<0>(std::get<1>(r));
+	_connection->_scratchpad_rma_key = std::get<1>(std::get<1>(r));
+#endif
+	_connection->client_set_vaddr_key(
+		std::get<1>(r) /* scratchpad base */
+		, std::get<2>(r) /* scratchpad rma key */
+	);
+	return std::get<0>(r);
+#else
   return _connection->open_pool(name, flags, base.addr);
+#endif
 }
 
 status_t MCAS_client::close_pool(const IKVStore::pool_t pool)

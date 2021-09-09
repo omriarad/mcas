@@ -17,17 +17,24 @@
 
 #include "tls_session.h"
 #include "buffer_manager.h"
+#include "connection_state.h"
 #include "fabric_connection_base.h"  // default to fabric transport
 #include "mcas_config.h"
 #include "pool_manager.h"
 #include "protocol.h"
 #include "protocol_ostream.h"
+#include "range.h"
 #include "region_manager.h"
-#include "connection_state.h"
+#if CW_TEST
+#include <cw/cw_common.h>
+#include <cw/test_data.h>
+#include <cw/cw_fabric_test.h>
+#endif
 
 #include <api/components.h>
 #include <api/fabric_itf.h>
 #include <api/kvstore_itf.h>
+#include <common/byte_span.h>
 #include <common/exceptions.h>
 #include <common/logging.h>
 #include <gsl/pointers>
@@ -45,6 +52,18 @@ namespace mcas
 {
 using Connection_base = Fabric_connection_base;
 
+	struct space_lock_info_t
+	{
+		using transport_t = mcas::Connection_base;
+		memory_registered<transport_t> mr;
+		unsigned count;
+
+		explicit space_lock_info_t(memory_registered<transport_t> &&mr_) noexcept
+			: mr(std::move(mr_))
+			, count(0)
+		{}
+  };
+
 /**
  * Connection handler is instantiated for each "connected" client
  */
@@ -55,6 +74,7 @@ class Connection_handler
 {
   friend class Connection_TLS_session;
   friend struct TLS_transport;
+	using byte_span = common::byte_span;
   
 public:
   enum {
@@ -81,6 +101,13 @@ private:
   std::queue<buffer_t *>              _pending_msgs;
   std::queue<action_t>                _pending_actions;
   Pool_manager                        _pool_manager; /* per-connection */
+  using locked_value_map_t = std::map<const void *, memory_registered<Connection_base>>;
+  locked_value_map_t                                _locked_values;
+  using spaces_shared_map_t = std::map<range<std::uint64_t>, space_lock_info_t>;
+  spaces_shared_map_t _spaces_shared;
+#if CW_TEST
+	cw::registered_memory _rm;
+#endif
 
   struct stats {
     uint64_t response_count;
@@ -120,6 +147,7 @@ private:
     PINF("-----------------------------------------");
   }
 
+	unsigned debug_level() const { return Connection_base::debug_level(); }
   /**
    * Change state in FSM
    *
@@ -165,14 +193,24 @@ private:
    * 
    * @param start_tls Set if a TLS handshake needs to be started
    */
-  void respond_to_handshake(bool start_tls);
+  void respond_to_handshake(bool start_tls
+#if CW_TEST && 0
+		, uint64_t scratchpad_base_
+		, uint64_t scratchpad_size_
+#endif
+	);
 
 
 public:
 
   explicit Connection_handler(unsigned debug_level,
                               gsl::not_null<Factory *> factory,
-                              std::unique_ptr<Preconnection> && preconnection);
+                              std::unique_ptr<Preconnection> && preconnection
+    , unsigned buffer_count
+#if 0 && 11
+		, byte_span scratchpad
+#endif
+	);
 
   virtual ~Connection_handler();
 
@@ -385,6 +423,11 @@ public:
     return mr;
   }
 
+	void add_locked_value(const void *target, memory_registered<Connection_base> &&mr);   
+	void release_locked_value(const void *target);
+	void add_space_shared(const range<std::uint64_t> &range_, memory_registered<Connection_base> &&mr);
+	void release_space_shared(const range<std::uint64_t> &range_);
+
   inline uint64_t       auth_id() const { return _auth_id; }
   inline void           set_auth_id(uint64_t id) { _auth_id = id; }
   inline size_t         max_message_size() const { return _max_message_size; }
@@ -392,6 +435,12 @@ public:
 
 private:
   common::Byte_buffer _tls_buffer;
+#if CW_TEST
+	cw::test_data _test_data;
+#if 0
+	byte_span _scratchpad;
+#endif
+#endif
 };
 
 }  // namespace mcas

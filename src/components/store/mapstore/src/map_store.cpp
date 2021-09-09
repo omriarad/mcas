@@ -1056,7 +1056,8 @@ IKVStore::pool_t Map_store::create_pool(const common::string_view name_,
                                         const size_t nsize,
                                         unsigned int flags,
                                         uint64_t /*args*/,
-                                        IKVStore::Addr /*base addr unused */)
+                                        IKVStore::Addr /*base addr unused */
+)
 {
   if (flags & IKVStore::FLAGS_READ_ONLY)
     throw API_exception("read only create_pool not supported on map-store component");

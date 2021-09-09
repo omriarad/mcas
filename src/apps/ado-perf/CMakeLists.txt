@@ -7,6 +7,7 @@ project (ado-perf)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/GSL/include)
+include_directories(${CMAKE_SOURCE_DIR}/src/lib/cw/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/components)
 
 link_directories(${CMAKE_BINARY_DIR}/src/lib/common)

@@ -18,6 +18,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include/)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/libnupm/include/)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/libadoproto/include/)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/libthreadipc/include/)
+include_directories(${CMAKE_SOURCE_DIR}/src/lib/cw/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/components/)
 include_directories(${CMAKE_SOURCE_DIR}/src/kernel/modules/xpmem/include)
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # rapidjson
@@ -37,10 +38,11 @@ set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
 add_executable(mcas src/main.cpp src/shard.cpp src/shard_ado.cpp
 src/connection_handler.cpp src/ado_manager.cpp src/security.cpp
 src/fabric_connection_base.cpp src/fabric_transport.cpp
-src/config_file.cpp src/tls_session.cpp)
+src/config_file.cpp src/tls_session.cpp) #  src/cw_common.cpp src/cw_fabric_test.cpp
 
 target_link_libraries(mcas ${ASAN_LIB} threadipc common numa pthread
 dl nupm boost_program_options crypto z ado-proto xpmem gnutls
+cw
 ${PROFILER} )
 
 #add_subdirectory(unit_test)

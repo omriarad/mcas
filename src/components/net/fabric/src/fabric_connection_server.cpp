@@ -16,6 +16,7 @@
 
 #include "fabric_check.h" /* CHECK_FI_ERR */
 #include "fabric_endpoint.h"
+#include "fabric_enter_exit_trace.h"
 #include "fd_control.h"
 
 #include "rdma-fi_cm.h" /* fi_accept */
@@ -50,10 +51,12 @@ void Fabric_connection_server::wait_event() const
 
 std::size_t Fabric_connection_server::max_message_size() const noexcept
 {
+	ENTER_EXIT_TRACE
 	return aep()->ep_info().ep_attr->max_msg_size;
 }
 
 std::size_t Fabric_connection_server::max_inject_size() const noexcept
 {
+	ENTER_EXIT_TRACE
 	return aep()->ep_info().tx_attr->inject_size;
 }

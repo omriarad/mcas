@@ -19,6 +19,7 @@
 #include <common/logging.h> /* log_source */
 #include <common/to_string.h>
 
+#include <gsl/pointers>
 #include <string>
 #include <cassert>
 #include <map>
@@ -119,7 +120,7 @@ public:
    *
    * @return Pool handle
    */
-  pool_t open_and_register_pool(component::IKVStore * kvstore,
+  pool_t open_and_register_pool(gsl::not_null<component::IKVStore *> kvstore,
                                 const std::string&    pool_name)
   {
 #ifdef FEATURE_POOL_ACL
@@ -135,7 +136,6 @@ public:
 
 #endif
     
-    assert(kvstore);
     pool_t pool = kvstore->open_pool(pool_name);
 
     if(pool == component::IKVStore::POOL_ERROR) {
@@ -174,7 +174,7 @@ public:
    * 
    * @return Pool handle
    */
-  pool_t create_and_register_pool(component::IKVStore * kvstore,
+  pool_t create_and_register_pool(gsl::not_null<component::IKVStore *> kvstore,
                                   const std::string&    pool_name,
                                   const size_t          pool_size,
                                   const uint64_t        expected_object_count,
@@ -182,8 +182,7 @@ public:
   {
     using namespace component;
 
-    assert(kvstore);
-    assert(pool_name.empty() == false);
+    assert( ! pool_name.empty() );
     
 #ifdef FEATURE_POOL_ACL
     /* refuse to open pools that have metadata pool prefix */
@@ -279,10 +278,8 @@ public:
    *
    * @return Returns true if reference becomes 0
    */
-  bool release_pool_reference(component::IKVStore * kvstore, pool_t pool)
+  bool release_pool_reference(gsl::not_null<component::IKVStore *> kvstore, pool_t pool)
   {
-    assert(kvstore);
-    
     auto i = _open_pools.find(pool);
     if (i == _open_pools.end()) {
       throw std::invalid_argument(common::to_string(std::showbase, std::setbase(16),

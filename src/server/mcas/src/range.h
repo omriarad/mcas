@@ -23,6 +23,8 @@ namespace mcas
 /* Lots of things call themselves "range", but none are standard yet.
  * This one is typically a pair of addresses which bound a region used
  * for registered memory.
+ *
+ * Note: should convert this to gsl::span, and later std::span
  */
 template <typename T>
 struct range : public std::pair<T, T> {

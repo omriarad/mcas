@@ -81,6 +81,12 @@ class Fabric_client_grouped
   ) const noexcept override
   {
     return aep()->get_memory_descriptor(memory_region);
+  }
+  memory_region_t mr_covering(
+    const const_byte_span contig
+  ) noexcept override
+  {
+    return aep()->mr_covering(contig);
   };
   std::string get_peer_addr() override { return Fabric_connection_client::get_peer_addr(); }
   std::string get_local_addr() override { return Fabric_connection_client::get_local_addr(); }

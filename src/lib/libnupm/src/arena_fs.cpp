@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -165,6 +165,7 @@ auto arena_fs::region_get(const string_view id_) -> region_descriptor
 auto arena_fs::region_create(
 	const string_view id_
 	, gsl::not_null<registry_memory_mapped *> const mh_
+	, gsl::not_null<const range_manager *> const rm_
 	, std::size_t size
 ) -> region_descriptor
 {
@@ -198,7 +199,7 @@ auto arena_fs::region_create(
 	 */
 
 	size = round_up_t(size, 1U<<21U);
-	auto base_addr = mh_->locate_free_address_range(size);
+	auto base_addr = rm_->locate_free_address_range(size);
 
 	/* Extend the file to the specified size */
 	auto e = ::posix_fallocate(fd.fd(), 0, ::off_t(size));
@@ -249,7 +250,7 @@ void arena_fs::region_resize(
 	auto path_map_local = path_map(sr_->path_name());
 	size_ = round_up_t(size_, 1U<<21U);
 	auto r = get_mapping(path_map_local);
-	CPLOG(2, "%s: %s current size %zu, requested size %zu", __func__, sr_->path_name().c_str(), r.second, size_)
+	CPLOG(2, "%s: %s current size %zu, requested size %zu", __func__, sr_->path_name().c_str(), r.second, size_);
 	if ( r.second < size_ )
 	{
 		/* grow: truncate, then add to mapping file, add to in-memory mmap list */

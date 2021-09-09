@@ -14,20 +14,19 @@ add_subdirectory(./unit_test)
 add_compile_options("$<$<CONFIG:Debug>:-O0>")
 
 file(GLOB SOURCES
-# src/async_buffer_set_get_direct_offset.cpp
-# src/async_buffer_set_get_locate.cpp
-# src/async_buffer_set_invoke.cpp
-# src/async_buffer_set_put_direct_offset.cpp
-# src/async_buffer_set_put_locate.cpp
-# src/async_buffer_set_t.cpp
-src/connection.cpp
-# src/cw_fabric_test.CPP
-src/fabric_transport.cpp
-src/mcas_client.cpp
-src/mcas_client_factory.cpp
-src/memory_registered.cpp
-# src/mr_many.cpp
-# src/wait_poll.cpp
+  src/async_buffer_set_get_direct_offset.cpp
+  src/async_buffer_set_get_locate.cpp
+  src/async_buffer_set_invoke.cpp
+  src/async_buffer_set_put_direct_offset.cpp
+  src/async_buffer_set_put_locate.cpp
+  src/async_buffer_set_t.cpp
+  src/connection.cpp
+  src/fabric_transport.cpp
+  src/mcas_client.cpp
+  src/mcas_client_factory.cpp
+  src/memory_registered.cpp
+  src/mr_many.cpp
+  src/wait_poll.cpp
 )
 
 
@@ -38,10 +37,12 @@ include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/components)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/libpmem/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/cityhash/cityhash/src)
+include_directories(${CMAKE_SOURCE_DIR}/src/lib/cw/include)
 include_directories(../)
 include_directories(../../)
 include_directories(${CMAKE_INSTALL_PREFIX}/include) # city.h
 link_directories(/usr/lib/x86_64-linux-gnu)
+link_directories(${CMAKE_INSTALL_PREFIX}/lib) # for cw
 
 # Inclusion of Buffer_manager, at least
 include_directories(../../../server/mcas/src/)
@@ -52,9 +53,9 @@ target_compile_options(${PROJECT_NAME} PUBLIC "-fPIC")
 set(CMAKE_SHARED_LINKER_FLAGS "-Wl,--no-undefined")
 
 if( ${ARCHITECTURE} STREQUAL "x86_64" )
-  target_link_libraries(${PROJECT_NAME} common pthread numa gnutls dl rt z) # optional 'profiler'
+  target_link_libraries(${PROJECT_NAME} common cw pthread numa gnutls dl rt z) # optional 'profiler'
 else()
-  target_link_libraries(${PROJECT_NAME} common pthread numa gnutls dl rt z)
+  target_link_libraries(${PROJECT_NAME} common cw pthread numa gnutls dl rt z)
 endif()
 
 # set the linkage in the install/lib

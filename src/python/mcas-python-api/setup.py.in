@@ -23,6 +23,7 @@ module_core = Extension('mcas',
                         include_dirs = [include_dir,
                                         '${CMAKE_SOURCE_DIR}/src/components',
                                         '${CMAKE_SOURCE_DIR}/src/lib/common/include',
+                                        '${CMAKE_SOURCE_DIR}/src/lib/cw/include', # performance debugging only!
                                         '${CMAKE_SOURCE_DIR}/src/lib/GSL/include',
                                         '${CMAKE_SOURCE_DIR}/src/lib64/GSL/include',
                                         '${CMAKE_CURRENT_BINARY_DIR}/src',

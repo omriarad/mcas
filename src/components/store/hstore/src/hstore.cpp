@@ -146,12 +146,17 @@ auto hstore::create_pool(common::string_view name_,
                          const std::size_t size_,
                          flags_t flags_,
                          const uint64_t expected_obj_count_,
-                         Addr base_addr_unused) -> pool_t
+                         Addr base_addr_unused
+	) -> pool_t
 try
 {
   CPLOG(1, PREFIX "pool_name=%.*s size %zu", LOCATION, int(name_.size()), name_.data(), size_);
   try
   {
+		/*
+		 * A possible check for argument sanity.
+		 * Currently a no-op.
+		 */
     _pool_manager->pool_create_check(size_);
   }
   catch ( const std::exception &e )
@@ -162,7 +167,9 @@ try
 
   auto path = pool_path(name_);
 
+	/* step 1: get a dax_manager "region" from the dax_manager */
   auto rac = _pool_manager->pool_create_1(path, size_);
+	/* step 2: turn that space into an hstore "region" */
   auto s =
     std::static_pointer_cast<session_type>(
       std::shared_ptr<open_pool_type>(
@@ -548,6 +555,15 @@ auto hstore::get_attribute(
     out_attr.push_back(session->percent_used());
     return S_OK;
     break;
+#if CW_TEST
+  case SCRATCHPAD_BASE:
+    out_attr.push_back(reinterpret_cast<uint64_t>(::base(session->scratchpad())));
+    return S_OK;
+  case SCRATCHPAD_SIZE:
+    out_attr.push_back(::size(session->scratchpad()));
+    return S_OK;
+    break;
+#endif
 #if ENABLE_TIMESTAMPS
   case IKVStore::Attribute::WRITE_EPOCH_TIME:
     if ( ! key.data() )

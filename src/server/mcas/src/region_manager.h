@@ -30,14 +30,18 @@ namespace mcas
 class Region_manager : private common::log_source {
   using const_byte_span = common::const_byte_span;
  public:
-  Region_manager(unsigned debug_level_, gsl::not_null<Connection *> conn) : common::log_source(debug_level_), _conn(conn), _reg{}
-  {
-  }
+	Region_manager(unsigned debug_level_, gsl::not_null<Connection *> conn) : common::log_source(debug_level_), _conn(conn), _reg{}
+	{
+		CPLOG(0, "%s", __func__);
+	}
 
   Region_manager(const Region_manager&) = delete;
   Region_manager& operator=(const Region_manager&) = delete;
 
-  virtual ~Region_manager() {}
+	virtual ~Region_manager()
+	{
+ 	   CPLOG(0, "%s", __func__);
+	}
 
   /**
    * Register memory with network transport for direct IO.  Cache in map.
@@ -49,15 +53,37 @@ class Region_manager : private common::log_source {
    */
   memory_region_t ondemand_register(const_byte_span target)
   {
+    std::uint64_t memory_key = 0;
     /* transport will now take care of repeat registrations */
-    auto it = _reg.emplace(debug_level(), _conn, target, 0, 0);
-    CPLOG(2, "%s registered %p 0x%zx (total %zu)", __func__, ::base(target), ::size(target), _reg.size());
-    return it->mr();
+    auto it =
+      _reg.emplace(
+        std::piecewise_construct
+        , std::forward_as_tuple(::base(target))
+        , std::forward_as_tuple(debug_level(), _conn, target, memory_key, 0)
+      );
+    CPLOG(0, "%s %p 0x%zx (total %zu)", __func__, ::base(target), ::size(target), _reg.size());
+    return it->second.mr();
+  }
+
+  /* A registration at the greatest address address <= base(target) provides the region
+   * 
+   * (Since we are really asking about a range of memory, the input parameter should
+   * be a span, not a single address. But at the moment we have not established a mechanism
+   * to detect and report spans which are not encompassed by a single memory region.)
+   */
+  memory_region_t get_memory_region(const void *base) const
+  {
+    auto it = _reg.lower_bound(base);
+    return
+      it->first == base ? it->second.mr() /* exact hit */
+      : it == _reg.begin() ? memory_region_t(0) /* no registered memory includes base */
+      : (--it)->second.mr() /* if any registered memory includes base, return the memory immediately preceding it */
+      ;
   }
 
  private:
   Connection*                    _conn;
-  std::multiset<memory_registered<Connection>> _reg;
+  std::multimap<const void *, memory_registered<Connection>> _reg;
 };
 }  // namespace mcas
 

@@ -13,10 +13,6 @@
 #ifndef __MCAS_CLIENT_HANDLER_H__
 #define __MCAS_CLIENT_HANDLER_H__
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Weffc++"
-
 #include "fabric_transport.h"
 #include "mcas_client_config.h"
 #include "protocol.h"
@@ -27,8 +23,14 @@
 #include <common/exceptions.h>
 #include <common/utils.h>
 #include <common/byte_buffer.h>
+#if CW_TEST
+#include <cw/cw_common.h>
+#include <cw/test_data.h>
+#include <common/byte_span.h>
+#endif
 #include <common/perf/tm.h>
 #include <common/string_view.h>
+#include <common/to_string.h>
 #include <gsl/pointers>
 #include <sys/mman.h>
 #include <sys/uio.h>
@@ -56,6 +58,8 @@
 #define API_LOCK()
 #endif
 
+struct async_buffer_set_t;
+struct iob_free;
 
 namespace mcas
 {
@@ -71,9 +75,6 @@ struct TLS_transport
   static int gnutls_pull_timeout_func(gnutls_transport_ptr_t, unsigned int);
 };
 
-struct async_buffer_set_t;
-struct iob_free;
-
 static const char *env_scbe = ::getenv("SHORT_CIRCUIT_BACKEND");
 
 /* Adaptor point for other transports */
@@ -83,9 +84,45 @@ using Connection_base = mcas::client::Fabric_transport;
  * Client side connection handler
  *
  */
-class Connection_handler : public Connection_base {
+class Connection : public Connection_base {
   using locate_element = protocol::Message_IO_response::locate_element;
   using string_view = common::string_view;
+#if CW_TEST
+	using byte_span = common::byte_span;
+	using clock_type = std::chrono::high_resolution_clock;
+	clock_type::time_point _connection_start;
+	clock_type::time_point _connection_delta;
+	std::shared_ptr<cw::registered_memory> _rm_out;
+	std::shared_ptr<cw::registered_memory> _rm_in;
+	std::shared_ptr<cw::remote_memory_client_connected> _client;
+	cw::ct _ct_w;
+	cw::ct _ct_wr_real_to_test;
+	cw::ct _ct_wr_test_to_real;
+	cw::ct _ct_rd_test_from_real;
+	void run_intermittent_ping_pong(unsigned interval);
+	void run_intermittent_sleep() const;
+	void run_test_count_rdma(common::string_view id_);
+#if 0
+public: /* for create/open pool */
+	byte_span _scratchpad;
+	std::uint64_t _scratchpad_rma_key;
+#endif
+public: /* for async_buffer_set_put_locate */
+	void client_set_vaddr_key(uint64_t vaddr, uint64_t key);
+	void run_one_test_element_rdma();
+	void write_real_to_test(void *src, std::size_t sz, void *desc);
+	void write_test_to_real(std::size_t sz, std::uint64_t vaddr, std::uint64_t key);
+	void read_test_from_real(std::size_t sz, std::uint64_t vaddr, std::uint64_t key);
+public:
+	double connection_seconds() const { return std::chrono::duration<double>(clock_type::now() - _connection_start).count(); }
+	double connection_delta_seconds()
+	{
+		auto t = clock_type::now();
+		auto d = t - _connection_delta;
+		_connection_delta = t;
+		return std::chrono::duration<double>(d).count();
+	}
+#endif
 
 public:
   friend struct TLS_transport;
@@ -108,13 +145,18 @@ public:
    *
    * @return
    */
-  Connection_handler(const unsigned debug_level,
+  Connection(const unsigned debug_level,
                      Connection_base::Transport *connection,
                      Connection_base::buffer_manager &bm,
                      const unsigned patience,
+#if CW_TEST
+                     cw::test_data test_data,
+#endif
                      common::string_view other);
 
-  ~Connection_handler();
+	Connection(const Connection &) = delete;
+	Connection &operator=(const Connection &) = delete;
+  ~Connection();
 
 private:
   enum State {
@@ -152,15 +194,28 @@ public:
     while (tick() > 0) sleep(1);
   }
 
-  pool_t open_pool(const string_view name,
+  auto open_pool(const string_view name,
                    const unsigned int flags,
-                   const addr_t base);
+                   const addr_t base) ->
+#if CW_TEST
+ std::tuple<Connection::pool_t, uint64_t, uint64_t>
+#else
+ Connection::pool_t
+#endif
+	;
 
-  pool_t create_pool(const string_view  name,
+  auto create_pool(const string_view  name,
                      const size_t       size,
                      const unsigned int flags,
                      const uint64_t     expected_obj_count,
-                     const addr_t       base);
+                     const addr_t       base
+	) ->
+#if CW_TEST
+ std::tuple<Connection::pool_t, uint64_t, uint64_t>
+#else
+ Connection::pool_t
+#endif
+	;
 
   status_t close_pool(const pool_t pool);
 
@@ -379,9 +434,7 @@ private:
   {
     if ( level_ < debug_level() )
       {
-        std::ostringstream m;
-        m << *msg_;
-        PLOG("%s (%p) (%s) %s", direction_, context_, desc_, m.str().c_str());
+        PLOG("%s (%p) (%s) %s", direction_, context_, desc_, common_to_string(*msg_) /* m.str() */.c_str());
       }
   }
 
@@ -547,6 +600,9 @@ private:
   gnutls_priority_t                _priority;
   gnutls_session_t                 _session;
   common::Byte_buffer              _tls_buffer;
+#if CW_TEST
+	cw::test_data _test_data;
+#endif
 
 };
 

@@ -3,6 +3,9 @@
 #include <common/cycles.h>
 #include <common/str_utils.h>
 #include <common/task.h>
+#if CW_TEST
+#include <cw/test_data.h>
+#endif
 #include <stdio.h>
 #include <boost/program_options.hpp>
 #include <chrono>
@@ -181,7 +184,14 @@ component::Itf_ref<component::IMCAS> init(const std::string&, // server_hostname
   std::stringstream url;
   url << g_options.server << ":" << g_options.port;
 
-  auto mcas = make_itf_ref(fact->mcas_create(g_options.debug_level, g_options.patience, "None", url.str(), g_options.device));
+#if CW_TEST
+  cw::test_data test_data(__LINE__); /* small number __LINE__ to mark source */
+#endif
+  auto mcas = make_itf_ref(fact->mcas_create(g_options.debug_level, g_options.patience
+#if CW_TEST
+, test_data
+#endif
+, "None", url.str(), g_options.device));
 
   if (!mcas) throw Logic_exception("unable to create MCAS client instance");
 

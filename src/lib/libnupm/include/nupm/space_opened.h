@@ -1,5 +1,5 @@
 /*
-   Copyright [2020] [IBM Corporation]
+   Copyright [2020-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -17,8 +17,10 @@
  *
  */
 
-#ifndef _NUPM_OPENED_SPACE_H_
-#define _NUPM_OPENED_SPACE_H_
+#ifndef MCAS_NUPM_OPENED_SPACE_H_
+#define MCAS_NUPM_OPENED_SPACE_H_
+
+#include "range_use.h"
 
 #include "range_use.h"
 
@@ -26,19 +28,14 @@
 #include <common/fd_locked.h>
 #include <common/logging.h> /* log_source */
 #include <common/memory_mapped.h>
-#include <common/moveable_ptr.h>
-#include <common/string_view.h>
 #include <common/types.h> /* addr_t */
-#include <gsl/pointers>
-#include <cassert>
 #include <cstddef>
-#include <string>
 #include <vector>
+
+struct range_manager;
 
 namespace nupm
 {
-struct dax_manager;
-
 struct space_opened : private common::log_source
 {
 private:
@@ -48,16 +45,17 @@ private:
   range_use _range;
 
   /* owns the file mapping */
-  std::vector<common::memory_mapped> map_dev(int fd, const addr_t base_addr);
+  std::vector<common::memory_mapped> map_dev(int fd, addr_t base_addr, bool map_locked);
   std::vector<common::memory_mapped> map_fs(int fd, const std::vector<byte_span> &mapping, ::off_t offset);
 public:
-  space_opened(const common::log_source &, dax_manager * dm_, common::fd_locked && fd, const addr_t base_addr);
-  space_opened(const common::log_source &, dax_manager * dm_, common::fd_locked && fd, const std::vector<byte_span> &mapping);
+  space_opened(const common::log_source &, range_manager * rm_, common::fd_locked && fd, addr_t base_addr, bool map_locked);
+  space_opened(const common::log_source &, range_manager * rm_, common::fd_locked && fd, const std::vector<byte_span> &mapping);
   space_opened(space_opened &&) noexcept = default;
   void shrink(std::size_t size);
   void grow(std::vector<byte_span> && iovv);
   int fd() const { return _fd_locked.fd(); }
   range_use &range() { return _range; }
+  const range_use &range() const { return _range; }
 };
 }
 #endif

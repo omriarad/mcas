@@ -105,7 +105,9 @@ heap_cc::heap_cc(
 	, const string_view backing_file_
 
 )
-	: heap(pool0_full_, pool0_heap_, numa_node_)
+	: heap(
+		pool0_full_, pool0_heap_, numa_node_
+	)
 	, _eph(
 		std::make_unique<heap_cc_ephemeral>(
 			debug_level_

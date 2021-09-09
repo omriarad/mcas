@@ -26,13 +26,13 @@ public:
       , _start_time()
       , _latencies()
       , _exp_start_time()
-      , _latency_stats()
+      , _latency_stats(test_name())
     {
     }
 
     void initialize_custom(unsigned core) override
     {
-        _latency_stats = BinStatistics(bin_count(), bin_threshold_min(), bin_threshold_max());
+        _latency_stats = BinStatistics(test_name(), bin_count(), bin_threshold_min(), bin_threshold_max());
 
         _debug_print(core, "initialize_custom done");
     }
@@ -60,6 +60,7 @@ public:
 
         // check time it takes to complete a single put operation
 
+        // auto ix = _i % 2;
         {
           StopwatchInterval si(timer);
 
@@ -75,6 +76,8 @@ public:
         _update_data_process_amount(core, _i);
 
         auto time = timer.get_lap_time_in_seconds();
+
+			if ( 1.0 <= time ) std::cerr << "longish write (" << _i << ") " << time << "s\n";
 
         std::chrono::high_resolution_clock::time_point end_time = std::chrono::high_resolution_clock::now();
         auto time_since_start = std::chrono::duration<double>(end_time - _exp_start_time).count();

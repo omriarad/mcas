@@ -1,5 +1,5 @@
 /*
-   Copyright [2020] [IBM Corporation]
+   Copyright [2020-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -39,6 +39,7 @@ public:
 	region_descriptor region_create(
 		const string_view // id
 		, gsl::not_null<registry_memory_mapped *> // mh
+		, gsl::not_null<const range_manager *> // rm
 		, std::size_t // size
 	) override
 	{ return region_descriptor{}; }

@@ -30,6 +30,7 @@
 #include <common/spsc_bounded_queue.h>
 #include <common/string_view.h>
 #include <common/perf/tm_fwd.h>
+#include <gsl/pointers>
 
 #include <csignal> /* sig_atomic_t */
 #include <list>
@@ -46,6 +47,7 @@
 #include "config_file.h"
 #include "connection_handler.h"
 #include "fabric_transport.h"
+#include "free_deleter.h"
 #include "mcas_config.h"
 #include "pool_manager.h"
 #include "range.h"
@@ -94,7 +96,7 @@ class Shard : public Shard_transport, private common::log_source {
     std::string                 from;
     std::string                 to;
   };
-
+#if 0
   struct space_lock_info_t {
     using transport_t = mcas::Connection_base;
     memory_registered<transport_t> mr;
@@ -102,19 +104,23 @@ class Shard : public Shard_transport, private common::log_source {
 
     explicit space_lock_info_t(memory_registered<transport_t> &&mr_) noexcept : mr(std::move(mr_)), count(0) {}
   };
-
-  struct lock_info_t : public space_lock_info_t {
+#endif
+	/* Note: If a client may lock space and fail to unlock it,
+	 * the space will remain locked for the live of the shard
+	 */
+  struct lock_info_t {
     component::IKVStore::pool_t pool;
     component::IKVStore::key_t  key;
     size_t                      value_size;
+    unsigned count;
     lock_info_t(component::IKVStore::pool_t      pool_,
                 component::IKVStore::key_t       key_,
-                std::size_t                      value_size_,
-                memory_registered<transport_t> &&mr_) noexcept
-        : space_lock_info_t(std::move(mr_)),
-          pool(pool_),
+                std::size_t                      value_size_
+	) noexcept
+        : pool(pool_),
           key(key_),
           value_size(value_size_)
+          , count(0)
     {
     }
     lock_info_t(const lock_info_t &) = delete;
@@ -134,7 +140,9 @@ class Shard : public Shard_transport, private common::log_source {
   using buffer_t            = Shard_transport::buffer_t;
   using index_map_t         = std::unordered_map<pool_t, component::Itf_ref<component::IKVIndex>>;
   using locked_value_map_t  = std::unordered_map<const void* , lock_info_t>;
+#if 0
   using spaces_shared_map_t = std::map<range<std::uint64_t>, space_lock_info_t>;
+#endif
   using rename_map_t        = std::unordered_map<const void* , rename_info_t>;
   using task_list_t         = std::list<Shard_task* >;
 
@@ -178,22 +186,35 @@ class Shard : public Shard_transport, private common::log_source {
                     bool               triggered_profile);
 
   /* locked values are those from put_direct and get_direct */
-  void add_locked_value_shared(const pool_t                         pool_id,
+  void add_locked_value_shared(
+		Connection_handler *handler
+		, const pool_t                         pool_id,
                                component::IKVStore::key_t           key,
                                void *                               target,
-                               size_t                               target_len,
-                               memory_registered<Connection_base> &&mr);
-  void release_locked_value_shared(const void *target);
-  void add_locked_value_exclusive(const pool_t                         pool_id,
+                               size_t                               target_len
+		, memory_registered<Connection_base> &&mr
+	);
+	void release_locked_value_shared(
+		Connection_handler *handler
+		, const void *target
+	);
+  void add_locked_value_exclusive(
+		Connection_handler *handler
+		, const pool_t                         pool_id,
                                   component::IKVStore::key_t           key,
                                   void *                               target,
-                                  size_t                               target_len,
-                                  memory_registered<Connection_base> &&mr);
-  void release_locked_value_exclusive(const void *target);
+                                  size_t                               target_len
+		, memory_registered<Connection_base> &&mr
+);
 
+	void release_locked_value_exclusive(
+		Connection_handler *handler
+		, const void *target
+	);
+#if 0
   void add_space_shared(const range<std::uint64_t> &range, memory_registered<Connection_base> &&mr);
   void release_space_shared(const range<std::uint64_t> &range);
-
+#endif
   void add_pending_rename(const pool_t pool_id, const void *target, const std::string &from, const std::string &to);
   void release_pending_rename(const void *target);
 
@@ -226,6 +247,8 @@ class Shard : public Shard_transport, private common::log_source {
   void process_ado_request(Connection_handler *handler, const protocol::Message_ado_request *msg);
   void process_put_ado_request(Connection_handler *handler, const protocol::Message_put_ado_request *msg);
   void process_messages_from_ado();
+	void process_no_request(Connection_handler *handler, const protocol::Message_none *msg);
+	void process_ping_request(Connection_handler *handler, const protocol::Message_ping *msg);
   status_t process_configure(const protocol::Message_IO_request *msg);
 
   /* response handling functions */
@@ -256,8 +279,8 @@ class Shard : public Shard_transport, private common::log_source {
                   const component::IKVStore::lock_type_t lock_type,
                   const bool is_get_response = false);
 
-  void signal_ado_async_nolock(const char * tag,
-                               Connection_handler * handler,
+  void signal_ado_async_nolock(gsl::not_null<const char *> tag,
+                               gsl::not_null<Connection_handler *> handler,
                                const uint64_t client_request_id,
                                const component::IKVStore::pool_t pool,
                                const std::string& key);
@@ -322,8 +345,8 @@ class Shard : public Shard_transport, private common::log_source {
 
   inline auto get_ado_interface(pool_t pool_id) { return _ado_pool_map.get_proxy(pool_id); }
 
-  status_t conditional_bootstrap_ado_process(component::IKVStore *       kvs,
-                                             Connection_handler *        handler,
+  status_t conditional_bootstrap_ado_process(gsl::not_null<component::IKVStore *> kvs,
+                                             gsl::not_null<Connection_handler *> handler,
                                              component::IKVStore::pool_t pool_id,
                                              component::IADO_proxy *&    ado,
                                              pool_desc_t &               desc);
@@ -365,16 +388,17 @@ class Shard : public Shard_transport, private common::log_source {
   class Work_request_allocator {
    private:
     static constexpr size_t NUM_ELEMENTS = WORK_REQUEST_ALLOCATOR_COUNT;
-    std::vector<work_request_t *> _free;
+    std::vector<gsl::not_null<work_request_t *>> _free;
     /* "_all" apparently exists only to own the work_request_t elements */
-    std::vector<std::unique_ptr<work_request_t>> _all;
+    std::vector<std::unique_ptr<work_request_t, free_deleter>> _all;
 
    public:
     Work_request_allocator() : _free{}, _all{}
     {
       for (size_t i = 0; i < NUM_ELEMENTS; i++) {
+        /* ERROR: unique_ptr referent mus have been allocated by new, not aligned_alloc */
         auto wr =
-            std::unique_ptr<work_request_t>(static_cast<work_request_t *>(aligned_alloc(64, sizeof(work_request_t))));
+            std::unique_ptr<work_request_t, free_deleter>(static_cast<work_request_t *>(aligned_alloc(64, sizeof(work_request_t))));
         if (!wr) {
           throw std::bad_alloc();
         }
@@ -426,7 +450,9 @@ class Shard : public Shard_transport, private common::log_source {
   locked_value_map_t                                _locked_values_shared;
   locked_value_map_t                                _locked_values_exclusive;
   std::map<const void*, std::string>                _target_keyname_map;
+#if 0
   spaces_shared_map_t                               _spaces_shared;
+#endif
   rename_map_t                                      _pending_renames;
   task_list_t                                       _tasks; /*< list of deferred tasks */
   std::set<work_request_key_t>                      _outstanding_work;

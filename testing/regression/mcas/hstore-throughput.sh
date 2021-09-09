@@ -4,12 +4,12 @@ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:`pwd`/dist/lib
 DIR="$(cd "$( dirname "${BASH_SOURCE[0]}")" >/dev/null 2>&1 && pwd)"
 . "$DIR/functions.sh"
 
-DAXTYPE="${DAXTYPE:-$(choose_dax_type)}"
-STORETYPE=hstore
+DAX_PREFIX="${DAX_PREFIX:-$(choose_dax)}"
+STORE=hstore
 VALUE_LENGTH=${VALUE_LENGTH:-4096}
 KEY_LENGTH=${KEY_LENGTH:-8}
 READ_PCT=${READ_PCT:-0}
-TESTID="$(basename --suffix .sh -- $0)-$DAXTYPE-K$KEY_LENGTH-V$VALUE_LENGTH-R${READ_PCT}"
+TESTID="$(basename --suffix .sh -- $0)-$(dax_type $DAX_PREFIX)-K$KEY_LENGTH-V$VALUE_LENGTH-R${READ_PCT}"
 # kvstore-keylength-valuelength-store-netprovider
 
 # parameters for MCAS server and client
@@ -17,7 +17,9 @@ NODE_IP="$(node_ip)"
 DEBUG=${DEBUG:-0}
 
 # launch MCAS server
-DAX_RESET=1 ./dist/bin/mcas --config "$("./dist/testing/hstore-0.py" "$STORETYPE" "$DAXTYPE" "$NODE_IP")" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
+CONFIG_STR="$("./dist/testing/hstore-0.py" "$STORE" "$DAX_PREFIX" "$NODE_IP")"
+NUMA_CMD=$(numa_cmd $DAX_PREFIX)
+DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config "${CONFIG_STR}" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
 SERVER_PID=$!
 
 sleep 3

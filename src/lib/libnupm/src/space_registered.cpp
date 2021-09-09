@@ -1,5 +1,5 @@
 /*
-   Copyright [2020] [IBM Corporation]
+   Copyright [2020-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -19,26 +19,29 @@
 
 #include <nupm/space_registered.h>
 
-nupm::space_registered::space_registered(
+using nupm::space_registered;
+
+space_registered::space_registered(
   const common::log_source &ls_
-  , dax_manager * dm_
+  , range_manager * rm_
   , common::fd_locked &&fd_
   , const string_view &name_
   , addr_t base_addr_
+  , bool map_locked_
 )
-  : _pu(ls_, name_)
- , _or(ls_, dm_, std::move(fd_), base_addr_)
+	: _pu(ls_, name_)
+	, _or(ls_, rm_, std::move(fd_), base_addr_, map_locked_)
 {
 }
 
-nupm::space_registered::space_registered(
+space_registered::space_registered(
   const common::log_source &ls_
-  , dax_manager * dm_
+  , nupm::range_manager * rm_
   , common::fd_locked &&fd_
   , const string_view &name_
   , const std::vector<byte_span> &mapping_
 )
   : _pu(ls_, name_)
-  , _or(ls_, dm_, std::move(fd_), mapping_)
+  , _or(ls_, rm_, std::move(fd_), mapping_)
 {
 }

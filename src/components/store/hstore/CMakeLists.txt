@@ -177,7 +177,8 @@ set_target_properties(${PROJECT_NAME}-header-check PROPERTIES INSTALL_RPATH ${CM
 # common version
 add_library(${PROJECT_NAME} SHARED ${SOURCES} ${SOURCES_RC})
 target_compile_definitions(${PROJECT_NAME} PUBLIC "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:MCAS_HSTORE_TEST_PERISHABLE=1>")
-target_link_libraries(${PROJECT_NAME} common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash gcov)
+#target_link_libraries(${PROJECT_NAME} common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash ccpm pmem gcov)
+target_link_libraries(${PROJECT_NAME} common pthread numa dl rt boost_system tbb nupm cityhash)
 add_dependencies(${PROJECT_NAME} common nupm)
 set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
 
@@ -185,6 +186,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_P
 add_library(${PROJECT_NAME}-nt SHARED ${SOURCES} ${SOURCES_RC})
 target_compile_definitions(${PROJECT_NAME}-nt PUBLIC "$<$<BOOL:${TEST_HSTORE_PERISHABLE}>:MCAS_HSTORE_TEST_PERISHABLE=1>" "ENABLE_TIMESTAMP=0")
 target_link_libraries(${PROJECT_NAME}-nt common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash)
+#target_link_libraries(${PROJECT_NAME}-nt common pthread numa dl rt boost_system boost_filesystem tbb nupm cityhash ccpm pmem)
 add_dependencies(${PROJECT_NAME}-nt common nupm)
 set_target_properties(${PROJECT_NAME}-nt PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}:${CMAKE_INSTALL_PREFIX}/lib)
 

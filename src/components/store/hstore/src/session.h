@@ -18,6 +18,9 @@
 #include "persist_atomic_controller.h"
 #include "session_base.h"
 #include <common/logging.h> /* log_source */
+#if CW_TEST
+#include <common/byte_span.h>
+#endif
 
 #include "alloc_key.h" /* AK_FORMAL */
 #include "lock_result.h"
@@ -65,8 +68,8 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		using data_type = typename std::tuple_element<0, mapped_type>::type;
 		using pool_iterator_type = pool_iterator<typename table_type::const_iterator>;
 		using definite_lock_type = definite_lock<table_type, allocator_type>;
-#if 0
-		using string_view = common::string_view;
+#if CW_TEST
+		using byte_span = common::byte_span;
 #endif
 		using string_view_byte = common::basic_string_view<common::byte>;
 		using string_view_key = string_view_byte;
@@ -85,15 +88,15 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		auto locate_map(string_view_key key) -> table_type &;
 		auto locate_map(string_view_key key) const -> const table_type &;
 
+#if 1
 		bool undo_redo_pin_data(
 			AK_FORMAL
-			allocator_type heap_
 		);
 
 		bool undo_redo_pin_key(
 			AK_FORMAL
-			allocator_type heap_
 		);
+#endif
 
 	public:
 		/* PMEMoid, persist_data_t */
@@ -115,6 +118,10 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		);
 
 		~session();
+
+#if CW_TEST
+		byte_span scratchpad() const;
+#endif
 
 		session(const session &) = delete;
 		session& operator=(const session &) = delete;

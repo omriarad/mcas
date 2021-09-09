@@ -76,6 +76,8 @@ class IKVStore_factory : public component::IBase {
   static constexpr const char *k_interface = "interface";
   static constexpr const char *k_provider = "provider";
   static constexpr const char *k_patience = "patience";
+  static constexpr const char *k_buffer_count = "buffer_count";
+  static constexpr const char *k_test_count = "test_count";
 
   static constexpr const char *k_debug = "debug";
   static constexpr const char *k_owner = "owner";

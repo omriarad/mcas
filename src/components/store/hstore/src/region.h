@@ -184,6 +184,7 @@ template <
     bool is_initialized() const noexcept { return magic == magic_value; }
     unsigned percent_used() const { return _heap.percent_used(); }
     void quiesce() { _heap.quiesce(); }
+		byte_span scratchpad() { return _heap.scratchpad(); }
     nupm::region_descriptor get_regions() const
     {
       return _heap.regions();

@@ -16,9 +16,9 @@
 #define MCAS_HSTORE_HOP_HASH_LOG_H
 
 #include <common/logging.h>
+#include <common/to_string.h>
 #include <iosfwd>
 #include <string>
-#include <sstream>
 
 #define LOG_LOCATION_STATIC __FILE__, ":", __LINE__, " ", __func__, "() "
 #define LOG_LOCATION LOG_LOCATION_STATIC, "this(", common::p_fmt(this), ") "
@@ -38,21 +38,24 @@ template <>
 		static void wr(std::ostream &)
 		{
 		}
-
+#if 0
 		template<typename T, typename... Args>
 			static void wr(std::ostream &o, const T & e, const Args & ... args)
 			{
 				o << e;
 				wr(o, args...);
 			}
-
+#endif
 	public:
 		template<typename... Args>
 			static void write(const Args & ... args)
 			{
+				hop_hash_log_impl::wr(common::to_string(args...));
+#if 0
 				std::ostringstream o;
 				wr(o, args...);
 				hop_hash_log_impl::wr(o.str());
+#endif
 			}
 	};
 

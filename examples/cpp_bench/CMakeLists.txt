@@ -8,6 +8,7 @@ add_compile_options(-DNDEBUG)
 
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/common/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/lib/GSL/include)
+include_directories(${CMAKE_SOURCE_DIR}/src/lib/cw/include)
 include_directories(${CMAKE_SOURCE_DIR}/src/components)
 
 add_executable(example-cpp-bench cpp_bench.cpp)

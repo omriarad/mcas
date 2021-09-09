@@ -42,6 +42,9 @@ protected:
 	unsigned _numa_node;
 	std::size_t _more_region_uuids_size;
 	std::array<std::uint64_t, 1024U> _more_region_uuids;
+#if CW_TEST
+	std::array<std::uint8_t, 1UL<<23> _scratchpad;
+#endif
 
 	auto grow(
 		heap_ephemeral *eph_
@@ -59,6 +62,9 @@ public:
 
 	heap(const heap &) = default;
 	heap &operator=(const heap &) = delete;
+#if CW_TEST
+	byte_span scratchpad() { return common::make_byte_span(_scratchpad.data(), _scratchpad.size()); } 
+#endif
 
 	~heap();
 };

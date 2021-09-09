@@ -28,7 +28,6 @@
 
 #include <stdexcept> /* logic_error */
 #include <memory> /* unique_ptr */
-#include <sstream> /* ostringstream */
 
 struct event_producer;
 
@@ -88,6 +87,13 @@ void *Fabric_generic_grouped::get_memory_descriptor(
 ) const noexcept
 {
   return aep()->get_memory_descriptor(memory_region);
+}
+
+auto Fabric_generic_grouped::mr_covering(
+	const const_byte_span contig_
+) noexcept -> memory_region_t
+{
+	return aep()->mr_covering(contig_);
 }
 
 std::string Fabric_generic_grouped::get_peer_addr()

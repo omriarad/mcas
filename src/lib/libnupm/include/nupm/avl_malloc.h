@@ -220,7 +220,10 @@ protected:
   {
     if (node == nullptr) return nullptr;
 
-    common::Fixed_stack<Memory_region*> stack;  // good for debugging
+    /* Note: creation of Fixed_stack with default size calls malloc which syscalls mmap
+	 * similarly, deletion calls free which syscalls munmap
+	 */
+    common::Fixed_stack<Memory_region*, 10000> stack;  // good for debugging
     stack.push(node);
 
     while (!stack.empty()) {

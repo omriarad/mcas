@@ -24,7 +24,11 @@ Client::Client(const unsigned debug_level,
   
   auto dll = load_component("libcomponent-mcasclient.so", mcas_client_factory);
   auto factory = dll->query_interface<IMCAS_factory>();
-  _mcas = factory->mcas_create(debug_level, patience, getlogin(), addr_with_port, nic_device);
+  _mcas = factory->mcas_create(debug_level, patience
+#if CW_TEST
+	, __LINE__
+#endif
+, getlogin(), addr_with_port, nic_device);
   factory->release_ref();
 }
 

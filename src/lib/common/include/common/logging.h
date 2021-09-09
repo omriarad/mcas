@@ -290,20 +290,20 @@ inline void PLOG2(const char * color, const char * format, ...)
 
 #define GET_MACRO(_1,_2,_3,_4,_5,_6,_7,_8,_9,_A,_B,_C,_D,_E,NAME,...) NAME
 
-#define CPLOG_E(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb); }
-#define CPLOG_D(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa); }
-#define CPLOG_C(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9); }
-#define CPLOG_B(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8); }
-#define CPLOG_A(level,format,p0,p1,p2,p3,p4,p5,p6,p7) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7); }
-#define CPLOG_9(level,format,p0,p1,p2,p3,p4,p5,p6) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5,p6); }
-#define CPLOG_8(level,format,p0,p1,p2,p3,p4,p5) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4,p5); }
-#define CPLOG_7(level,format,p0,p1,p2,p3,p4) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3,p4); }
-#define CPLOG_6(level,format,p0,p1,p2,p3) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2,p3); }
-#define CPLOG_5(level,format,p0,p1,p2) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1,p2); }
-#define CPLOG_4(level,format,p0,p1) if ( (level) < this->debug_level() ) { PLOG(format,p0,p1); }
-#define CPLOG_3(level,format,p0) if ( (level) < this->debug_level() ) { PLOG(format,p0); }
-#define CPLOG_2(level,msg) if ( (level) < this->debug_level() ) { PLOG(msg); }
-#define CPLOG_1(level)
+#define CPLOG_E(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb), true) )
+#define CPLOG_D(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa), true) )
+#define CPLOG_C(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9), true) )
+#define CPLOG_B(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7,p8), true) )
+#define CPLOG_A(level,format,p0,p1,p2,p3,p4,p5,p6,p7) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1,p2,p3,p4,p5,p6,p7), true) )
+#define CPLOG_9(level,format,p0,p1,p2,p3,p4,p5,p6) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1,p2,p3,p4,p5,p6), true) )
+#define CPLOG_8(level,format,p0,p1,p2,p3,p4,p5) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1,p2,p3,p4,p5), true) )
+#define CPLOG_7(level,format,p0,p1,p2,p3,p4) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1,p2,p3,p4), true) )
+#define CPLOG_6(level,format,p0,p1,p2,p3) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1,p2,p3), true) )
+#define CPLOG_5(level,format,p0,p1,p2) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1,p2), true) )
+#define CPLOG_4(level,format,p0,p1) ( ( (level) < this->debug_level() ) && (PLOG(format,p0,p1), true) )
+#define CPLOG_3(level,format,p0) ( ( (level) < this->debug_level() ) && (PLOG(format,p0), true) )
+#define CPLOG_2(level,msg) ( ( (level) < this->debug_level() ) && (PLOG(msg), true) )
+#define CPLOG_1(level) ( (level) < this->debug_level() )
 #define CPLOG(...) GET_MACRO(__VA_ARGS__,CPLOG_E,CPLOG_D,CPLOG_C,CPLOG_B,CPLOG_A,CPLOG_9,CPLOG_8,CPLOG_7,CPLOG_6,CPLOG_5,CPLOG_4,CPLOG_3,CPLOG_2,CPLOG_1,CPLOG_0)(__VA_ARGS__)
 
 #define CPINF_E(level,format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb) if ( (level) < this->debug_level() ) { PINF(format,p0,p1,p2,p3,p4,p5,p6,p7,p8,p9,pa,pb); }

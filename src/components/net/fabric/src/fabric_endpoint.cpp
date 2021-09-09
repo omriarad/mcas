@@ -11,7 +11,6 @@
    limitations under the License.
 */
 
-
 /*
  * Authors:
  *
@@ -30,6 +29,7 @@
 #include "fabric_runtime_error.h"
 #include "fabric_str.h" /* tostr */
 #include "fabric_util.h" /* make_fi_infodup, get_event_name */
+#include "fabric_enter_exit_trace.h"
 #include "fd_control.h"
 #include "fd_pair.h"
 #include "fd_unblock_set_monitor.h"
@@ -37,6 +37,7 @@
 
 #include <common/env.h> /* env_value */
 #include <common/logging.h> /* PLOG */
+#include <common/to_string.h>
 
 #include <rdma/fi_errno.h> /* fi_strerror */
 #include "rdma-fi_rma.h" /* fi_{read,recv,send,write}v, fj_inject, fi_sendmsg */
@@ -56,26 +57,34 @@
 #include <limits> /* <int>::max */
 #include <typeinfo> /* typeinfo::name */
 
-struct mr_and_address
+namespace component
 {
-  using byte_span = common::byte_span;
-  using const_byte_span = common::const_byte_span;
-private:
-  std::shared_ptr<::fid_mr> _mr;
-  byte_span _v;
-public:
-  mr_and_address(gsl::not_null<::fid_mr *> mr_, const_byte_span contig_)
-    : _mr(fid_ptr(mr_))
-    , _v(common::make_byte_span(const_cast<void *>(::base(contig_)), ::size(contig_)))
+	struct IFabric_memory_region
 	{
-	}
-	~mr_and_address()
-	{
-	}
-	std::shared_ptr<::fid_mr> mr() { return _mr; }
-	::fid_mr *mr_unshared() const { return _mr.get(); }
-	byte_span v() const { return _v; }
-};
+		using byte_span = common::byte_span;
+		using const_byte_span = common::const_byte_span;
+	private:
+		std::shared_ptr<::fid_mr> _mr;
+		byte_span _v;
+		unsigned _count;
+	public:
+		IFabric_memory_region(gsl::not_null<::fid_mr *> mr_, const_byte_span contig_)
+			: _mr(fid_ptr(mr_))
+			, _v(common::make_byte_span(const_cast<void *>(::base(contig_)), ::size(contig_)))
+			, _count(1)
+		{
+		}
+		~IFabric_memory_region()
+		{
+		}
+		std::shared_ptr<::fid_mr> mr() { return _mr; }
+		::fid_mr *mr_unshared() const { return _mr.get(); }
+		byte_span v() const { return _v; }
+		void count_incr() { ++_count; }
+		unsigned count_decr() { return --_count; }
+		unsigned count() const { return _count; }
+	};
+}
 
 namespace
 {
@@ -84,7 +93,7 @@ namespace
 		, fabric_types::addr_ep_t
 	> set_peer(std::unique_ptr<Fd_control> control_, const ::fi_info &info_)
 	{
-  		std::shared_ptr<::fi_info> domain_info(make_fi_infodup(info_, "domain"));
+		std::shared_ptr<::fi_info> domain_info(make_fi_infodup(info_, "domain"));
 		fabric_types::addr_ep_t peer_addr;
 		if ( domain_info->ep_attr->type == FI_EP_MSG )
 		{
@@ -109,7 +118,7 @@ namespace
 		, fabric_types::addr_ep_t
 	> set_no_peer(const ::fi_info &info_)
 	{
-  		std::shared_ptr<::fi_info> domain_info(make_fi_infodup(info_, "domain"));
+		std::shared_ptr<::fi_info> domain_info(make_fi_infodup(info_, "domain"));
 		return { domain_info, fabric_types::addr_ep_t() };
 	}
 }
@@ -223,6 +232,7 @@ void fabric_endpoint::post_send(
   , context_t context_
 )
 {
+	ENTER_EXIT_TRACE
   CHECK_FI_EQ(
     ::fi_sendv(
       &ep()
@@ -242,6 +252,7 @@ void fabric_endpoint::post_send(
   , context_t context_
 )
 {
+	ENTER_EXIT_TRACE
   auto desc = populated_desc(buffers_);
   post_send(buffers_, &*desc.begin(), context_);
 }
@@ -260,6 +271,7 @@ void fabric_endpoint::post_recv(
   , context_t context_
 )
 {
+	ENTER_EXIT_TRACE
   CHECK_FI_EQ(
     ::fi_recvv(
       &ep()
@@ -279,6 +291,7 @@ void fabric_endpoint::post_recv(
   , context_t context_
 )
 {
+	ENTER_EXIT_TRACE
   auto desc = populated_desc(buffers_);
   post_recv(buffers_, &*desc.begin(), context_);
 }
@@ -301,6 +314,7 @@ void fabric_endpoint::post_read(
   , context_t context_
 )
 {
+	ENTER_EXIT_TRACE
   CHECK_FI_EQ(
     ::fi_readv(
       &ep()
@@ -324,6 +338,7 @@ void fabric_endpoint::post_read(
   , context_t context_
 )
 {
+	ENTER_EXIT_TRACE
   auto desc = populated_desc(buffers_);
   post_read(buffers_, &*desc.begin(), remote_addr_, key_, context_);
 }
@@ -346,6 +361,7 @@ void fabric_endpoint::post_write(
   , context_t context_
 )
 {
+	ENTER_EXIT_TRACE
   CHECK_FI_EQ(
     ::fi_writev(
       &ep()
@@ -369,6 +385,7 @@ void fabric_endpoint::post_write(
   , context_t context_
 )
 {
+	ENTER_EXIT_TRACE
   auto desc = populated_desc(buffers_);
   post_write(buffers_, &*desc.begin(), remote_addr_, key_, context_);
 }
@@ -388,6 +405,7 @@ void fabric_endpoint::sendmsg(
 	, std::uint64_t flags
 )
 {
+	ENTER_EXIT_TRACE
 	const ::fi_msg m {
 		&*buffers_.begin(), desc_, buffers_.size(), addr_, context_, flags
 	};
@@ -414,6 +432,7 @@ void fabric_endpoint::sendmsg(
    */
 void fabric_endpoint::inject_send(const void *buf_, std::size_t len_)
 {
+	ENTER_EXIT_TRACE
   CHECK_FI_EQ(::fi_inject(&ep(), buf_, len_, ::fi_addr_t{}), 0);
 }
 
@@ -432,6 +451,7 @@ void fabric_endpoint::inject_send(const void *buf_, std::size_t len_)
 
 std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_completer::complete_old &cb_)
 {
+	ENTER_EXIT_TRACE
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions(cb_);
@@ -446,6 +466,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
 
 std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_completer::complete_definite &cb_)
 {
+	ENTER_EXIT_TRACE
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions(cb_);
@@ -460,6 +481,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
 
 std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric_op_completer::complete_tentative &cb_)
 {
+	ENTER_EXIT_TRACE
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions_tentative(cb_);
@@ -474,6 +496,7 @@ std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric
 
 std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_completer::complete_param_definite &cb_, void *cb_param_)
 {
+	ENTER_EXIT_TRACE
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions(cb_, cb_param_);
@@ -488,6 +511,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
 
 std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &cb_, void *cb_param_)
 {
+	ENTER_EXIT_TRACE
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions_tentative(cb_, cb_param_);
@@ -502,6 +526,7 @@ std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric
 
 std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_completer::complete_param_definite_ptr_noexcept cb_, void *cb_param_)
 {
+	ENTER_EXIT_TRACE
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions(cb_, cb_param_);
@@ -516,6 +541,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
 
 std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative_ptr_noexcept cb_, void *cb_param_)
 {
+	ENTER_EXIT_TRACE
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions_tentative(cb_, cb_param_);
@@ -540,6 +566,7 @@ std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric
  */
 void fabric_endpoint::wait_for_next_completion(std::chrono::milliseconds timeout)
 {
+	ENTER_EXIT_TRACE
   Fd_pair fd_unblock;
   fd_unblock_set_monitor(_m_fd_unblock_set, _fd_unblock_set, fd_unblock.fd_write());
   /* Only block if we have not seen FI_SHUTDOWN */
@@ -604,6 +631,7 @@ void fabric_endpoint::wait_for_next_completion(std::chrono::milliseconds timeout
 
 void fabric_endpoint::wait_for_next_completion(unsigned polls_limit)
 {
+	ENTER_EXIT_TRACE
   for ( ; polls_limit != 0; --polls_limit )
   {
     try
@@ -626,6 +654,7 @@ void fabric_endpoint::wait_for_next_completion(unsigned polls_limit)
  */
 void fabric_endpoint::unblock_completions()
 {
+	ENTER_EXIT_TRACE
   std::lock_guard<std::mutex> g{_m_fd_unblock_set};
   for ( auto fd : _fd_unblock_set )
   {
@@ -751,7 +780,7 @@ void fabric_endpoint::expect_event(std::uint32_t event_exp) const
 
 fid_unique_ptr<::fid_cq> fabric_endpoint::make_fid_cq(::fi_cq_attr &attr, void *context) const
 {
-  ::fid_cq *f;
+  ::fid_cq *f = nullptr;
   CHECK_FI_ERR(::fi_cq_open(&domain(), &attr, &f, context));
   FABRIC_TRACE_FID(f);
   return fid_unique_ptr<::fid_cq>(f);
@@ -814,12 +843,17 @@ using guard = std::unique_lock<std::mutex>;
 namespace
 {
   /* True if range of a is a superset of range of b */
-  using byte_span = common::byte_span;
-  bool covers(const byte_span a, const byte_span b)
+  using common::byte_span;
+  using common::const_byte_span;
+  bool covers(const byte_span a, const const_byte_span b)
   {
     return ::base(a) <= ::base(b) && ::end(b) <= ::end(a);
   }
   std::ostream &operator<<(std::ostream &o, const byte_span v)
+  {
+    return o << "[" << ::base(v) << ".." << ::end(v) << ")";
+  }
+  std::ostream &operator<<(std::ostream &o, const const_byte_span v)
   {
     return o << "[" << ::base(v) << ".." << ::end(v) << ")";
   }
@@ -846,123 +880,152 @@ ru_flt_counter::~ru_flt_counter()
   }
 }
 
-namespace
+void fabric_endpoint::print_registry() const
 {
-  void print_registry(const std::multimap<const void *, std::unique_ptr<mr_and_address>> &matm)
-  {
-    unsigned i = 0;
-    const unsigned limit = 0;
+	unsigned i = 0;
+	const unsigned limit = 0;
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wtype-limits"
-    for ( const auto &j : matm )
-    {
-      if ( i < limit )
-      {
-        std::cerr << "Token " << common::pointer_cast<component::IFabric_memory_region>(&*j.second) << " mr " << j.second->mr_unshared() << " " << j.second->v() << "\n";
-      }
-      else
-      {
-        std::cerr << "Token (suppressed " << matm.size() - limit << " more)\n";
-        break;
-      }
-      ++i;
-    }
+	for ( const auto &j : _mr_addr_to_mra )
+	{
+		if ( i < limit )
+		{
+			std::cerr << "Token " << &*j.second << " mr " << j.second->mr_unshared() << " refcount " << j.second->count() << " " << j.second->v() << "\n";
+		}
+		else
+		{
+			std::cerr << "Token (suppressed " << _mr_addr_to_mra.size() - limit << " more)\n";
+			break;
+		}
+		++i;
+	}
 #pragma GCC diagnostic pop
-  }
 }
 
 auto fabric_endpoint::register_memory(const_byte_span contig_, std::uint64_t key_, std::uint64_t flags_) -> memory_region_t
 {
-  auto mra =
-    std::make_unique<mr_and_address>(
-      make_fid_mr_reg_ptr(contig_,
-                          std::uint64_t(FI_SEND|FI_RECV|FI_READ|FI_WRITE|FI_REMOTE_READ|FI_REMOTE_WRITE),
-                          key_,
-                          flags_)
-      , contig_
-    );
+	ENTER_EXIT_TRACE
+	guard g{_m};
 
-  /* operations which access local memory will need the "mr." Record it here. */
-  guard g{_m};
+	auto it = mr_covering_it(contig_);
 
-  auto it = _mr_addr_to_mra.emplace(::base(contig_), std::move(mra));
+	if ( it == _mr_addr_to_mra.rend() )
+	{
+		auto mra =
+			std::make_unique<mr_and_address>(
+				make_fid_mr_reg_ptr(
+					contig_
+					, std::uint64_t(FI_SEND|FI_RECV|FI_READ|FI_WRITE|FI_REMOTE_READ|FI_REMOTE_WRITE)
+					, key_
+					, flags_
+				)
+				, contig_
+		);
 
-  /*
-   * Operations which access remote memory will need the memory key.
-   * If the domain has FI_MR_PROV_KEY set, we need to return the actual key.
-   */
-  if ( mr_trace )
-  {
-    std::cerr << "Registered token " << common::pointer_cast<component::IFabric_memory_region>(&*it->second) << " mr " << it->second->mr_unshared() << " " << it->second->v() << "\n";
-    print_registry(_mr_addr_to_mra);
-  }
-  return common::pointer_cast<component::IFabric_memory_region>(&*it->second);
+		/* operations which access local memory will need the "mr." Record it here. */
+
+		auto fit = _mr_addr_to_mra.emplace(::base(contig_), std::move(mra));
+		++fit;
+		it = map_addr_to_mra::reverse_iterator(fit);
+	}
+	else
+	{
+		it->second->count_incr();
+	}
+
+	if ( mr_trace )
+	{
+		std::cerr << "Registered token ref(" << it->second->count() << ") " << &*it->second << " mr " << it->second->mr_unshared() << " " << it->second->v() << " desc " << get_memory_descriptor(&*it->second) << " key " << get_memory_remote_key(&*it->second) << "\n";
+		print_registry();
+	}
+
+	return &*it->second;
+
+	/*
+	 * Operations which access remote memory will need the memory key.
+	 * If the domain has FI_MR_PROV_KEY set, we need to return the actual key.
+	 */
 }
 
 void fabric_endpoint::deregister_memory(const memory_region_t mr_)
 {
-  /* recover the memory region as a unique ptr */
-  auto mra = common::pointer_cast<mr_and_address>(mr_);
+	ENTER_EXIT_TRACE
+	guard g{_m};
 
-  guard g{_m};
+	auto lb = _mr_addr_to_mra.lower_bound(::data(mr_->v()));
+	auto ub = _mr_addr_to_mra.upper_bound(::data(mr_->v()));
 
-  auto lb = _mr_addr_to_mra.lower_bound(::data(mra->v()));
-  auto ub = _mr_addr_to_mra.upper_bound(::data(mra->v()));
+	map_addr_to_mra::size_type scan_count = 0;
+	auto it =
+		std::find_if(
+			lb
+			, ub
+			, [&mr_, &scan_count] ( const map_addr_to_mra::value_type &m ) { ++scan_count; return &*m.second == mr_; }
+	);
 
-  map_addr_to_mra::size_type scan_count = 0;
-  auto it =
-    std::find_if(
-      lb
-      , ub
-      , [&mra, &scan_count] ( const map_addr_to_mra::value_type &m ) { ++scan_count; return &*m.second == mra; }
-  );
+	if ( it == ub )
+	{
+		std::cerr << "Deregistered token " << mr_ << " mr " << mr_->mr_unshared() << " failed, not in \n";
+		print_registry();
+		throw std::logic_error(
+			common::to_string(
+				__func__, " token ", mr_, " mr ", mr_->mr_unshared(), " (with range ", mr_->v(), ")"
+				, " not found in ", scan_count, " of ", _mr_addr_to_mra.size(), " registry entries"
+			)
+		);
+	}
+	if ( mr_trace )
+	{
+		std::cerr << "Deregistered token (before) ref(" << mr_->count() << ")" << mr_ << " mr/sought " << mr_->mr_unshared() << " mr/found " << it->second->mr_unshared() << " " << it->second->v() << "\n";
+		print_registry();
+	}
 
-  if ( it == ub )
-  {
-    std::ostringstream err;
-    err << __func__ << " token " << mra << " mr " << mra->mr_unshared() << " (with range " << mra->v() << ")"
-      << " not found in " << scan_count << " of " << _mr_addr_to_mra.size() << " registry entries";
-    std::cerr << "Deregistered token " << mra << " mr " << mra->mr_unshared() << " failed, not in \n";
-    print_registry(_mr_addr_to_mra);
-    throw std::logic_error(err.str());
-  }
-  if ( mr_trace )
-  {
-    std::cerr << "Deregistered token (before) " << mra << " mr/sought " << mra->mr_unshared() << " mr/found " << it->second->mr_unshared() << " " << it->second->v() << "\n";
-    print_registry(_mr_addr_to_mra);
-  }
-  _mr_addr_to_mra.erase(it);
-  if ( mr_trace )
-  {
-    std::cerr << "Deregistered token (after)\n";
-    print_registry(_mr_addr_to_mra);
-  }
+	if ( it->second->count_decr() == 0 )
+	{
+		_mr_addr_to_mra.erase(it);
+	}
 }
 
 std::uint64_t fabric_endpoint::get_memory_remote_key(const memory_region_t mr_) const noexcept
 {
+	ENTER_EXIT_TRACE
   /* recover the memory region */
-  auto mr = &*common::pointer_cast<mr_and_address>(mr_)->mr();
+  auto mr = &*mr_->mr();
   /* ask fabric for the key */
   return ::fi_mr_key(mr);
 }
 
 void *fabric_endpoint::get_memory_descriptor(const memory_region_t mr_) const noexcept
 {
+	ENTER_EXIT_TRACE
   /* recover the memory region */
-  auto mr = &*common::pointer_cast<mr_and_address>(mr_)->mr();
+  auto mr = &*mr_->mr();
   /* ask fabric for the descriptor */
   return ::fi_mr_desc(mr);
 }
 
-/* find a registered memory region which covers the iovec range */
-::fid_mr *fabric_endpoint::covering_mr(const byte_span v)
+/* find iiterator for registered memory region which covers the iovec range. Must hold lock for _mr_addr_to_mra */
+auto fabric_endpoint::mr_covering_it(const const_byte_span v) -> map_addr_to_mra::reverse_iterator
 {
-  /* _mr_addr_to_mr is sorted by starting address.
-   * Find the last acceptable starting address, and iterate
-   * backwards through the map until we find a covering range
-   * or we reach the start of the table.
-   */
+	ENTER_EXIT_TRACE
+	/* _mr_addr_to_mr is sorted by starting address.
+	 * Find the last acceptable starting address, and iterate
+	 * backwards through the map until we find a covering range
+	 * or we reach the start of the table.
+	 */
+	auto ub = _mr_addr_to_mra.upper_bound(::data(v));
+
+	return
+		std::find_if(
+			map_addr_to_mra::reverse_iterator(ub)
+			, _mr_addr_to_mra.rend()
+			, [&v] ( const map_addr_to_mra::value_type &m ) { return covers(m.second->v(), v); }
+		);
+}
+
+/* find a registered memory region which covers the iovec range */
+auto fabric_endpoint::mr_covering_throws(const const_byte_span v) -> memory_region_t
+{
 
   guard g{_m};
 
@@ -977,30 +1040,44 @@ void *fabric_endpoint::get_memory_descriptor(const memory_region_t mr_) const no
 
   if ( it == _mr_addr_to_mra.rend() )
   {
-    std::ostringstream e;
-    e << "No mapped region covers " << v;
-    throw std::range_error(e.str());
+    throw std::range_error(common::to_string("No mapped region covers ", v));
   }
 
 #if 0
-  std::cerr << "covering_mr( " << v << ") found mr " << it->second->mr_unshared() << " with range " << it->second->v() << "\n";
+  std::cerr << "mr_covering( " << v << ") found mr " << it->second->mr_unshared() << " with range " << it->second->v() << "\n";
 #endif
-  return &*it->second->mr();
+  return &*it->second;
+}
+
+/* find a registered memory region which covers the iovec range */
+auto fabric_endpoint::mr_covering(const const_byte_span v) noexcept -> memory_region_t
+try
+{
+	ENTER_EXIT_TRACE
+	return mr_covering_throws(v);
+}
+catch ( const std::exception &e )
+{
+	return nullptr;
 }
 
 /* If local keys are needed, one local key per buffer. */
 std::vector<void *> fabric_endpoint::populated_desc(gsl::span<const ::iovec> buffers)
 {
-  std::vector<void *> desc;
+	std::vector<void *> desc;
 
-  std::transform(
-    buffers.begin()
-    , buffers.end()
-    , std::back_inserter(desc)
-    , [this] (const ::iovec &v) { return ::fi_mr_desc(covering_mr(common::make_byte_span(v.iov_base, v.iov_len))); }
-  );
+	std::transform(
+		buffers.begin()
+		, buffers.end()
+		, std::back_inserter(desc)
+		, [this] (const ::iovec &v)
+			{
+			        auto mr = &*mr_covering_throws(common::make_const_byte_span(v.iov_base, v.iov_len))->mr();
+				return ::fi_mr_desc(mr);
+			}
+	);
 
-  return desc;
+	return desc;
 }
 
 /* (no context, synchronous only) */
@@ -1040,12 +1117,14 @@ gsl::not_null<fid_mr *> fabric_endpoint::make_fid_mr_reg_ptr(
   }
   catch ( const fabric_runtime_error &e )
   {
-    std::ostringstream s;
-    s << std::showbase << std::hex << " in " << __func__ << " calling ::fi_mr_reg(domain "
-      << &*_domain << " buf " << ::base(buf) << ", len " << ::size(buf) << ", access " << access
-      << ", offset " << offset << ", key " << key << ", flags " << flags << ", fid_mr " << &f
-      << ", context " << common::p_fmt(context) << ")";
-    throw e.add(s.str());
+		throw e.add(
+			common::to_string(
+				std::showbase, std::hex, " in ", __func__ ," calling ::fi_mr_reg(domain "
+				, &*_domain, " buf ", ::base(buf), ", len ", ::size(buf), ", access ", access
+				, ", offset ", offset, ", key ", key, ", flags ", flags, ", fid_mr ", &f
+				, ", context ", common::p_fmt(context), ")"
+			)
+		);
   }
   FABRIC_TRACE_FID(f);
   return f;

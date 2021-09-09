@@ -39,29 +39,56 @@ namespace common
 			return dflt;
 		}
 
-	template <>
-		unsigned long env_value<unsigned long>(const char *const env_key, unsigned long dflt)
+	unsigned long long env_selector<1>::g(const char *key_, unsigned long long dflt_, unsigned long long max_)
+	{
+		const char *env_str = std::getenv(key_);
+		if ( env_str )
 		{
-			const char *env_str = std::getenv(env_key);
-			if ( env_str )
+			char *endptr = nullptr;
+			auto env_value = std::strtoull(env_str, &endptr, 0);
+			if ( endptr != env_str + std::strlen(env_str) )
 			{
-				char *endptr = nullptr;
-				unsigned long env_value = std::strtoul(env_str, &endptr, 0);
-				if ( endptr != env_str + std::strlen(env_str) )
-				{
-					std::cerr << "For key '" << env_key << "', value '" << env_str << "' is malformed, and ignored\n";
-					goto fail;
-				}
-				if ( std::numeric_limits<unsigned long>::max() < env_value )
-				{
-					std::cerr << "For key '" << env_key << "', value " << " exceeds " << std::numeric_limits<unsigned>::max() << ", and is ignored\n";
-					goto fail;
-				}
-				dflt = env_value;
+				std::cerr << "For key '" << key_ << "', value '" << env_str << "' is malformed, and ignored\n";
+				goto fail;
 			}
-		fail:
-			return dflt;
+			if ( max_ < env_value )
+			{
+				std::cerr << "For key '" << key_ << "', value " << " exceeds " << max_ << ", and is ignored\n";
+				goto fail;
+			}
+			dflt_ = env_value;
 		}
+	fail:
+		return dflt_;
+	}
+
+	signed long long env_selector<2>::g(const char *const key_, signed long long dflt_, signed long long min_, signed long long mac_)
+	{
+		const char *env_str = std::getenv(key_);
+		if ( env_str )
+		{
+			char *endptr = nullptr;
+			auto env_value = std::strtoll(env_str, &endptr, 0);
+			if ( endptr != env_str + std::strlen(env_str) )
+			{
+				std::cerr << "For key '" << key_ << "', value '" << env_str << "' is malformed, and ignored\n";
+				goto fail;
+			}
+			if ( env_value < min_ )
+			{
+				std::cerr << "For key '" << key_ << "', value " << " is less than " << min_ << ", and is ignored\n";
+				goto fail;
+			}
+			if ( mac_ < env_value )
+			{
+				std::cerr << "For key '" << key_ << "', value " << " exceeds " << mac_ << ", and is ignored\n";
+				goto fail;
+			}
+			dflt_ = env_value;
+		}
+	fail:
+		return dflt_;
+	}
 
 	template <>
 		unsigned env_value<unsigned>(const char *const env_key, unsigned dflt)

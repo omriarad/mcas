@@ -208,6 +208,7 @@ public:
   // throughput = Mib/s here
   double _calculate_current_throughput() ;
 
+  void _populate_pool_to_count(unsigned core, unsigned long count, component::IKVStore::memory_handle_t memory_handle = component::IKVStore::HANDLE_NONE) ;
   void _populate_pool_to_capacity(unsigned core, component::IKVStore::memory_handle_t memory_handle = component::IKVStore::HANDLE_NONE) ;
 
   // assumptions: i_ is tracking current element in use

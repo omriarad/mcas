@@ -28,6 +28,7 @@ else(BOOTSTRAP_DEPS)
   add_compile_options($<$<BOOL:${CODE_COVERAGE}>:--coverage>)
 
   add_subdirectory(common)
+  add_subdirectory(cw) # net/fabric test harness, temporarily shared among components/net/fabric/unit_test, components/clients/mcas_client, and server/mcas
   add_subdirectory(libpmem)
   add_subdirectory(libnop)
   add_subdirectory(libnupm)

@@ -16,15 +16,66 @@
 
 #include <sstream>
 
+/* Convert stream arguments to a string */
 namespace common
 {
-  /* Convert stream arguments to a string */
-  template <typename... Args>
-    std::string to_string(Args&&... args)
-    {
-      std::ostringstream s;
-      (s << ... << args);
-      return s.str();
-    }
+#if __cplusplus__ < 201703
+	static inline void wr(std::ostream &)
+	{
+	}
+
+	template<typename T, typename... Args>
+		static void wr(std::ostream &o, const T & e, const Args & ... args)
+		{
+			o << e;
+			wr(o, args...);
+		}
+
+	template <typename... Args>
+		std::string to_string(const Args&... args)
+		{
+				std::ostringstream o;
+				wr(o, args...);
+				return o.str();
+		}
+#else
+	template <typename... Args>
+		std::string to_string(const Args&... args)
+		{
+			std::ostringstream s;
+			(s << ... << args);
+			return s.str();
+		}
+#endif
 }
+
+#if __cplusplus__ < 201703
+static inline void common_wr(std::ostream &)
+{
+}
+
+template<typename T, typename... Args>
+	static void common_wr(std::ostream &o, const T & e, const Args & ... args)
+	{
+		o << e;
+		common_wr(o, args...);
+	}
+
+template <typename... Args>
+	std::string common_to_string(const Args&... args)
+	{
+			std::ostringstream o;
+			common_wr(o, args...);
+			return o.str();
+	}
+#else
+template <typename... Args>
+	std::string common_to_string(const Args&... args)
+	{
+		std::ostringstream s;
+		(s << ... << args);
+		return s.str();
+	}
+#endif
+
 #endif
