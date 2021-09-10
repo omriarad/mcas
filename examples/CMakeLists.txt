@@ -15,6 +15,10 @@ else(BOOTSTRAP_DEPS)
     add_subdirectory(personalities)
     add_subdirectory(configurations)
 
+    if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/sorting")
+      add_subdirectory(sorting)
+    endif()
+
     if(CUDA_FOUND)
       add_subdirectory(gpu_direct)
     endif(CUDA_FOUND)
