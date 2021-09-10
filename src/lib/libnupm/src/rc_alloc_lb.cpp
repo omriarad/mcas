@@ -47,13 +47,13 @@ void Rca_LB::add_managed_region(void * region_base,
 
 void Rca_LB::inject_allocation(void *ptr, size_t size, int numa_node)
 {
+  _rmap->inject_allocation(ptr, size, numa_node);
+  
   if(_debug_level > 2) {
     PLOG(RCA_LB_PREFIX "%s:%d inject_allocation(ptr=%p, size=%lu, numanode=%d",
          __FILE__, __LINE__, ptr, size, numa_node);
     debug_dump();
-  }
-
-  _rmap->inject_allocation(ptr, size, numa_node);
+  }  
 }
 
 void *Rca_LB::alloc(size_t size, int numa_node, size_t alignment)

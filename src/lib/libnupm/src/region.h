@@ -167,6 +167,7 @@ public:
       last = i;
       ++i;
     }
+    PWRN("could not free %p", p);
     return false;
 #else
     mark_unused(p);

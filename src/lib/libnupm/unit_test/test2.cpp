@@ -337,6 +337,44 @@ TEST_F(Libnupm_test, RCA_LB_allocator_coalescing)
 }
 
 
+TEST_F(Libnupm_test, RCA_LB_allocator_issue155_recreate)
+{
+  static constexpr std::size_t region_size = 3657424000;
+
+  int numa_node = 0;
+
+  /* 1GB alignment to make it easier to visually debug */
+  //  auto v0 = reinterpret_cast<char*>(aligned_alloc(region_size,GB(1)));
+  auto ptr = ::mmap(reinterpret_cast<void *>(0x9436002000), region_size+4096, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+  assert(ptr == reinterpret_cast<void *>(0x9436002000));
+  PLOG("ptr=%p", ptr);
+  auto v0 = reinterpret_cast<char*>(0x9436002380);
+  ASSERT_NE(nullptr, v0);
+  /* AVL_range_allocator requires an addr_t, defined in comanche common/types.h */
+  nupm::Rca_LB lb(0);
+  lb.add_managed_region(v0, region_size, numa_node);
+
+  lb.inject_allocation(reinterpret_cast<char*>(0x9436100000),1048576,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x9436200000),1048576,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x9436300000),1048576,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x9436400000),1048576,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x9436500000),1048576,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x9436700000),1048576,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x94b6800048),134217752,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x94be800060),134217752,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x94c6800078),134217752,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x94ce800090),134217752,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x94d68000a8),134217752,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x94de8000c0),134217752,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x94e68000d8),134217752,0);
+  lb.inject_allocation(reinterpret_cast<char*>(0x94ee8000f0),134217752,0);
+
+  lb.free(reinterpret_cast<char*>(0x94be800060), 0, 134217752);
+  lb.free(reinterpret_cast<char*>(0x94367fff80), 0, 32);
+}
+
+
+
 int main(int argc, char **argv)
 {
   ::testing::InitGoogleTest(&argc, argv);
