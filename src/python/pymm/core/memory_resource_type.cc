@@ -39,7 +39,6 @@ public:
                  const unsigned debug_level,
                  const std::string mm_plugin_path)
   {
-    PLOG("Backend_instance_mgr: (%s) (%s) (%s)", backend.c_str(), path.c_str(), mm_plugin_path.c_str());
     auto iter = _map.find(backend);
     std::string key = path + mm_plugin_path;
     
@@ -118,18 +117,21 @@ IKVStore * Backend_instance_manager::load_backend(const std::string backend,
 {
   PLOG("load_backend: (%s) (%s) (%s)", backend.c_str(), path.c_str(), mm_plugin_path.c_str());
   IBase* comp = nullptr;
-  if(backend == "hstore") {
-    comp = load_component("libcomponent-hstore.so", hstore_factory);
-  }
-  else if (backend == "hstore-cc") {
+  std::string checked_mm_plugin_path = mm_plugin_path;
+
+  
+  if (backend == "hstore-cc") {
     comp = load_component("libcomponent-hstore-cc.so", hstore_factory);
   }
-  else if (backend == "hstore-mc") {
-    comp = load_component("libcomponent-hstore-mc.so", hstore_factory);
+  else if (backend == "hstore") {
+    comp = load_component("libcomponent-hstore.so", hstore_factory);
+  }  
+  else if (backend == "hstore-mm") {
+    comp = load_component("libcomponent-hstore-mm.so", hstore_factory);
+    if(checked_mm_plugin_path.empty()) {
+      checked_mm_plugin_path = "libmm-plugin-ccpm.so";
+    }
   }
-  else if (backend == "hstore-mr") {
-    comp = load_component("libcomponent-hstore-mr.so", hstore_factory);
-  }    
   else if (backend == "mapstore") {
     comp = load_component("libcomponent-mapstore.so", mapstore_factory);
   }
@@ -139,10 +141,9 @@ IKVStore * Backend_instance_manager::load_backend(const std::string backend,
   }
 
   /* try adding default path if needed */
-  std::string checked_mm_plugin_path = mm_plugin_path;
   if(checked_mm_plugin_path != "") /* empty means use default */
   {   
-    std::string path = mm_plugin_path;
+    std::string path = checked_mm_plugin_path;
     if(access(path.c_str(), F_OK) != 0) { /* is not accessible */
         path = LIB_INSTALL_PATH + path;
         if(access(path.c_str(), F_OK) != 0) {
@@ -158,12 +159,12 @@ IKVStore * Backend_instance_manager::load_backend(const std::string backend,
   auto fact = make_itf_ref(static_cast<IKVStore_factory *>(comp->query_interface(IKVStore_factory::iid())));
   assert(fact);  
 
-  if(backend == "hstore-mc" || backend == "hstore-mr") {
+  if(backend == "hstore-mm") {
     
     std::stringstream ss;
     ss << "[{\"path\":\"" << path << "\",\"addr\":" << load_addr << "}]";
     PLOG("dax config: %s", ss.str().c_str());
-    
+    PLOG("mm plugin: %s", checked_mm_plugin_path.c_str());
     store = fact->create(debug_level,
                          {
                           {+component::IKVStore_factory::k_debug, std::to_string(debug_level)},
@@ -347,7 +348,7 @@ static PyObject * MemoryResource_create_named_memory(PyObject * self,
 
   /* optionally zero memory */
   if(zero)
-    ::memset(ptr, 0x0, size);
+    ::pmem_memset_persist(ptr, 0x0, size);
   
   /* build a tuple (memory view, memory handle) */
   auto mview = PyMemoryView_FromMemory(static_cast<char*>(ptr), size, PyBUF_WRITE);

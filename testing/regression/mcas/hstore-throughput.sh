@@ -17,9 +17,9 @@ NODE_IP="$(node_ip)"
 DEBUG=${DEBUG:-0}
 
 # launch MCAS server
-CONFIG_STR="$("./dist/testing/hstore-0.py" "$STORE" "$DAX_PREFIX" "$NODE_IP")"
-NUMA_CMD=$(numa_cmd $DAX_PREFIX)
-DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config "${CONFIG_STR}" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
+NUMA_NODE=$(numa_node $DAX_PREFIX)
+CONFIG_STR="$("./dist/testing/cfg_hstore.py" "$NODE_IP" "$STORE" "$DAX_PREFIX" --numa-node "$NUMA_NODE")"
+DAX_RESET=1 ./dist/bin/mcas --config "${CONFIG_STR}" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
 SERVER_PID=$!
 
 sleep 3

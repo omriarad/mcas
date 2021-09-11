@@ -59,8 +59,10 @@ struct heap_mm
 	: public heap
 {
 private:
+#if 0
 	using byte_span = common::byte_span;
 	using string_view = common::string_view;
+#endif
 	tracked_header _tracked_anchor;
 	std::unique_ptr<heap_mm_ephemeral> _eph;
 	pin_control<heap_mm> _pin_data;

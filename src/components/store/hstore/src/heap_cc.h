@@ -56,6 +56,7 @@ struct heap_cc_ephemeral;
 struct heap_cc
 	: public heap
 {
+private:
 	std::unique_ptr<heap_cc_ephemeral> _eph;
 	pin_control<heap_cc> _pin_data;
 	pin_control<heap_cc> _pin_key;

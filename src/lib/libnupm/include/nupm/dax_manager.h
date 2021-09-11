@@ -118,8 +118,12 @@ struct dax_manager
    * @param dax_config Vector of dax-path, address, arena_id tuples.
    * @param force_reset
    */
-  dax_manager(const common::log_source &ls, const gsl::span<const config_t> dax_config,
-                 bool force_reset = false);
+	dax_manager(
+		const common::log_source &ls
+		, const gsl::span<const config_t> dax_config
+        	, bool force_reset = false
+		, common::byte_span address_span_ = common::make_byte_span(nullptr, 0)
+	);
 
   /**
    * Destructor will not unmap memory/nor invalidate pointers?

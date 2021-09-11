@@ -16,7 +16,7 @@ node_ip() {
 	node_192net_ip
     fi
 }
-    
+
 has_mlx5 () {
  test -f /sys/class/infiniband/mlx5_0/ports/1/state
 }
@@ -97,7 +97,7 @@ scale_by_transport () {
 
 find_devdax () {
  for i in 0 1
- do	 
+ do
   d=/dev/dax$i
   if test -c "$d.0"
   then echo $d
@@ -117,12 +117,16 @@ find_fsdax () {
  done
 }
 
+has_module() {
+ /usr/sbin/lsmod | grep "^$1 " &> /dev/null
+}
+
 has_module_mcasmod () {
- /sbin/modinfo mcasmod &> /dev/null
+ has_module mcasmod
 }
 
 has_module_xpmem () {
- /sbin/modinfo xpmem &> /dev/null
+ has_module xpmem
 }
 
 # Decide whether to use device DAX or FS DAX, depending on whether this system has devdax configured
@@ -147,16 +151,9 @@ dax_type() {
   esac
 }
 
-# determinve numa node from DAX_PREFIX (arg 1)i: The last character of the DAX prefix.
+# determine numa node from DAX_PREFIX (arg 1): the numeric suffix of the DAX prefix.
 numa_node() {
- echo ${1:${#1}-1:1}
-}
-
-# echo numa command to run on proper CPUs for DAX_PREFIX (arg 1)
-numa_cmd() {
- if test -x /usr/bin/numactl
- then echo "/usr/bin/numactl -N $(numa_node $1)"
- fi
+ echo "$1" | egrep -o '[0-9]+$'
 }
 
 # Pick a CPU number to use, but not larger than the max CPU number on this system

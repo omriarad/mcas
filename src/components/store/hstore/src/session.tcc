@@ -46,6 +46,7 @@
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	template <typename OID, typename Persist>
 		session<Handle, Allocator, Table, LockType>::session(
+			AK_ACTUAL
 			unsigned debug_level_
 			, OID
 #if HEAP_OID
@@ -67,7 +68,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			)
 		)
 		, _is_crash_consistent(_heap->is_crash_consistent())
-		, _pin_seq(undo_redo_pin_data() || undo_redo_pin_key())
+		, _pin_seq(undo_redo_pin_data(AK_REF0) || undo_redo_pin_key(AK_REF0))
 		, _map(persist_data_, _heap)
 		, _atomic_state(*persist_data_, _map)
 		, _iterators()
@@ -90,7 +91,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 			)
 		)
 		, _is_crash_consistent(_heap.pool()->is_crash_consistent())
-		, _pin_seq(_is_crash_consistent && (undo_redo_pin_data(AK_REF) || undo_redo_pin_key(AK_REF)))
+		, _pin_seq(_is_crash_consistent && (undo_redo_pin_data(AK_REF0) || undo_redo_pin_key(AK_REF0)))
 		, _map(AK_REF &this->pool()->persist_data()._persist_map, mode_, _heap)
 		, _atomic_state(this->pool()->persist_data()._persist_atomic, _heap, mode_)
 		, _iterators()
@@ -106,7 +107,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	bool session<Handle, Allocator, Table, LockType>::undo_redo_pin_data(
-		AK_ACTUAL
+		AK_ACTUAL0
 	)
 	{
 		auto *aspd = _heap.pool()->aspd();
@@ -151,7 +152,7 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 
 template <typename Handle, typename Allocator, typename Table, typename LockType>
 	bool session<Handle, Allocator, Table, LockType>::undo_redo_pin_key(
-		AK_ACTUAL
+		AK_ACTUAL0
 	)
 	{
 		auto *aspk = _heap.pool()->aspk();

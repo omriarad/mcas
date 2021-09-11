@@ -21,18 +21,25 @@ using nupm::range_manager_impl;
 
 range_manager_impl::range_manager_impl(
 	const common::log_source &ls_
+	, common::byte_span address_span_
 )
-  : common::log_source(ls_)
-  , _address_coverage(std::make_unique<byte_interval_set>())
-  , _address_fs_available(std::make_unique<byte_interval_set>())
+	: common::log_source(ls_)
+	, _address_coverage(std::make_unique<byte_interval_set>())
+	, _address_fs_available(std::make_unique<byte_interval_set>())
 {
-  /* Maximum expected need is about 6 TiB (12 512GiB DIMMs).
-   * Start, arbitrarily, at 0x10000000000
-   */
-  byte *free_address_begin = reinterpret_cast<byte *>(uintptr_t(1) << 40);
-  auto free_address_end    = free_address_begin + (std::size_t(1) << 40);
-  auto i = boost::icl::interval<byte *>::right_open(free_address_begin, free_address_end);
-  _address_fs_available->insert(i);
+	if ( ::data(address_span_) == nullptr )
+	{
+		/* Maximum expected need is about 6 TiB (12 512GiB DIMMs).
+		 * Start, arbitrarily, at 0x10000000000, with size 0x10000000000
+		 */
+		address_span_ = common::make_byte_span(reinterpret_cast<byte *>(uintptr_t(1) << 40), (std::size_t(1) << 40));
+	}
+	auto i =
+	       	boost::icl::interval<byte *>::right_open(
+			common::pointer_cast<byte>(::data(address_span_))
+			, common::pointer_cast<byte>(::data_end(address_span_))
+		);
+	_address_fs_available->insert(i);
 }
 
 range_manager_impl::~range_manager_impl()

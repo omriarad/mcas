@@ -17,6 +17,13 @@ import torch
 import pymmcore
 import numpy as np
 import copy
+import flatbuffers
+
+import PyMM.Meta.Header as Header
+import PyMM.Meta.Constants as Constants
+import PyMM.Meta.TorchTensor as TorchTensor
+import PyMM.Meta.DataType as DataType
+from flatbuffers import util
 
 from numpy import uint8, ndarray, dtype, float
 from .memoryresource import MemoryResource
@@ -79,17 +86,23 @@ class torch_tensor(Shadow):
                                           name,
                                           shape = tensor.shape,
                                           dtype = tensor.dtype)
+
         
         # now copy the data
-        new_tensor[:] = tensor
+        if tensor.dim() is 0:
+            new_tensor.data = tensor.clone()
+        else:
+            new_tensor[:] = tensor
         return new_tensor
 
     
 # concrete subclass for torch tensor
 #
+# Note: currently the gradient tensor is not preserved.  this is consistent with pickling
+#
 class shelved_torch_tensor(torch.Tensor, ShelvedCommon):
     '''PyTorch tensor that is stored in a memory resource'''
-    __array_priority__ = -100.0 # what does this do?
+    __array_priority__ = -100.0 # sets subclass as higher priority
 
     def __new__(subtype, memory_resource, name, shape, dtype=float, strides=None, order='C'):
 
@@ -108,21 +121,6 @@ class shelved_torch_tensor(torch.Tensor, ShelvedCommon):
         }
         np_dtype = torch_to_numpy_dtype_dict.get(dtype,None)
 
-        # determine size of memory needed
-        #
-        descr = dtypedescr(np_dtype)
-        _dbytes = descr.itemsize
-
-        if shape != None:
-            size = np.intp(1)  # avoid default choice of np.int_, which might overflow
-
-            # if it is not a shape converted from tuple, then we may have to convert
-            if not isinstance(shape, torch.Size):
-                shape = get_shape(shape) # convert shape
-
-            for k in shape:
-                size *= k
-                
         value_key = name + '-value'
         metadata_key = name
         
@@ -130,11 +128,15 @@ class shelved_torch_tensor(torch.Tensor, ShelvedCommon):
 
         if value_named_memory == None: # does not exist yet
 
-            # use shelved_ndarray under the hood and make a subclass from it
-            base_ndarray = shelved_ndarray(memory_resource, name=name, shape=shape, dtype=np_dtype, type=1)
+            ndshape = get_shape(shape) # convert to ndarray shape
 
-            # create and store metadata header
-            metadata = pymmcore.ndarray_header(base_ndarray, np.dtype(np_dtype).str, type=1) # type=1 indicate torch_tensor
+            # use shelved_ndarray under the hood and make a subclass from it
+            base_ndarray = shelved_ndarray(memory_resource, name=name, shape=ndshape, dtype=np_dtype, type=1)
+
+            # create and store metadata header : type=1 indicates torch_tensor
+            metadata = pymmcore.ndarray_header(base_ndarray, np.dtype(np_dtype).str, type=1)
+            builder = flatbuffers.Builder(32)
+
             memory_resource.put_named_memory(metadata_key, metadata)
 
         else:
@@ -145,6 +147,7 @@ class shelved_torch_tensor(torch.Tensor, ShelvedCommon):
 
             base_ndarray = shelved_ndarray(memory_resource, name=name, dtype=hdr['dtype'], shape=hdr['shape'],
                                            strides=hdr['strides'], order=order, type=1)
+
             
         self = torch.Tensor._make_subclass(subtype, torch.as_tensor(base_ndarray))
         self._base_ndarray = base_ndarray
@@ -154,6 +157,8 @@ class shelved_torch_tensor(torch.Tensor, ShelvedCommon):
         self._memory_resource = memory_resource
         self._metadata_key = metadata_key
         self.name_on_shelf = name
+        self.requires_grad = False # by default .grad is not there
+        self.retains_grad = False # by default .grad is not there 
         return self
 
     def __delete__(self, instance):
@@ -322,10 +327,18 @@ from collections.abc import Sequence
 
 def get_shape(lst):
     def ishape(lst):
-        shapes = [ishape(x) if isinstance(x, list) else [] for x in lst]
+        if isinstance(lst, torch.Size):
+            return lst
+        if isinstance(lst, float):
+            return []
+        
+        shapes = [ishape(x) if isinstance(x, list) else [] for x in list(lst)]
         shape = shapes[0]
         if shapes.count(shape) != len(shapes):
             raise ValueError('Ragged list')
         shape.append(len(lst))
         return shape
-    return tuple(reversed(ishape(lst)))
+
+
+    return tuple(ishape(lst))
+#    return tuple(reversed(ishape(lst)))

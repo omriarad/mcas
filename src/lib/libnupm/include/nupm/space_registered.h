@@ -40,6 +40,7 @@ private:
 public:
   space_opened _or;
 public:
+	/* used by dax_manager::make_arena_dev , dax_manager::map_register */
   space_registered(
     const common::log_source &ls
     , range_manager * rm
@@ -48,6 +49,7 @@ public:
     , addr_t base_addr
     , bool map_locked
   );
+	/* used by dax_manager::enter */
   space_registered(
     const common::log_source &ls
     , range_manager * rm

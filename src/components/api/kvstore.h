@@ -30,6 +30,7 @@
 #include <cstring> /* strlen */
 #include <functional>
 #include <map>
+#include <list>
 #include <mutex>
 #include <vector>
 
@@ -354,6 +355,15 @@ public:
    */
   virtual status_t delete_pool(const string_view name) = 0;
 
+  /** 
+   * Get a list of pool names
+   * 
+   * @param inout_pool_names [inout] List of pool names
+   * 
+   * @return S_OK or E_NOT_IMPL;
+   */
+  virtual status_t get_pool_names(std::list<std::string>& inout_pool_names) = 0;
+  
   /**
    * Get mapped memory regions for pool.  This is used for pre-registration with
    * DMA engines.
@@ -437,7 +447,7 @@ public:
                               string_view_key key,
                               gsl::span<const common::const_byte_span> values,
                               gsl::span<const memory_handle_t> handles = gsl::span<const memory_handle_t>(),
-                              flags_t            flags  = FLAGS_NONE)
+                              flags_t        flags  = FLAGS_NONE)
   {
     return error_value(E_NOT_SUPPORTED, pool, key, values, handles, flags);
   }
@@ -469,7 +479,7 @@ public:
                               const void*           value,
                               const size_t          value_len,
                               const memory_handle_t handle = MEMORY_HANDLE_NONE,
-                              const unsigned int    flags  = FLAGS_NONE)
+                              flags_t        flags  = FLAGS_NONE)
   {
     return put_direct(
       pool

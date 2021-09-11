@@ -20,6 +20,8 @@ const std::string store_map::impl_default = "hstore-cc";
 const store_map::impl_map_t store_map::impl_map = {
   { "hstore-cc", { "hstore-cc", component::hstore_factory } }
   , { "hstore-mc", { "hstore-mc", component::hstore_factory } }
+  , { "hstore-mm", { "hstore-mm", component::hstore_factory } }
+  , { "hstore-mt", { "hstore-mt", component::hstore_factory } }
   , { "hstore", { "hstore", component::hstore_factory } }
 };
 

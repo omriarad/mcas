@@ -234,7 +234,7 @@ status_t MCAS_client::put_direct(const pool_t           pool,
                                  const string_view_key  key,
                                  gsl::span<const common::const_byte_span> values,
                                  gsl::span<const IMCAS::memory_handle_t> handles,
-                                 uint32_t               flags)
+                                 const flags_t          flags)
 {
   return _connection->put_direct(pool, key, values, registrar(), handles, flags);
 }
@@ -244,7 +244,7 @@ status_t MCAS_client::async_put(IKVStore::pool_t   pool,
                                 const void *       value,
                                 size_t             value_len,
                                 async_handle_t &   out_handle,
-                                unsigned int       flags)
+                                const flags_t      flags)
 {
   return _connection->async_put(pool, key, value, value_len, out_handle, flags);
 }
@@ -254,7 +254,7 @@ status_t MCAS_client::async_put_direct(const IKVStore::pool_t          pool,
                                        gsl::span<const common::const_byte_span> values,
                                        async_handle_t &                out_handle,
                                        gsl::span<const IMCAS::memory_handle_t> handles,
-                                       const unsigned int              flags)
+                                       const flags_t                   flags)
 {
   return _connection->async_put_direct(pool, key, values, out_handle, registrar(), handles, flags);
 }

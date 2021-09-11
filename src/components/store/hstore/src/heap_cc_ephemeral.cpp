@@ -56,30 +56,6 @@ heap_cc_ephemeral::heap_cc_ephemeral(
 	: heap_ephemeral(debug_level_)
 	, _heap(std::move(p))
 	, _managed_regions(id_, backing_file_, rv_full_)
-	, _capacity(
-		::size(pool0_heap_)
-		+
-		::size(
-			std::accumulate(
-/* Note: rv_full_ must contain at least the first element, representing pool 0 */
-				rv_full_.begin() + 1
-				, rv_full_.end()
-				, byte_span{}
-				, [] (const auto &a, const auto &b) -> byte_span
-					{
-						return {nullptr, ::size(a) + ::size(b)};
-					}
-			)
-		)
-	)
-	, _allocated(
-		[this] ()
-		{
-			std::size_t r;
-			auto rc = _heap->remaining(r);
-			return _capacity - (rc == S_OK ? r : 0);
-		} ()
-	)
 	, _ase(ase_)
 	, _aspd(aspd_)
 	, _aspk(aspk_)
@@ -88,7 +64,6 @@ heap_cc_ephemeral::heap_cc_ephemeral(
 	, _hist_inject()
 	, _hist_free()
 {
-
   for ( const auto &r : rv_full_ )
   {
     CPLOG(2, "%s : %p.%zx", __func__, ::base(r), ::size(r));
@@ -144,6 +119,7 @@ void heap_cc_ephemeral::add_managed_region(
 	, const byte_span r_heap
 )
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	CPLOG(0, "%s before IHeap::add_regions size %zu", __func__, _heap->get_regions().size());
 	for ( const auto &r : _heap->get_regions() )
 	{
@@ -153,7 +129,6 @@ void heap_cc_ephemeral::add_managed_region(
 	_heap->add_regions(rs);
 	CPLOG(0, "%s : %p.%zx", __func__, ::base(r_heap), ::size(r_heap));
 	_managed_regions.address_map_push_back(r_full);
-	_capacity += ::size(r_heap);
 	CPLOG(0, "%s after IHeap::add_regions size %zu", __func__, _heap->get_regions().size());
 	for ( const auto &r : _heap->get_regions() )
 	{
@@ -167,16 +142,17 @@ void heap_cc_ephemeral::allocate(
 	, std::size_t alignment_
 )
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	if ( S_OK != _heap->allocate(*reinterpret_cast<void **>(&p_), sz_, alignment_) )
 	{
 		throw std::bad_alloc{};
 	}
-	_allocated += sz_;
 	_hist_alloc.enter(sz_);
 }
 
 std::size_t heap_cc_ephemeral::free(persistent_t<void *> &p_, std::size_t sz_)
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	/* Our free does not know the true size, because alignment is not known.
 	 * But the pool free will know, as it can see how much has been allocated.
 	 *
@@ -211,15 +187,33 @@ std::size_t heap_cc_ephemeral::free(persistent_t<void *> &p_, std::size_t sz_)
 	 * but for now just assume that the allocator has modifed p_, and call tick to indicate that.
 	 */
 	perishable::tick();
-	assert(sz <= _allocated);
-	_allocated -= sz;
 	_hist_free.enter(sz);
 	return sz;
 }
 
 void heap_cc_ephemeral::free_tracked(const void *p_, std::size_t sz_, unsigned)
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	_heap->free(const_cast<void *&>(p_), sz_);
-	_allocated -= sz_;
 	_hist_free.enter(sz_);
+}
+
+std::size_t heap_cc_ephemeral::capacity() const
+{
+	return std::accumulate(
+		_managed_regions.address_map().begin()
+		, _managed_regions.address_map().end()
+		, std::size_t(0)
+		, [] (std::size_t a, const auto &b) -> std::size_t
+			{
+				return a + ::size(b);
+			}
+	);
+}
+
+std::size_t heap_cc_ephemeral::allocated() const
+{
+	std::size_t r;
+	auto rc = _heap->remaining(r);
+	return capacity() - (rc == S_OK ? r : 0);
 }

@@ -1,5 +1,5 @@
 /*
-   Copyright [2017-2020] [IBM Corporation]
+   Copyright [2017-2021] [IBM Corporation]
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
    You may obtain a copy of the License at
@@ -10,6 +10,8 @@
    See the License for the specific language governing permissions and
    limitations under the License.
 */
+
+#include "memo_lock.h"
 #include "store_map.h"
 
 #pragma GCC diagnostic push
@@ -38,57 +40,6 @@
 using namespace component;
 
 namespace {
-
-struct memo_lock
-{
-private:
-  component::IKVStore * _kvstore;
-  component::IKVStore::pool_t *_pool;
-public:
-  IKVStore::key_t k;
-  memo_lock(
-    component::IKVStore *kvstore_
-    , component::IKVStore::pool_t *pool_
-  )
-    : _kvstore(kvstore_)
-    , _pool(pool_)
-    , k()
-  {}
-  memo_lock(const memo_lock &) = delete;
-  memo_lock &operator=(const memo_lock &) = delete;
-  ~memo_lock()
-  {
-    if ( IKVStore::KEY_NONE != k )
-    {
-      auto r = _kvstore->unlock(*_pool, k, component::IKVStore::UNLOCK_FLAGS_FLUSH);
-      EXPECT_EQ(S_OK, r);
-    }
-  }
-};
-
-struct shared_lock
-  : private memo_lock
-{
-  using memo_lock::k;
-  shared_lock(
-    component::IKVStore *kvstore_
-    , component::IKVStore::pool_t *pool_
-  )
-    : memo_lock(kvstore_, pool_)
-  {}
-};
-
-struct exclusive_lock
-  : private memo_lock
-{
-  using memo_lock::k;
-  exclusive_lock(
-    component::IKVStore *kvstore_
-    , component::IKVStore::pool_t *pool_
-  )
-    : memo_lock(kvstore_, pool_)
-  {}
-};
 
 // The fixture for testing class Foo.
 class KVStore_test : public ::testing::Test {
@@ -126,14 +77,14 @@ class KVStore_test : public ::testing::Test {
 
   static const std::size_t estimated_object_count;
 
-  static std::string single_key;
-  static std::string missing_key;
+  static const std::string single_key;
+  static const std::string missing_key;
   static std::string single_value;
-  static std::size_t single_value_size;
+  static const std::size_t single_value_size;
   static std::string single_value_updated_same_size;
-  static std::string single_value_updated_different_size;
-  static std::string single_value_updated3;
-  static std::size_t single_count;
+  static const std::string single_value_updated_different_size;
+  static const std::string single_value_updated3;
+  static const std::size_t single_count;
 
   static constexpr unsigned many_key_length = 8;
   static constexpr unsigned many_value_length = 16;
@@ -175,14 +126,14 @@ component::IKVStore::pool_t KVStore_test::pool;
 const std::size_t KVStore_test::estimated_object_count = pmem_simulated ? estimated_object_count_small : estimated_object_count_large;
 
 /* Keys 23-byte or fewer are stored inline. Provide one longer to force allocation */
-std::string KVStore_test::single_key = "MySingleKeyLongEnoughToForceAllocation";
-std::string KVStore_test::missing_key = "KeyNeverInserted";
+const std::string KVStore_test::single_key = "MySingleKeyLongEnoughToForceAllocation";
+const std::string KVStore_test::missing_key = "KeyNeverInserted";
 std::string KVStore_test::single_value         = "Hello world!";
-std::size_t KVStore_test::single_value_size    = MiB(8);
-std::string KVStore_test::single_value_updated_same_size = "Jello world!";
-std::string KVStore_test::single_value_updated_different_size = "Hello world!";
-std::string KVStore_test::single_value_updated3 = "WeXYZ world!";
-std::size_t KVStore_test::single_count = 1U;
+const std::size_t KVStore_test::single_value_size    = MiB(8);
+std::string KVStore_test::single_value_updated_same_size("Jello world!");
+const std::string KVStore_test::single_value_updated_different_size = "Hello world!";
+const std::string KVStore_test::single_value_updated3 = "WeXYZ world!";
+const std::size_t KVStore_test::single_count = 1U;
 
 constexpr unsigned KVStore_test::many_key_length;
 constexpr unsigned KVStore_test::many_value_length;
@@ -214,6 +165,8 @@ TEST_F(KVStore_test, Instantiate)
           , { +component::IKVStore_factory::k_dax_config, store_map::location }
           , { +component::IKVStore_factory::k_debug, debug_level() }
           , { +component::IKVStore_factory::k_mm_plugin_path, common::env_value<const char *>("MM_PLUGIN_PATH", "no_plugin_path") }
+          , { +component::IKVStore_factory::k_dax_base, std::to_string(1ull << 38) }
+          , { +component::IKVStore_factory::k_dax_size, std::to_string(1ull << 37) }
         }
     );
 }
@@ -337,8 +290,9 @@ TEST_F(KVStore_test, BasicPutLocked)
       size_t alignment = 0;
       auto r = _kvstore->lock(pool, single_key, IKVStore::STORE_LOCK_READ, value0, value0_len, alignment, lk);
       EXPECT_EQ(S_OK, r);
+      EXPECT_EQ(0, memcmp(single_value.data(), value0, value0_len));
       EXPECT_NE(nullptr, lk);
-      r = _kvstore->put(pool, single_key, single_value.data(), single_value.length());
+      r = _kvstore->put(pool, single_key, single_value.data(), single_value.size());
       EXPECT_EQ(E_LOCKED, r);
     }
     {
@@ -352,6 +306,7 @@ TEST_F(KVStore_test, BasicPutLocked)
       auto r = _kvstore->get(pool, single_key, value, value_len);
       EXPECT_EQ(S_OK, r);
       EXPECT_EQ(single_value.size(), value_len);
+      EXPECT_EQ(0, memcmp(single_value.data(), value, value_len));
       if ( r == S_OK )
       {
         _kvstore->free_memory(value);
@@ -380,6 +335,7 @@ TEST_F(KVStore_test, BasicPutLocked)
     EXPECT_EQ(S_OK, r);
     EXPECT_NE(nullptr, v);
     EXPECT_EQ(16, v_len);
+    EXPECT_EQ(0, memcmp(single_value.data(), v, v_len));
 #if 0
     /* alignment is just a suggestion, so we cannot insist on it, especiall for small-sized values */
     EXPECT_EQ(0, reinterpret_cast<std::size_t>(v) % 16);
@@ -399,6 +355,7 @@ TEST_F(KVStore_test, BasicPutLocked)
     auto r = _kvstore->get(pool, single_key, value, value_len);
     EXPECT_EQ(S_OK, r);
     EXPECT_EQ(small_size, value_len);
+    EXPECT_EQ(0, memcmp(single_value.data(), value, value_len));
     if ( r == S_OK )
     {
       _kvstore->free_memory(value);
@@ -418,9 +375,12 @@ TEST_F(KVStore_test, BasicPutLocked)
     EXPECT_EQ(S_OK, r);
     EXPECT_NE(nullptr, v);
     EXPECT_EQ(single_value.size() / 2, v_len);
+    EXPECT_EQ(0, memcmp(single_value.data(), v, v_len));
     EXPECT_EQ(0, reinterpret_cast<std::size_t>(v) % 256);
+#if 0
     /* We cannot insist that v be unaligned to 1024, but if it is aligned then the following 1024 test will verify nothing */
     EXPECT_NE(0, reinterpret_cast<std::size_t>(v) % 1024);
+#endif
     if ( r == S_OK )
     {
       r = _kvstore->unlock(pool, lk);
@@ -434,6 +394,7 @@ TEST_F(KVStore_test, BasicPutLocked)
     auto r = _kvstore->get(pool, single_key, value, value_len);
     EXPECT_EQ(S_OK, r);
     EXPECT_EQ(single_value.size() / 2, value_len);
+    EXPECT_EQ(0, memcmp(single_value.data(), value, value_len));
     if ( r == S_OK )
     {
       _kvstore->free_memory(value);
@@ -453,6 +414,7 @@ TEST_F(KVStore_test, BasicPutLocked)
     EXPECT_EQ(S_OK, r);
     EXPECT_NE(nullptr, v);
     EXPECT_EQ(single_value.size(), v_len);
+    EXPECT_EQ(0, memcmp(single_value.data(), v, v_len));
     EXPECT_EQ(0, reinterpret_cast<std::size_t>(v) % 1024);
     if ( r == S_OK )
     {
@@ -467,6 +429,7 @@ TEST_F(KVStore_test, BasicPutLocked)
     auto r = _kvstore->get(pool, single_key, value, value_len);
     EXPECT_EQ(S_OK, r);
     EXPECT_EQ(single_value.size(), value_len);
+    EXPECT_EQ(0, memcmp(single_value.data(), value, single_value.size()));
     if ( r == S_OK )
     {
       _kvstore->free_memory(value);
@@ -928,7 +891,7 @@ TEST_F(KVStore_test, LockMany)
     void *value0 = nullptr;
     std::size_t value0_len = 0;
 
-    shared_lock rk0(_kvstore, &pool);
+    shared_lock rk0(_kvstore, pool);
     const char *kf;
     size_t alignment = 0;
     auto r0 = _kvstore->lock(pool, key, IKVStore::STORE_LOCK_READ, value0, value0_len, alignment, rk0.k, &kf);
@@ -942,7 +905,7 @@ TEST_F(KVStore_test, LockMany)
     }
     void * value1 = nullptr;
     std::size_t value1_len = 0;
-    shared_lock rk1(_kvstore, &pool);
+    shared_lock rk1(_kvstore, pool);
     alignment = 0;
     auto r1 = _kvstore->lock(pool, key, IKVStore::STORE_LOCK_READ, value1, value1_len, alignment, rk1.k, &kf);
     EXPECT_EQ(S_OK, r1);
@@ -969,7 +932,7 @@ TEST_F(KVStore_test, LockMany)
     try
     {
       const char *kfx;
-      exclusive_lock m3(_kvstore, &pool);
+      exclusive_lock m3(_kvstore, pool);
       alignment = 0;
       auto r3 = _kvstore->lock(pool, key_new, IKVStore::STORE_LOCK_WRITE, value3, value3_len, alignment, m3.k, &kfx);
       /* Used to return S_OK; no longer does so */
@@ -1129,7 +1092,7 @@ TEST_F(KVStore_test, AllocDealloc4K)
 
   std::set<void *> allocations{};
 
-  /* Many 4K allocations */
+  /* Many 4K-aligned allocations */
   for ( auto i = 0; i != 1000; ++i )
   {
     void *v = nullptr;
@@ -1150,10 +1113,10 @@ TEST_F(KVStore_test, AllocDealloc4K)
     ASSERT_LT(0, int64_t(pool));
   }
 
-  /* Many 4K frees */
+  /* Many 4K-aligned frees */
   for ( auto v : allocations )
   {
-    auto r = _kvstore->free_pool_memory(pool, v, 4096);
+    auto r = _kvstore->free_pool_memory(pool, v, 8);
     EXPECT_EQ(S_OK, r);
   }
 }
@@ -1172,14 +1135,16 @@ TEST_F(KVStore_test, AllocDealloc)
     }
   }
 
-  void *v = nullptr;
+  status_t r = S_OK;
 #if 0
   /* alignment is now a "hint", so 0 alignment is no longer an error */
-  auto r = _kvstore->allocate_pool_memory(pool, 100, 0, v);
-  EXPECT_EQ(component::IKVStore::E_BAD_ALIGNMENT, r); /* zero aligmnent */
-#endif
+  void *v = nullptr;
+  /* In this function alignment is now a "hint", so 0 alignment is no longer an error */
+  r = _kvstore->allocate_pool_memory(pool, 100, 0, v);
+  /* exceedingly small alignment is also no longer an error */
   auto r = _kvstore->allocate_pool_memory(pool, 100, 1, v);
   EXPECT_EQ(component::IKVStore::E_BAD_ALIGNMENT, r); /* alignment less than sizeof(void *) */
+#endif
 
   /* allocate various sizes */
   void *v128 = nullptr;

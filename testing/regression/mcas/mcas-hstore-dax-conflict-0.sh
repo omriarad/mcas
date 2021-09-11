@@ -15,16 +15,16 @@ TESTID="$(basename --suffix .sh -- $0)-$(dax_type $DAX_PREFIX)"
 NODE_IP="$(node_ip)"
 DEBUG=${DEBUG:-0}
 
-CONFIG_STR_1="$("./dist/testing/hstore-0.py" "$STORETYPE" "$DAX_PREFIX" "$NODE_IP" 11911)"
-CONFIG_STR_2="$("./dist/testing/hstore-0.py" "$STORETYPE" "$DAX_PREFIX" "$NODE_IP" 11922)"
-NUMA_CMD=$(numa_cmd $DAX_PREFIX)
+NUMA_NODE=$(numa_node $DAX_PREFIX)
+CONFIG_STR_1="$("./dist/testing/cfg_hstore.py" "$NODE_IP" "$STORETYPE" "$DAX_PREFIX" --port 11911 --numa-node "$NUMA_NODE")"
+CONFIG_STR_2="$("./dist/testing/cfg_hstore.py" "$NODE_IP" "$STORETYPE" "$DAX_PREFIX" --port 11912 --numa-node "$NUMA_NODE")"
 # launch first MCAS server
 [ 0 -lt $DEBUG ] && echo DAX_RESET=1 ./dist/bin/mcas --config \'"$CONFIG_STR_1"\' --forced-exit --debug $DEBUG
-DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config "$CONFIG_STR_1" --forced-exit --debug $DEBUG &> test$TESTID-server1.log &
+DAX_RESET=1 ./dist/bin/mcas --config "$CONFIG_STR_1" --forced-exit --debug $DEBUG &> test$TESTID-server1.log &
 SERVER_PID=$!
 sleep 3
 [ 0 -lt $DEBUG ] && echo DAX_RESET=1 ./dist/bin/mcas --config \'"$CONFIG_STR_2"\' --forced-exit --debug $DEBUG
-DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config "$CONFIG_STR_2" --forced-exit --debug $DEBUG &> test$TESTID-server2.log &
+DAX_RESET=1 ./dist/bin/mcas --config "$CONFIG_STR_2" --forced-exit --debug $DEBUG &> test$TESTID-server2.log &
 SERVER2_PID=$!
 
 sleep 3

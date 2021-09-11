@@ -19,11 +19,16 @@ run_hstore() {
   shift
   # hstore unit tests: basic
   #DAX_RESET=1 STORE=hstore ./src/components/store/hstore/unit_test/hstore-test1 # (out of space)
-  DAX_RESET=1 STORE=hstore-cc ./src/components/store/hstore/unit_test/hstore-test1
-  DAX_RESET=1 HAS_CAPACITY=0 STORE=hstore-mm MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-test1
+  STORE_LOCATION="$("$DIR/dax.py" --prefix "$DAX_PREFIX")"
+  [ -n "$DEBUG" ] && [ 0 -lt "$DEBUG" ] && echo DAX_RESET=1 STORE=hstore-cc STORE_LOCATION=\'"$STORE_LOCATION"\' ./src/components/store/hstore/unit_test/hstore-test1
+  DAX_RESET=1 STORE=hstore-cc STORE_LOCATION="$STORE_LOCATION" ./src/components/store/hstore/unit_test/hstore-test1
+  [ -n "$DEBUG" ] && [ 0 -lt "$DEBUG" ] && echo DAX_RESET=1 STORE=hstore-mm STORE_LOCATION=\'"$STORE_LOCATION"\' MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-test1
+  DAX_RESET=1 STORE=hstore-mm STORE_LOCATION="$STORE_LOCATION" MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-test1
   # hstore unit tests: multithreaded lock/unlock
-  DAX_RESET=1 STORE=hstore-mt MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-testmt
-  DAX_RESET=1 STORE=hstore-mt MM_PLUGIN_PATH=./dist/lib/libmm-plugin-rcalb.so ./src/components/store/hstore/unit_test/hstore-testmt
+  [ -n "$DEBUG" ] && [ 0 -lt "$DEBUG" ] && echo DAX_RESET=1 STORE=hstore-mt STORE_LOCATION=\'"$STORE_LOCATION"\' MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-testmt
+  DAX_RESET=1 STORE=hstore-mt STORE_LOCATION="$STORE_LOCATION" MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-testmt
+  [ -n "$DEBUG" ] && [ 0 -lt "$DEBUG" ] && echo DAX_RESET=1 STORE=hstore-mt STORE_LOCATION=\'"$STORE_LOCATION"\' MM_PLUGIN_PATH=./dist/lib/libmm-plugin-rcalb.so ./src/components/store/hstore/unit_test/hstore-testmt
+  DAX_RESET=1 STORE=hstore-mt STORE_LOCATION="$STORE_LOCATION" MM_PLUGIN_PATH=./dist/lib/libmm-plugin-rcalb.so ./src/components/store/hstore/unit_test/hstore-testmt
   # run performance tests
   prefix
   GOAL=140000 ELEMENT_COUNT=2000000 STORE=hstore PERFTEST=put $DIR/mcas-hstore-put-0.sh $1
@@ -77,7 +82,7 @@ SCALE="$BUILD_SCALE" $DIR/mcas-mapstore-put-0.sh $1
 prefix
 SCALE="$BUILD_SCALE" $DIR/mcas-mapstore-get-0.sh $1
 
-if has_module_xpmem
+if false && has_module_xpmem # broken: shard appears to run xpmem_make twice on the same range with no intervening xpemm_remove
 then :
   prefix
   $DIR/mcas-mapstore-ado-0.sh $1

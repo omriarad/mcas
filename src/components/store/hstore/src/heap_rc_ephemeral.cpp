@@ -15,6 +15,8 @@
 
 #include "hstore_config.h"
 
+#include <shared_mutex>
+
 constexpr unsigned heap_rc_ephemeral::log_min_alignment;
 constexpr unsigned heap_rc_ephemeral::hist_report_upper_bound;
 
@@ -22,8 +24,10 @@ heap_rc_ephemeral::heap_rc_ephemeral(
 	unsigned debug_level_
 	, const string_view id_
 	, const string_view backing_file_
+	, unsigned numa_node_
 )
 	: heap_ephemeral(debug_level_)
+	, _numa_node(int(numa_node_))
 	, _heap(debug_level_)
 	, _managed_regions(id_, backing_file_, {})
 	, _allocated(0)
@@ -36,7 +40,8 @@ heap_rc_ephemeral::heap_rc_ephemeral(
 
 void heap_rc_ephemeral::add_managed_region(const byte_span r_full, const byte_span r_heap)
 {
-	_heap.add_managed_region(::base(r_heap), ::size(r_heap), 0 /* numa_node */);
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
+	_heap.add_managed_region(::base(r_heap), ::size(r_heap), _numa_node);
 	CPLOG(2, "%s : %p.%zx", __func__, ::base(r_heap), ::size(r_heap));
 	_managed_regions.address_map_push_back(r_full);
 	_capacity += ::size(r_heap);
@@ -44,6 +49,7 @@ void heap_rc_ephemeral::add_managed_region(const byte_span r_full, const byte_sp
 
 void heap_rc_ephemeral::inject_allocation(void *p_, std::size_t sz_)
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	_heap.inject_allocation(p_, sz_, 0);
 	{
 		auto pc = static_cast<alloc_set_t::element_type>(p_);
@@ -55,6 +61,7 @@ void heap_rc_ephemeral::inject_allocation(void *p_, std::size_t sz_)
 
 void heap_rc_ephemeral::allocate(persistent_t<void *> &p_, std::size_t sz_, unsigned _numa_node_, std::size_t alignment_)
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	p_ = _heap.alloc(sz_, int(_numa_node_), alignment_);
 	_allocated += sz_;
 	_hist_alloc.enter(sz_);
@@ -62,6 +69,7 @@ void heap_rc_ephemeral::allocate(persistent_t<void *> &p_, std::size_t sz_, unsi
 
 std::size_t heap_rc_ephemeral::free(persistent_t<void *> &p_, std::size_t sz_, unsigned numa_node_)
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	_heap.free(p_, int(numa_node_), sz_);
 	p_ = nullptr;
 	_allocated -= sz_;
@@ -71,12 +79,14 @@ std::size_t heap_rc_ephemeral::free(persistent_t<void *> &p_, std::size_t sz_, u
 
 void heap_rc_ephemeral::free_tracked(const void *p_, std::size_t sz_, unsigned numa_node_)
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	_heap.free(const_cast<void *>(p_), int(numa_node_), sz_);
 	_allocated -= sz_;
 	_hist_free.enter(sz_);
 }
 
-bool heap_rc_ephemeral::is_reconstituted(const void * p_) const
+bool heap_rc_ephemeral::is_reconstituted(const void * p_)
 {
+	std::shared_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	return contains(_reconstituted, static_cast<alloc_set_t::element_type>(p_));
 }

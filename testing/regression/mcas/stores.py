@@ -30,6 +30,6 @@ class mapstore(dm):
 if __name__ == '__main__':
     print("hstore", hstore().json())
     print("hstore_cc", hstore_cc().json())
-    print("hstore_mm", hstore_mc().json())
-    print("hstore_mt", hstore_mr().json())
+    print("hstore_mm", hstore_mm().json())
+    print("hstore_mt", hstore_mt().json())
     print("mapstore", mapstore().json())

@@ -160,6 +160,18 @@ void dax_manager::data_map_remove(const fs::directory_entry &e, const std::strin
 	}
 }
 
+template <typename ...Args>
+	int open_successful(const char *fn, int oflag, Args... args)
+	{
+		auto fd = ::open(fn, oflag, args...);
+		if ( fd < 0 )
+		{
+			auto e = errno;
+			throw std::system_error(std::error_code{e, std::system_category()}, std::string("opening ") + fn);
+		}
+		return fd;
+	}
+
 void dax_manager::map_register(const fs::directory_entry &de, const std::string &origin)
 {
 	if (
@@ -193,7 +205,7 @@ void dax_manager::map_register(const fs::directory_entry &de, const std::string 
 					_mapped_spaces.insert(
 						mapped_spaces::value_type(
 							id
-							, space_registered(/* static_cast<dax_manager_log_source &> */(*this), this, common::fd_locked(pd.c_str(), O_RDWR, 0666), id, r.first)
+							, space_registered(*this, this, common::fd_locked(open_successful(pd.c_str(), O_RDWR, 0666)), id, r.first)
 						)
 					);
 				if ( ! itb.second )
@@ -281,7 +293,7 @@ std::unique_ptr<arena> dax_manager::make_arena_dev(const path &p, addr_t base_, 
 			_mapped_spaces.insert(
 				mapped_spaces::value_type(
 					id
-					, space_registered(/* static_cast<dax_manager_log_source &> */(*this), this, common::fd_locked(p.c_str(), O_RDWR, 0666), id, base_, effective_map_locked)
+					, space_registered(*this, this, common::fd_locked(open_successful(p.c_str(), O_RDWR, 0666)), id, base_, effective_map_locked)
 				)
 			);
 		if ( ! itb.second )
@@ -315,7 +327,7 @@ bool dax_manager::enter(
 		_mapped_spaces.insert(
 			mapped_spaces::value_type(
 				std::string(id_)
-				, space_registered(/* static_cast<dax_manager_log_source &>*/ (*this), this, std::move(fd_), id_, m_)
+				, space_registered(*this, this, std::move(fd_), id_, m_)
 			)
 		);
 	if ( ! itb.second )
@@ -345,30 +357,18 @@ dax_manager::dax_manager(
   const common::log_source &ls_,
   const gsl::span<const config_t> dax_configs,
   bool force_reset
+	, common::byte_span address_span_
 )
 	:
-#if 0
-	  dax_manager_log_source(ls_)
-	,
-#endif
-	  range_manager_impl(ls_)
+	  range_manager_impl(ls_, address_span_)
 	, _nd()
   /* space mapped by devdax */
   , _mapped_spaces()
   , _arenas()
   , _reentrant_lock()
 {
-#if 0
-  /* Maximum expected need is about 6 TiB (12 512GiB DIMMs).
-   * Start, arbitrarily, at 0x10000000000
-   */
-  auto free_address_begin = reinterpret_cast<nupm::range_manager::byte *>(uintptr_t(1) << 40);
-  auto free_address_end    = free_address_begin + (std::size_t(1) << 40);
-  auto i = boost::icl::interval<nupm::range_manager::byte *>::right_open(free_address_begin, free_address_end);
-  _address_fs_available->insert(i);
-#endif
   /* set up each configuration */
-  for(const auto& config: dax_configs) {
+  for ( const auto& config: dax_configs ) {
 
     CPLOG(0, DEBUG_PREFIX "region (%s,%lx)", config.path.c_str(), config.addr);
 

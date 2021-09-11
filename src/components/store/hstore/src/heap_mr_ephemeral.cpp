@@ -18,6 +18,7 @@
 #include "mm_plugin_itf.h"
 #include <common/errors.h> /* S_OK, E_INVAL */
 #include <memory> /* make_unique */
+#include <shared_mutex> /* shared_lock, unique_lock */
 
 constexpr unsigned heap_mr_ephemeral::log_min_alignment;
 constexpr unsigned heap_mr_ephemeral::hist_report_upper_bound;
@@ -29,9 +30,10 @@ heap_mr_ephemeral::heap_mr_ephemeral(
 	, const string_view id_
 	, const string_view backing_file_
 )
-	: heap_mm_ephemeral(debug_level_, nupm::region_descriptor{id_, backing_file_, {}}, 0U)
+	: heap_mm_ephemeral(debug_level_, nupm::region_descriptor{id_, backing_file_, {}})
 	, _heap(std::make_unique<heap_mr_shim>(plugin_path_))
 	, _allocated(0)
+	, _capacity(0)
 	, _reconstituted()
 {}
 
@@ -42,9 +44,10 @@ heap_mr_ephemeral::heap_mr_ephemeral(
 	, const string_view id_
 	, const string_view backing_file_
 )
-	: heap_mm_ephemeral(debug_level_, nupm::region_descriptor{id_, backing_file_, {}}, 0U)
+	: heap_mm_ephemeral(debug_level_, nupm::region_descriptor{id_, backing_file_, {}})
 	, _heap(std::make_unique<heap_mr_shim>(std::move(pw_)))
 	, _allocated(0)
+	, _capacity(0)
 	, _reconstituted()
 {}
 
@@ -54,6 +57,7 @@ heap_mr_ephemeral::~heap_mr_ephemeral()
 void heap_mr_ephemeral::add_managed_region_to_heap(byte_span r_heap)
 {
 	_heap->add_managed_region(r_heap);
+	_capacity += ::size(r_heap);
 }
 
 void heap_mr_ephemeral::inject_allocation(
@@ -61,6 +65,7 @@ void heap_mr_ephemeral::inject_allocation(
 	, std::size_t sz_
 )
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	_heap->inject_allocation(p_, sz_);
 	{
 		auto pc = static_cast<alloc_set_t::element_type>(p_);
@@ -76,6 +81,7 @@ void heap_mr_ephemeral::allocate(
 	, std::size_t alignment_
 )
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	if ( S_OK != _heap->allocate(*reinterpret_cast<void **>(&p_), sz_, alignment_) )
 	{
 		throw std::bad_alloc{};
@@ -86,6 +92,7 @@ void heap_mr_ephemeral::allocate(
 
 std::size_t heap_mr_ephemeral::free(persistent_t<void *> &p_, std::size_t sz_)
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	_heap->free(*reinterpret_cast<void **>(&p_), sz_);
 	_allocated -= sz_;
 	_hist_free.enter(sz_);
@@ -94,16 +101,22 @@ std::size_t heap_mr_ephemeral::free(persistent_t<void *> &p_, std::size_t sz_)
 
 void heap_mr_ephemeral::free_tracked(const void *p_, std::size_t sz_)
 {
+	std::unique_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	void *p = const_cast<void *>(p_);
 	_heap->free(p, sz_);
 	_allocated -= sz_;
 	_hist_free.enter(sz_);
 }
 
-bool heap_mr_ephemeral::is_reconstituted(const void * p_) const
+bool heap_mr_ephemeral::is_reconstituted(const void * p_)
 {
+	std::shared_lock<hstore_impl::shared_mutex> alloc_lk(_alloc_mutex);
 	return contains(_reconstituted, static_cast<alloc_set_t::element_type>(p_));
 }
 
 bool heap_mr_ephemeral::is_crash_consistent() const { return false; }
 bool heap_mr_ephemeral::can_reconstitute() const { return true; }
+void heap_mr_ephemeral::reconstitute_managed_region_to_heap(byte_span, ccpm::ownership_callback_t)
+{
+	throw std::domain_error("mr cannot reconstitute");
+}

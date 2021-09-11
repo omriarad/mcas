@@ -174,7 +174,7 @@ status_t Shard::conditional_bootstrap_ado_process(gsl::not_null<component::IKVSt
           /* uses XPMEM kernel module */
           xpmem_segid_t seg_id = ::xpmem_make(::base(r), ::size(r), XPMEM_PERMIT_MODE, reinterpret_cast<void*>(0666));
           if (seg_id == -1)
-            throw Logic_exception("xpmem_make failed unexpectedly");
+            throw Logic_exception("xpmem_make(%p,0x%zx,0x%x,%p) failed unexpectedly", ::base(r), ::size(r), XPMEM_PERMIT_MODE, reinterpret_cast<void*>(0666));
 
           if (ado->send_memory_map(std::uint64_t(seg_id), ::size(r), ::base(r)) != S_OK)
             throw Logic_exception("initial send_memory_map failed");
@@ -1355,8 +1355,10 @@ void Shard::process_messages_from_ado()
 
           if(ado->check_for_implicit_unlock(work_id, key_handle)) {
             CPLOG(2, "ADO callback: unlock request target lock is implicit");
-            if(rc == S_OK)
+            if(rc == S_OK) {
               ado->remove_deferred_unlock(work_id, key_handle);
+              CPLOG(2, "ADO callback: unlock request removed deferred unlock");
+            }
           }
 
           if (ado->send_unlock_response(rc) != S_OK)
@@ -1376,6 +1378,7 @@ void Shard::process_messages_from_ado()
       }
 
       /* release buffer */
+      CPLOG(3, "ADO callback releasing buffer %p", reinterpret_cast<void*>(buffer));
       ado->free_callback_buffer(buffer);
     }
   }

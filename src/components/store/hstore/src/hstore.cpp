@@ -51,9 +51,11 @@
 
 /* globals */
 
+struct alloc_key {};
+
 thread_local std::map<void *, hstore::open_pool_type *> tls_cache = {};
 
-/* forced because pool_t is an integral tye, not a pointer */
+/* forced because pool_t is an integral type, not a pointer */
 void *to_ptr(component::IKVStore::pool_t p) { return reinterpret_cast<void *>(p); }
 component::IKVStore::pool_t to_pool_t(void *v) { return reinterpret_cast<component::IKVStore::pool_t>(v); }
 
@@ -113,6 +115,7 @@ hstore::hstore(
 	)
   , _pools_mutex{}
   , _pools{}
+  , _lock_mutex{}
 {
 }
 
@@ -270,6 +273,7 @@ status_t hstore::close_pool(const pool_t p)
 
 status_t hstore::delete_pool(const common::string_view name_)
 {
+	/* ERROR: deletion of a pool which is still open is an uncaught error */
   auto path = pool_path(name_);
 
   try {
@@ -286,6 +290,16 @@ status_t hstore::delete_pool(const common::string_view name_)
 
   CPLOG(1, PREFIX "pool deleted: %.*s", LOCATION, int(name_.size()), name_.data());
   return S_OK;
+}
+
+status_t hstore::get_pool_names(std::list<std::string>& inout_pool_names)
+{
+  /* Clem to implement */
+  // for(auto& p : _pools) { /* not sure if this is open pools */
+  // }  
+  PWRN("get_pool_names: needs implementing");
+  inout_pool_names.push_back("dummy");
+  return E_NOT_IMPL;
 }
 
 auto hstore::grow_pool( //
@@ -459,7 +473,7 @@ auto hstore::get(const pool_t pool,
   }
   catch ( const impl::key_not_found &e )
   {
-    CPLOG(0, "%s: %s", __func__, e.what());
+    CPLOG(1, "%s: %s", __func__, e.what());
     return E_KEY_NOT_FOUND;
   }
 }
@@ -489,7 +503,7 @@ auto hstore::get_direct(const pool_t pool,
   }
   catch ( const impl::key_not_found &e )
   {
-    CPLOG(0, "%s: %s", __func__, e.what());
+    CPLOG(1, "%s: %s", __func__, e.what());
     return E_KEY_NOT_FOUND;
   }
 }
@@ -530,7 +544,7 @@ auto hstore::get_attribute(
     }
     catch ( const impl::key_not_found &e )
     {
-      CPLOG(0, "%s: %s", __func__, e.what());
+      CPLOG(1, "%s: %s", __func__, e.what());
       return E_KEY_NOT_FOUND;
     }
     catch ( const std::bad_alloc &e )
@@ -577,7 +591,7 @@ auto hstore::get_attribute(
     }
     catch ( const impl::key_not_found &e )
     {
-      CPLOG(0, "%s: %s", __func__, e.what());
+      CPLOG(1, "%s: %s", __func__, e.what());
       return E_KEY_NOT_FOUND;
     }
     break;
@@ -646,7 +660,7 @@ auto hstore::resize_value(
   }
   catch ( const impl::key_not_found &e )
   {
-    CPLOG(0, "%s: %s", __func__, e.what());
+    CPLOG(1, "%s: %s", __func__, e.what());
     return E_KEY_NOT_FOUND; /* key not found */
   }
   catch ( const impl::is_locked &e )
@@ -676,6 +690,7 @@ try
 #if 0 /* As with mapstore, allocator (not hstore) deals with non-2^n alignments */
 	if ( ( alignment & (alignment - 1) ) != 0  ) { return E_BAD_ALIGNMENT; }
 #endif
+  std::unique_lock<std::mutex> g(_lock_mutex);
   auto r = session->lock(AK_INSTANCE TM_REF key, type, out_value, out_value_len, alignment);
 
   out_key = r.lock_key;
@@ -713,7 +728,7 @@ try
 }
 catch ( const std::bad_alloc &e )
 {
-  CPLOG(0, "%s: %s", __func__, e.what());
+  PLOG("%s: %s", __func__, e.what());
   return E_TOO_LARGE;
 }
 
@@ -726,11 +741,9 @@ auto hstore::unlock(const pool_t pool,
      is a write lock
   */
   const auto session = static_cast<session_type *>(locate_session(pool));
-  return
-    session
-    ? session->unlock_indefinite(TM_REF key_, flags_)
-    : E_POOL_NOT_FOUND
-    ;
+  if ( ! session ) { return E_POOL_NOT_FOUND; }
+  std::unique_lock<std::mutex> g(_lock_mutex);
+  return session->unlock_indefinite(TM_REF key_, flags_);
 }
 
 auto hstore::erase(const pool_t pool,
@@ -872,7 +885,7 @@ catch ( const std::invalid_argument &e )
 }
 catch ( const impl::key_not_found &e )
 {
-  CPLOG(0, "%s: %s", __func__, e.what());
+  CPLOG(1, "%s: %s", __func__, e.what());
   return E_KEY_NOT_FOUND;
 }
 catch ( const impl::is_locked &e )

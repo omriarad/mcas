@@ -24,9 +24,8 @@
 
 #include "range_manager.h"
 
+#include <common/byte_span.h>
 #include <common/logging.h>
-
-#include <boost/icl/interval_set.hpp>
 
 namespace nupm
 {
@@ -37,7 +36,10 @@ namespace nupm
 		: protected common::log_source
 		, public range_manager
 	{
-		explicit range_manager_impl(const common::log_source &);
+		explicit range_manager_impl(
+			const common::log_source &
+			, common::byte_span address_span
+		);
 		virtual ~range_manager_impl();
 
 		bool interferes(byte_interval coverage) const override;

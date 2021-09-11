@@ -15,9 +15,9 @@
 #define MCAS_HSTORE_SESSION_H
 
 #include "hstore_config.h"
-#include "persist_atomic_controller.h"
 #include "session_base.h"
 #include <common/logging.h> /* log_source */
+
 #if CW_TEST
 #include <common/byte_span.h>
 #endif
@@ -88,20 +88,19 @@ template <typename Handle, typename Allocator, typename Table, typename LockType
 		auto locate_map(string_view_key key) -> table_type &;
 		auto locate_map(string_view_key key) const -> const table_type &;
 
-#if 1
 		bool undo_redo_pin_data(
-			AK_FORMAL
+			AK_FORMAL0
 		);
 
 		bool undo_redo_pin_key(
-			AK_FORMAL
+			AK_FORMAL0
 		);
-#endif
 
 	public:
 		/* PMEMoid, persist_data_t */
 		template <typename OID, typename Persist>
 			explicit session(
+				AK_FORMAL
 				unsigned debug_level
 				, OID heap_oid_
 				, handle_type &&pop

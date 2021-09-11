@@ -45,6 +45,7 @@ private:
 	> _heap;
 
 	std::size_t _allocated;
+	std::size_t _capacity;
 	/* The set of reconstituted addresses. Only needed during recovery.
 	 * Potentially large, so should be erased after recovery. But there
 	 * is no mechanism to erase it yet.
@@ -102,14 +103,16 @@ public:
 			}
 		}
 
-	std::size_t allocated() const {  return _allocated; }
+	std::size_t allocated() const override { return _allocated; }
+	std::size_t capacity() const override { return _capacity; }
 	void inject_allocation(void *p, std::size_t sz) override;
 	void allocate(persistent_t<void *> &p, std::size_t sz, std::size_t alignment) override;
 	void *allocate_tracked(std::size_t sz, std::size_t alignment);
 	void add_managed_region_to_heap(byte_span r_heap) override;
+	void reconstitute_managed_region_to_heap(byte_span r_heap, ccpm::ownership_callback_t f) override;
 	std::size_t free(persistent_t<void *> &p, std::size_t sz) override;
 	void free_tracked(const void *p, std::size_t sz) override;
-	bool is_reconstituted(const void *p) const;
+	bool is_reconstituted(const void *p);
 	bool is_crash_consistent() const override;
 	bool can_reconstitute() const override;
 	using common::log_source::debug_level;

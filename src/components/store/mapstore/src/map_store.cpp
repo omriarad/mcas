@@ -110,7 +110,6 @@ const int effective_map_locked = init_map_lock_mask();
  */
 class Pool_instance {
 
-
 private:
   
   unsigned debug_level() const { return _debug_level; }
@@ -138,7 +137,7 @@ private:
     bool is_end() const { return _iter == _end; }
     bool check_mark(uint32_t writes) const { return _mark == writes; }
 
-    const Pool_instance *   _pool;
+    const Pool_instance * _pool;
     uint32_t              _mark;
     map_t::const_iterator _iter;
     map_t::const_iterator _end;
@@ -182,6 +181,9 @@ public:
       }
       CPLOG(2, PREFIX "all regions freed");
       _regions.clear();
+
+      syncfs(_fdout);
+      close(_fdout);
     }
   }
 
@@ -194,7 +196,7 @@ public:
     _ref_count--;
   }      
 
-  const std::string & name() const { return _name; }
+  const std::string& name() const { return _name; }
   
 private:
   
@@ -208,7 +210,7 @@ private:
   common::RWLock             _map_lock; /*< read write lock */
   unsigned int               _flags;
   std::set<Iterator*>        _iterators;
-
+  int                        _fdout;
   /*
     We use this counter to see if new writes have come in
     during an iteration.  This is essentially an optmistic
@@ -975,21 +977,19 @@ void * Pool_instance::allocate_region_memory(size_t size, const string_view pool
       if(st.st_mode & (S_IFDIR != 0)) {
         std::string filename = backing_store_dir;
         filename += "/mapstore_backing_" + std::string(pool_name) + ".dat";
-        int fdout;
-        if ((fdout = open (filename.c_str(), O_RDWR | O_CREAT | O_TRUNC, mode)) >= 0) {
+
+        if ((_fdout = open (filename.c_str(), O_RDWR | O_CREAT | O_TRUNC, mode)) >= 0) {
 
           /* create space in file */
-          if(ftruncate(fdout, size) == 0) {
+          if(ftruncate(_fdout, size) == 0) {
             p = mmap(reinterpret_cast<void*>(0xff00000000), /* help debugging */
                      size,
                      PROT_READ | PROT_WRITE,
                      MAP_SHARED, /* paging means no MAP_LOCKED */
-                     fdout, /* file */
+                     _fdout, /* file */
                      0 /* offset */);
             if(p)
               PINF("[Mapstore] using mmap'ed backing file (%s) (%lu MiB)", filename.c_str(), REDUCE_MB(size));
-
-            close(fdout);
           }
         }
       }
@@ -1054,7 +1054,7 @@ Map_store::~Map_store() {
 
 IKVStore::pool_t Map_store::create_pool(const common::string_view name_,
                                         const size_t nsize,
-                                        unsigned int flags,
+                                        const flags_t flags,
                                         uint64_t /*args*/,
                                         IKVStore::Addr /*base addr unused */
 )
@@ -1101,7 +1101,7 @@ IKVStore::pool_t Map_store::create_pool(const common::string_view name_,
 }
 
 IKVStore::pool_t Map_store::open_pool(string_view name,
-                                      unsigned int /*flags*/,
+                                      const flags_t /*flags*/,
                                       component::IKVStore::Addr /* base_addr_unused */)
 {
   const string_view key = name;
@@ -1182,9 +1182,18 @@ status_t Map_store::delete_pool(const common::string_view poolname_)
   return S_OK;
 }
 
+status_t Map_store::get_pool_names(std::list<std::string>& inout_pool_names)
+{
+  for (auto &h : _pools) {
+    assert(h.second);
+    inout_pool_names.push_back(h.second->name());
+  }
+  return S_OK;
+}
+
 status_t Map_store::put(IKVStore::pool_t pid, string_view_key key,
                         const void *value, size_t value_len,
-                        unsigned int flags)
+                        const flags_t flags)
 {
   auto session = get_session(pid);
   if (!session) return IKVStore::E_POOL_NOT_FOUND;
@@ -1214,7 +1223,7 @@ status_t Map_store::get_direct(const pool_t pid, string_view_key key,
 status_t Map_store::put_direct(const pool_t pid, string_view_key key,
                                const void *value, const size_t value_len,
                                memory_handle_t /*memory_handle*/,
-                               unsigned int flags)
+                               const flags_t flags)
 {
   return Map_store::put(pid, key, value, value_len, flags);
 }

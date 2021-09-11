@@ -21,10 +21,18 @@
 #include <common/logfwd.h>
 #include <memory>
 
+/* "make" function to hide dax_manager and its reliance on C++14 from the caller.
+ * dax_manager needs C++14 (not 17) because it uses Boost 1.65 boost::icl, which
+ * has a bug that C++17 will catch.
+ *
+ * Note: The boost::icl code has moved out of dax_manager as such, which may
+ * obviate the need for this shim.
+ */
 std::unique_ptr<nupm::dax_manager_abstract> make_dax_manager(
 	const common::log_source &ls_
 	, common::string_view dax_map
-	, bool force_reset = false
+	, bool force_reset // = false
+	, common::byte_span dax_span // = common::make_byte_span(nullptr, 0)
 );
 
 #endif

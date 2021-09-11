@@ -17,6 +17,8 @@
 
 #include <common/logging.h>
 
+#include "hstore_config.h"
+
 #include <common/byte_span.h>
 #include <nupm/region_descriptor.h>
 #include <cstddef> /* size_t */
@@ -26,13 +28,23 @@ struct heap_ephemeral
 {
 protected:
 	virtual ~heap_ephemeral() {}
+	/*
+	 * Assume that pools, in general, are not thread safe, and therefore
+	 * alloc/free calls need mutex protection
+	 */
+	hstore_impl::shared_mutex _alloc_mutex;
 public:
 	using byte_span = common::byte_span;
-	explicit heap_ephemeral(unsigned debug_level) : common::log_source(debug_level) {}
+	explicit heap_ephemeral(unsigned debug_level)
+		: common::log_source(debug_level)
+		, _alloc_mutex()
+	{}
 
+	/* functions which ought to be virtualized across the heap_ephemeral types */
 	virtual void add_managed_region(byte_span r_full, byte_span r_heap) = 0;
-	virtual nupm::region_descriptor get_managed_regions() const = 0;
 	virtual nupm::region_descriptor set_managed_regions(nupm::region_descriptor n) = 0;
+	virtual nupm::region_descriptor get_managed_regions() const = 0;
+	virtual std::size_t allocated() const = 0;
 	virtual std::size_t capacity() const = 0;
 };
 

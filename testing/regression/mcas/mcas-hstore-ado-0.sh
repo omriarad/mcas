@@ -12,12 +12,12 @@ TESTID="$(basename --suffix .sh -- $0)-$(dax_type $DAX_PREFIX)"
 NODE_IP="$(node_ip)"
 DEBUG=${DEBUG:-0}
 
-CONFIG_STR="$("./dist/testing/hstore-ado0.py" "$STORETYPE" "$DAX_PREFIX" "$NODE_IP" 11911)"
-NUMA_CMD=$(numa_cmd $DAX_PREFIX)
 
 # launch MCAS server
-[ 0 -lt $DEBUG ] && echo DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config \'"$CONFIG_STR"\' --forced-exit --debug $DEBUG
-DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
+NUMA_NODE=$(numa_node $DAX_PREFIX)
+CONFIG_STR="$("./dist/testing/cfg_hstore_ado.py" "$NODE_IP" "$STORETYPE" "$DAX_PREFIX" --port 11911 --numa-node "$NUMA_NODE")"
+[ 0 -lt $DEBUG ] && echo DAX_RESET=1 ./dist/bin/mcas --config \'"$CONFIG_STR"\' --forced-exit --debug $DEBUG
+DAX_RESET=1 ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
 SERVER_PID=$!
 
 # give time to start server

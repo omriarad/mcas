@@ -51,9 +51,6 @@ private:
 	std::unique_ptr<
 		ccpm::IHeap_expandable
 	> _heap;
-#if 0 // MM does not support allocation query
-	std::size_t _allocated;
-#endif
 	impl::allocation_state_emplace *_ase;
 	impl::allocation_state_pin *_aspd;
 	impl::allocation_state_pin *_aspk;
@@ -65,6 +62,7 @@ private:
 	static constexpr unsigned hist_report_upper_bound = 34U;
 	explicit heap_mc_ephemeral(
 		unsigned debug_level_
+		, bool restore_not_clear
 		, impl::allocation_state_emplace *ase
 		, impl::allocation_state_pin *aspd
 		, impl::allocation_state_pin *aspk
@@ -81,22 +79,11 @@ public:
 	friend struct heap_mm;
 
 	using common::log_source::debug_level;
-	/* heap_mc version */
-	explicit heap_mc_ephemeral(
-		unsigned debug_level
-		, common::string_view plugin_path
-		, impl::allocation_state_emplace *ase
-		, impl::allocation_state_pin *aspd
-		, impl::allocation_state_pin *aspk
-		, impl::allocation_state_extend *asx
-		, string_view id
-		, string_view backing_file
-		, const std::vector<byte_span> rv_full
-		, byte_span pool0_heap_
-	);
+
 	/* heap_mm version */
 	explicit heap_mc_ephemeral(
 		unsigned debug_level
+		, bool restore_not_clear
 		, MM_plugin_wrapper &&pw
 		, impl::allocation_state_emplace *ase
 		, impl::allocation_state_pin *aspd
@@ -108,40 +95,15 @@ public:
 		, byte_span pool0_heap_
 	);
 
-	/* heap_mc version */
-	explicit heap_mc_ephemeral(
-		unsigned debug_level
-		, common::string_view plugin_path
-		, impl::allocation_state_emplace *ase
-		, impl::allocation_state_pin *aspd
-		, impl::allocation_state_pin *aspk
-		, impl::allocation_state_extend *asx
-		, string_view id
-		, string_view backing_file
-		, const std::vector<byte_span> rv_full
-		, byte_span pool0_heap
-		, ccpm::ownership_callback_t f
-	);
-	/* heap_mm version */
-	explicit heap_mc_ephemeral(
-		unsigned debug_level
-		, MM_plugin_wrapper &&pw
-		, impl::allocation_state_emplace *ase
-		, impl::allocation_state_pin *aspd
-		, impl::allocation_state_pin *aspk
-		, impl::allocation_state_extend *asx
-		, string_view id
-		, string_view backing_file
-		, const std::vector<byte_span> rv_full
-		, byte_span pool0_heap
-		, ccpm::ownership_callback_t f
-	);
+	std::size_t allocated() const override; // { return _allocated; }
+	std::size_t capacity() const override; // { return _capacity; }
 	void allocate(persistent_t<void *> &p, std::size_t sz, std::size_t alignment) override;
 	std::size_t free(persistent_t<void *> &p_, std::size_t sz_) override;
 	void free_tracked(const void *p, std::size_t sz) override;
 	heap_mc_ephemeral(const heap_mc_ephemeral &) = delete;
 	heap_mc_ephemeral& operator=(const heap_mc_ephemeral &) = delete;
 	void add_managed_region_to_heap(byte_span r_heap) override;
+	void reconstitute_managed_region_to_heap(byte_span r_heap, ccpm::ownership_callback_t f) override;
 	bool is_crash_consistent() const override;
 	bool can_reconstitute() const override;
 };

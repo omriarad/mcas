@@ -39,7 +39,10 @@ unsigned debug_level = 0;
 
 /* forward decls */
 PyObject * unmarshall_nparray(byte * ptr);
-void create_ndarray_header(PyArrayObject * src_ndarray, std::string& out_hdr, const char * dtype_str = nullptr, int type = 0);  
+void create_ndarray_header(PyArrayObject * src_ndarray,
+                           std::string& out_hdr,
+                           const char * dtype_str = nullptr,
+                           int type = 0);  
 
 PyObject * pymcas_ndarray_header_size(PyObject * self,
                                       PyObject * args,
@@ -265,8 +268,8 @@ void create_ndarray_header(PyArrayObject * src_ndarray, std::string& out_hdr, co
     hdr.write(dtype.c_str(), dtype_len);
   }
   else { /* for backwards compatibility with pymcas */
-    int type = PyArray_TYPE(src_ndarray);
-    hdr.write(reinterpret_cast<const char*>(&type), sizeof(type));
+    int src_type = PyArray_TYPE(src_ndarray);
+    hdr.write(reinterpret_cast<const char*>(&src_type), sizeof(src_type));
   }
 
   out_hdr = hdr.str();

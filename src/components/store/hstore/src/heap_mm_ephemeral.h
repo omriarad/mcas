@@ -22,6 +22,7 @@
 #include <mm_plugin_itf.h>
 #include "persistent.h"
 
+#include <ccpm/interfaces.h> /* ownership_callback, (IHeap_expandable, region_vector_t) */
 #include <common/byte_span.h>
 #include <common/string_view.h>
 #include <nupm/region_descriptor.h>
@@ -32,7 +33,7 @@
 #include <vector>
 
 struct heap_mm_ephemeral
-  : public heap_ephemeral
+	: public heap_ephemeral
 {
 private:
 	using byte_span = common::byte_span;
@@ -51,10 +52,7 @@ private:
 	 */
 	nupm::region_descriptor _managed_regions;
 protected:
-	std::size_t _capacity;
-#if 0 // MM does not support allocation query
-	std::size_t _allocated;
-#endif
+	using heap_ephemeral::_alloc_mutex;
 
 protected:
 	using hist_type = util::histogram_log2<std::size_t>;
@@ -97,11 +95,12 @@ public:
 	explicit heap_mm_ephemeral(
 		unsigned debug_level
 		, nupm::region_descriptor managed_regions
-		, std::size_t capacity
 	);
 	virtual ~heap_mm_ephemeral() {}
 
-	std::size_t capacity() const override { return _capacity; }
+	virtual std::size_t allocated() const = 0;
+	virtual std::size_t capacity() const = 0;
+
 	virtual void allocate(persistent_t<void *> &p, std::size_t sz, std::size_t alignment) = 0;
 	virtual std::size_t free(persistent_t<void *> &p_, std::size_t sz_) = 0;
 	virtual void free_tracked(const void *p, std::size_t sz) = 0;
@@ -113,7 +112,14 @@ public:
 		swap(n, _managed_regions);
 		return n;
 	}
+
 	void add_managed_region(byte_span r_full, byte_span r_heap) override;
+	void reconstitute_managed_region(
+		const byte_span r_full
+		, const byte_span r_heap
+		, ccpm::ownership_callback_t f
+	);
+	virtual void reconstitute_managed_region_to_heap(byte_span r_heap, ccpm::ownership_callback_t f) = 0;
 	virtual bool is_crash_consistent() const = 0;
 	virtual bool can_reconstitute() const = 0;
 };

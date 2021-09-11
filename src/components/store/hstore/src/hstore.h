@@ -19,14 +19,6 @@
 
 #include "hstore_config.h"
 
-#if THREAD_SAFE_HASH == 1
-/* thread-safe hash */
-#include <mutex>
-#else
-/* not a thread-safe hash */
-#include "dummy_shared_mutex.h"
-#endif
-
 #include "hstore_alloc_type.h"
 
 #include "hop_hash.h"
@@ -70,14 +62,13 @@ private:
   using string_view = common::string_view;
   using string_view_key = common::basic_string_view<byte>;
   using string_view_value = common::basic_string_view<byte>;
+  using hstore_shared_mutex = hstore_impl::shared_mutex;
 #if THREAD_SAFE_HASH == 1
   /* thread-safe hash */
-  using hstore_shared_mutex = std::shared_timed_mutex;
   static constexpr auto thread_model = THREAD_MODEL_MULTI_PER_POOL;
   static constexpr auto is_thread_safe = true;
 #else
 /* not a thread-safe hash */
-  using hstore_shared_mutex = dummy::shared_mutex;
   static constexpr auto thread_model = THREAD_MODEL_SINGLE_PER_POOL;
   static constexpr auto is_thread_safe = false;
 #endif
@@ -105,6 +96,11 @@ private:
   pools_map _pools;
   auto locate_session(pool_t pid) -> open_pool_type *;
   auto move_pool(pool_t pid) -> std::shared_ptr<open_pool_type>;
+  /* The lock and unlock functions provide shared and exclusive access to data.
+   * This lock protects the bits which track the shared and exclusive access.
+   * It is a "global" lock; more granularity would be better.
+   */
+  std::mutex _lock_mutex;
 
 public:
   /**
@@ -131,7 +127,7 @@ public:
    * Component/interface management
    *
    */
-  DECLARE_VERSION(0.1f);
+  DECLARE_VERSION(1.0f);
   DECLARE_COMPONENT_UUID(
     0x1f1bf8cf,0xc2eb,0x4710,0x9bf1,0x63,0xf5,0xe8,0x1a,0xcf,0xbd
   );
@@ -174,6 +170,8 @@ public:
                    ) override;
 
   status_t delete_pool(common::string_view name) override;
+
+  status_t get_pool_names(std::list<std::string>& inout_pool_names) override;
 
   status_t close_pool(pool_t pid) override;
 

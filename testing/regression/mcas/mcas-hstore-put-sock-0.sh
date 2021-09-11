@@ -22,11 +22,11 @@ DEBUG=${DEBUG:-0}
 # parameters for MCAS server
 SERVER_CONFIG="hstore-$(dax_type $DAX_PREFIX)-sock-0"
 
-CONFIG_STR="$("./dist/testing/$SERVER_CONFIG.py" "$NODE_IP")"
-NUMA_CMD=$(numa_cmd $DAX_PREFIX)
+NUMA_NODE=$(numa_node $DAX_PREFIX)
+CONFIG_STR="$("./dist/testing/$SERVER_CONFIG.py" "$NODE_IP" --numa-node "$NUMA_NODE")"
 # launch MCAS server
-[ 0 -lt $DEBUG ] && echo DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config \'"$CONFIG_STR"\' --forced-exit --debug $DEBUG
-DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
+[ 0 -lt $DEBUG ] && echo DAX_RESET=1 ./dist/bin/mcas --config \'"$CONFIG_STR"\' --forced-exit --debug $DEBUG
+DAX_RESET=1 ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
 SERVER_PID=$!
 
 sleep 3

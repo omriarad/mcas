@@ -89,13 +89,13 @@ auto heap::grow(
 			const auto old_size = region_size(old_region_list);
 			if ( old_regions.id().size() != 0 )
 			{
-				eph_->set_managed_regions(dax_manager_->resize_region(old_regions.id(),  _numa_node, old_size + increment_));
+				eph_->set_managed_regions(dax_manager_->resize_region(old_regions.id(), _numa_node, old_size + increment_));
 			}
 			const auto new_region_list = eph_->get_managed_regions().address_map();
 			const auto new_size = region_size(new_region_list);
 			const auto new_list_size = new_region_list.size();
 
-			if ( old_size <  new_size )
+			if ( old_size < new_size )
 			{
 				for ( auto i = old_list_size; i != new_list_size; ++i )
 				{

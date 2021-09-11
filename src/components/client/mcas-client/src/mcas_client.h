@@ -121,6 +121,7 @@ class MCAS_client
    * Pick one and use it for registrations.
    */
   Registrar_memory_direct *registrar() { return static_cast<component::IKVStore *>(this); }
+  
  public:
   using IKVStore::Addr;
   using IKVStore::Attribute;
@@ -131,7 +132,7 @@ class MCAS_client
 
   virtual pool_t create_pool(const string_view    name,
                              const size_t         size,
-                             const unsigned int   flags              = 0,
+                             const flags_t        flags              = 0,
                              const uint64_t       expected_obj_count = 0,
                              const Addr base = Addr{0}
 	) override;
@@ -146,19 +147,23 @@ class MCAS_client
 
   virtual status_t delete_pool(const pool_t pool) override;
 
+  virtual status_t get_pool_names(std::list<std::string> &) override {
+    return E_NOT_IMPL;
+  }
+
   virtual status_t configure_pool(const pool_t pool, const string_view json) override;
 
   virtual status_t put(const pool_t       pool,
                        const string_view_key key,
                        const void *       value,
                        const size_t       value_len,
-                       const unsigned int flags = IMCAS::FLAGS_NONE) override;
+                       flags_t            flags = IMCAS::FLAGS_NONE) override;
 
   virtual status_t put_direct(const pool_t                 pool,
                               const string_view_key    key,
                               gsl::span<const common::const_byte_span> values,
                               gsl::span<const IMCAS::memory_handle_t> handles,
-                              const unsigned int           flags) override;
+                              flags_t                      flags) override;
 
   status_t put_direct(const pool_t       pool,
                               const string_view_key key,
@@ -183,14 +188,14 @@ class MCAS_client
                              const void *           value,
                              const size_t           value_len,
                              async_handle_t &       out_handle,
-                             const unsigned int     flags = IMCAS::FLAGS_NONE) override;
+                             flags_t                flags = IMCAS::FLAGS_NONE) override;
 
   virtual status_t async_put_direct(const pool_t          pool,
                                     const string_view_key           key,
                                     gsl::span<const common::const_byte_span> values,
-                                    async_handle_t &                out_handle,
-                                    gsl::span<const IMCAS::memory_handle_t> handles,
-                                    const unsigned int              flags) override;
+                                    async_handle_t &                         out_handle,
+                                    gsl::span<const IMCAS::memory_handle_t>  handles,
+                                    flags_t                                  flags) override;
 
   virtual status_t check_async_completion(async_handle_t &handle) override;
 
@@ -324,7 +329,7 @@ class MCAS_client_factory : public component::IMCAS_factory {
    * Component/interface management
    *
    */
-  DECLARE_VERSION(0.1f);
+  DECLARE_VERSION(1.0f);
 
   // clang-format off
   DECLARE_COMPONENT_UUID(0xfac66078, 0xcb8a, 0x4724, 0xa454, 0xd1, 0xd8, 0x8d, 0xe2, 0xdb, 0x87);
@@ -350,13 +355,13 @@ class MCAS_client_factory : public component::IMCAS_factory {
 #if CW_TEST
 	const cw::test_data & test_data,
 #endif
-                                const string_view owner,
-                                const string_view src_nic_device,
-                                const string_view src_ip_addr,
-                                const string_view dest_addr_with_port,
-                                const string_view other) override;
-
-  component::IKVStore *create(unsigned           debug_level,
+                                    const string_view owner,
+                                    const string_view src_nic_device,
+                                    const string_view src_ip_addr,
+                                    const string_view dest_addr_with_port,
+                                    const string_view other) override;
+  
+  component::IKVStore *create(unsigned          debug_level,
                               const string_view owner,
                               const string_view addr,
                               const string_view device) override;

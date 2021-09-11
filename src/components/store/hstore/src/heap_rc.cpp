@@ -59,7 +59,7 @@ heap_rc::heap_rc(
 )
 	: heap(pool0_full_, pool0_heap_, numa_node_)
 	, _tracked_anchor(debug_level_, &_tracked_anchor, &_tracked_anchor, sizeof(_tracked_anchor), sizeof(_tracked_anchor))
-	, _eph(std::make_unique<heap_rc_ephemeral>(debug_level_, id_, backing_file_))
+	, _eph(std::make_unique<heap_rc_ephemeral>(debug_level_, id_, backing_file_, numa_node_))
 	, _pin_data(&heap_rc::pin_data_arm, &heap_rc::pin_data_disarm, &heap_rc::pin_data_get_cptr)
 	, _pin_key(&heap_rc::pin_key_arm, &heap_rc::pin_key_disarm, &heap_rc::pin_key_get_cptr)
 {
@@ -100,7 +100,7 @@ heap_rc::heap_rc(
 )
 	: heap(*this)
 	, _tracked_anchor(this->_tracked_anchor)
-	, _eph(std::make_unique<heap_rc_ephemeral>(debug_level_, id_, backing_file_))
+	, _eph(std::make_unique<heap_rc_ephemeral>(debug_level_, id_, backing_file_, this->_numa_node))
 	, _pin_data(&heap_rc::pin_data_arm, &heap_rc::pin_data_disarm, &heap_rc::pin_data_get_cptr)
 	, _pin_key(&heap_rc::pin_key_arm, &heap_rc::pin_key_disarm, &heap_rc::pin_key_get_cptr)
 {

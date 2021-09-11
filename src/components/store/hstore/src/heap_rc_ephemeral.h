@@ -39,6 +39,7 @@ struct heap_rc_ephemeral
 private:
 	using byte_span = common::byte_span;
 	using string_view = common::string_view;
+	int _numa_node;
 	nupm::Rca_LB _heap;
 	nupm::region_descriptor _managed_regions;
 	std::size_t _allocated;
@@ -61,7 +62,7 @@ private:
 
 	void add_managed_region(byte_span r);
 public:
-	explicit heap_rc_ephemeral(unsigned debug_level, string_view id, string_view backing_file);
+	explicit heap_rc_ephemeral(unsigned debug_level, string_view id, string_view backing_file, unsigned numa_node);
 	virtual ~heap_rc_ephemeral() {}
 
 	void add_managed_region(byte_span r_full, byte_span r_heap) override;
@@ -102,7 +103,7 @@ public:
 	void free_tracked(const void *p, std::size_t sz, unsigned numa_node);
 	std::size_t free(persistent_t<void *> &p, std::size_t sz_);
 	std::size_t free(persistent_t<void *> &p, std::size_t sz_, unsigned numa_node);
-	bool is_reconstituted(const void *p) const;
+	bool is_reconstituted(const void *p);
 	bool is_crash_consistent() const { return false; }
 	using common::log_source::debug_level;
 };

@@ -20,7 +20,8 @@ std::unique_ptr<nupm::dax_manager_abstract> make_dax_manager(
 	const common::log_source &ls_
 	, common::string_view dax_map
 	, bool force_reset
+	, common::byte_span dax_span
 )
 {
-	return std::make_unique<dax_manager>(ls_, dax_map, force_reset);
+	return std::make_unique<dax_manager>(ls_, dax_map, force_reset, dax_span);
 }

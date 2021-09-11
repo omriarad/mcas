@@ -274,7 +274,9 @@ int main(int, const char *argv[])
 	log_source_simple ls;
 #endif
 
-	nupm::range_manager_impl rem(common::log_source(2));
+	auto base = 0x9000000000;
+	common::byte_span sp = common::make_byte_span(reinterpret_cast<void *>(base), 0x1000000000);
+	nupm::range_manager_impl rem(common::log_source(2), sp);
 
 	const bool have_odp = init_have_odp();
 	const int effective_map_locked = init_map_lock_mask(have_odp);
@@ -284,7 +286,7 @@ int main(int, const char *argv[])
 		, empty_object_json.str()
 		, fabric_fabric::control_port
 		, ""
-		, [&remote_key_base, &rem, effective_map_locked] (component::IFabric_server &srv_) -> bool
+		, [&remote_key_base, &rem, base, effective_map_locked] (component::IFabric_server &srv_) -> bool
 		{
 			try {
 #if 0
@@ -303,7 +305,7 @@ int main(int, const char *argv[])
 							common::log_source(2)
 							, &rem
 							, common::fd_locked(p.c_str(), O_RDWR, 0666)
-							, 0x9000000000
+							, base
 							, effective_map_locked
 						)
 					)
