@@ -27,6 +27,7 @@
 #include <sys/uio.h>
 #include <cstddef>
 #include <functional>
+#include <list>
 #include <string>
 #include <system_error>
 
@@ -81,6 +82,7 @@ template <typename Pool>
     ) -> std::unique_ptr<Pool> = 0;
 
     virtual void pool_delete(const pool_path &path) = 0;
+    virtual std::list<std::string> names_list() const = 0;
     virtual const std::unique_ptr<nupm::dax_manager_abstract> & get_dax_manager() const = 0;
   };
 

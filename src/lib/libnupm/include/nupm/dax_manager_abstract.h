@@ -23,6 +23,7 @@
 #include "region_descriptor.h"
 #include <common/string_view.h>
 #include <cstddef>
+#include <list>
 
 namespace nupm
 {
@@ -85,6 +86,12 @@ namespace nupm
    * @param arena_id Arena identifier
    */
 		virtual void erase_region(string_view id, arena_id_t arena_id) = 0;
+
+  /**
+   * Return a list of region names
+   *
+   */
+		virtual std::list<std::string> names_list(arena_id_t arena_id) = 0;
 
   /**
    * Get the maximum "hole" size.

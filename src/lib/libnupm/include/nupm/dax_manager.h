@@ -48,6 +48,7 @@
   #include <experimental/filesystem>
   #define _NUPM_FILESYSTEM_STD_ 0
 #endif
+#include <list>
 #include <map>
 #include <mutex>
 #include <string>
@@ -144,7 +145,7 @@ struct dax_manager
    *   Until fsdax supports extending a region, the vector will not be more
    *   than one element long.
    */
-  region_descriptor open_region(string_view id, arena_id_t arena_id);
+  region_descriptor open_region(string_view id, arena_id_t arena_id) override;
 
   /**
    * Create a new region of memory
@@ -156,7 +157,7 @@ struct dax_manager
    * @return backing file name (empty string if none);
    *   Pointer to and size of mapped memory
    */
-  region_descriptor create_region(string_view id, arena_id_t arena_id, const size_t size);
+  region_descriptor create_region(string_view id, arena_id_t arena_id, const size_t size) override;
 
   /**
    * Resize a region of memory
@@ -174,7 +175,7 @@ struct dax_manager
    * locate_region), it can be used to retrieve the new mapping of a resized region.
    *
    */
-  region_descriptor resize_region(string_view id, arena_id_t arena_id, size_t size);
+  region_descriptor resize_region(string_view id, arena_id_t arena_id, size_t size) override;
 
   /**
    * Erase a previously allocated region
@@ -182,7 +183,13 @@ struct dax_manager
    * @param id Unique region identifier
    * @param arena_id Arena identifier
    */
-  void erase_region(string_view id, arena_id_t arena_id);
+  void erase_region(string_view id, arena_id_t arena_id) override;
+
+  /**
+   * Return a list of region names
+   *
+   */
+  std::list<std::string> names_list(arena_id_t arena_id) override;
 
   /**
    * Get the maximum "hole" size.
@@ -190,14 +197,14 @@ struct dax_manager
    *
    * @return Size in bytes of max hole
    */
-  size_t get_max_available(arena_id_t arena_id);
+  size_t get_max_available(arena_id_t arena_id) override;
 
   /**
    * Debugging information
    *
    * @param arena_id Arena identifier
    */
-  void debug_dump(arena_id_t arena_id);
+  void debug_dump(arena_id_t arena_id) override;
 
   void register_range(const void *begin, std::size_t size);
   void deregister_range(const void *begin, std::size_t size);
