@@ -38,7 +38,7 @@ class Backend
 public:
   Backend(const std::string& path,
           const unsigned debug_level = 0,
-          const std::string& store = "mapstore")
+          const std::string& store = "hstore")
   {
     using namespace component;
 
@@ -46,7 +46,7 @@ public:
     IBase * comp;
 
 
-    if(store == "hstore-cc") { /* HSTORE-CC */
+    if(store == "hstore-cc" || store == "hstore") { /* HSTORE-CC */
       comp = load_component(store_lib.c_str(), component::hstore_factory);
       assert(comp);
       
@@ -118,16 +118,17 @@ public:
       if(pool == component::IKVStore::POOL_ERROR)
         return E_FAIL;
     }
+
     /* create session id */
     auto session_text = client_id + ":" + pool_name;
     session_id = std::to_string(CityHash32(session_text.c_str(), client_id.length()));
+    PLOG("session id: (%s)", session_id.c_str());
     _open_pools[session_id] = Session{pool};
     _client_sessions[client_id].insert(session_id);
     return S_OK;
   }
 
   status_t close_pools(const std::string& client_id) {
-    assert(_client_sessions.count(client_id) == 1);
     auto& session_set = _client_sessions[client_id];
     for(auto& session : session_set) {
       PLOG("closing pool Session (%s)", session.c_str());
@@ -138,6 +139,21 @@ public:
     }
     _client_sessions.erase(client_id);
     return S_OK;
+  }
+
+  inline status_t get_pool_names(std::list<std::string>& inout_pool_names) {
+    return _itf->get_pool_names(inout_pool_names);
+  }
+
+  inline status_t put(const std::string& session_id, const std::string& key, const std::string& value) {
+    
+    if(_open_pools.find(session_id) == _open_pools.end()) {
+      PWRN("cannot find pool for put command");
+      return E_INVAL;
+    }
+    auto session = _open_pools[session_id];
+    PLOG("put: (%s, %s)", key.c_str(), value.c_str());
+    return _itf->put(session.pool_handle, key, value.data(), value.length());
   }
   
 private:
@@ -155,6 +171,7 @@ private:
   void get_status(const Rest::Request& request, Http::ResponseWriter response);
   void get_pools(const Rest::Request& request, Http::ResponseWriter response);
   void post_pools(const Rest::Request& request, Http::ResponseWriter response);
+  void post_put(const Rest::Request& request, Http::ResponseWriter response);
 
 public:
   explicit REST_endpoint(const Address addr,

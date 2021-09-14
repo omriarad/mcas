@@ -113,7 +113,7 @@ REST_endpoint::~REST_endpoint()
 
 void REST_endpoint::init(size_t thr)
 {
-  auto opts = Http::Endpoint::options().threads(static_cast<int>(thr));
+  Options opts = Http::Endpoint::options().threads(static_cast<int>(thr));
   Http::Endpoint::init(opts);
   setup_routes();
 }
@@ -142,17 +142,13 @@ void REST_endpoint::setup_routes()
   /* Example URL: /pools/myPool?sizemb=128 */
   Routes::Post(_router, "/pools/:name", Routes::bind(&REST_endpoint::post_pools, this));
 
+  /* Example URL: /put?pool=24344354?key=foo?value=bar */
+  Routes::Post(_router, "/put", Routes::bind(&REST_endpoint::post_put, this));
+
   /* Example URL: /pools */
   Routes::Get(_router, "/pools", Routes::bind(&REST_endpoint::get_pools, this));
 
   _router.addDisconnectHandler(global_call_disconnect);
-
-    
-  // Routes::Get(router, "/value/:name", Routes::bind(&StatsEndpoint::doGetMetric, this));
-  // Routes::Get(router, "/ready", Routes::bind(&Generic::handleReady));
-  //    Routes::Get(_router, "/status", Routes::bind(&REST_endpoint::get_status, this));
-
-  //    Routes::Post(_router, "/pool/:name", Routes::bind(&REST_endpoint::post_pool, this));
 }
 
 
@@ -174,7 +170,19 @@ void REST_endpoint::get_pools(const Rest::Request& request, Http::ResponseWriter
   Document::AllocatorType& allocator = doc.GetAllocator();
   
   doc.SetArray();
-  doc.PushBack(Value().SetString("hstore"), allocator);
+
+  std::list<std::string> names;
+  if(_mgr.get_pool_names(names) != S_OK)
+    throw Logic_exception("IKVStire::get_pool_names invocation failed unexpectedly");
+
+
+
+  for(auto& name : names) {
+    doc.PushBack(Value().SetString(name.c_str(),boost::numeric_cast<rapidjson::SizeType>(name.length())), allocator);
+    //doc.PushBack(Value().SetStringRaw(name.c_str()), allocator);
+    //GenericStringRef s(name.c_str(), allocator);
+    //    doc.AddMember("foo","nar",allocator);
+  }
   
   StringBuffer sb;
   Writer<StringBuffer, Document::EncodingType, ASCII<> > writer(sb);
@@ -194,7 +202,6 @@ void REST_endpoint::post_pools(const Rest::Request& request, Http::ResponseWrite
   size_t size_mb = DEFAULT_POOL_SIZE_MB;
   if (request.query().has("sizemb")) {
     size_mb = std::stoul(*request.query().get("sizemb"));
-    PLOG("Has size! (%lu)", size_mb);
   }
 
   session_id_t session_cookie;
@@ -226,6 +233,24 @@ void REST_endpoint::disconnect_hook(const std::string& client_id) {
   _mgr.close_pools(client_id);
 }
 
+void REST_endpoint::post_put(const Rest::Request& request, Http::ResponseWriter response)
+{
+  if (!request.query().has("pool") ||
+      !request.query().has("key") ||
+      !request.query().has("value")) {
+    
+    response.send(Http::Code::Bad_Request, "{\"status\" : -1}");
+    return;
+  }
+  
+  std::string pool = *request.query().get("pool");
+  std::string key = *request.query().get("key");
+  std::string value = *request.query().get("value");
+  
+  _mgr.put(pool, key, value);
 
+  response.send(Http::Code::Ok, "{\"status\" : 0}");
+  return;
+}
 
 #pragma GCC diagnostic pop

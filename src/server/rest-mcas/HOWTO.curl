@@ -1,4 +1,4 @@
-curl https://127.0.0.1:9999/status --cacert certs/rootCA/rootCA.crt --cert certs/client/client.crt --key certs/client/client.key -k -v
+curl https://127.0.0.1:9999/status --cacert certs/rootCA/rootCA.crt --cert certs/client/client.crt --key certs/client/client.key -k -v  -H "Connection: keep-alive" -H "Keep-Alive: timeout=5, max=100"
 curl -c cookies  http://127.0.0.1:9999/status
 
 # -k is the same as --insecure ; does not verify server

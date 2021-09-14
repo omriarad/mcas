@@ -194,6 +194,18 @@ void nupm::dax_manager::data_map_remove(const fs::directory_entry &e, const std:
 	}
 }
 
+template <typename ...Args>
+	int open_successful(const char *fn, int oflag, Args... args)
+	{
+		auto fd = ::open(fn, oflag, args...);
+		if ( fd < 0 )
+		{
+			auto e = errno;
+			throw std::system_error(std::error_code{e, std::system_category()}, std::string("opening ") + fn);
+		}
+		return fd;
+	}
+
 void nupm::dax_manager::map_register(const fs::directory_entry &de, const std::string &origin)
 {
 	if (
@@ -227,7 +239,7 @@ void nupm::dax_manager::map_register(const fs::directory_entry &de, const std::s
 					_mapped_spaces.insert(
 						mapped_spaces::value_type(
 							id
-							, space_registered(*this, this, common::fd_locked(::open(pd.c_str(), O_RDWR, 0666)), id, r.first)
+							, space_registered(*this, this, common::fd_locked(open_successful(pd.c_str(), O_RDWR, 0666)), id, r.first)
 						)
 					);
 				if ( ! itb.second )
@@ -319,7 +331,7 @@ std::unique_ptr<arena> nupm::dax_manager::make_arena_dev(const path &p, addr_t b
 			_mapped_spaces.insert(
 				mapped_spaces::value_type(
 					id
-					, space_registered(*this, this, common::fd_locked(::open(p.c_str(), O_RDWR, 0666)), id, base_)
+					, space_registered(*this, this, common::fd_locked(open_successful(p.c_str(), O_RDWR, 0666)), id, base_)
 				)
 			);
 		if ( ! itb.second )
@@ -529,11 +541,16 @@ auto dax_manager::resize_region(
   return arena->region_get(id_);
 }
 
-
 void dax_manager::erase_region(const string_view & name, arena_id_t arena_id)
 {
   guard_t           g(_reentrant_lock);
   lookup_arena(arena_id)->region_erase(name, this);
+}
+
+std::list<std::string> dax_manager::names_list(arena_id_t arena_id)
+{
+	guard_t g(_reentrant_lock);
+	return lookup_arena(arena_id)->names_list();
 }
 
 size_t dax_manager::get_max_available(arena_id_t arena_id)

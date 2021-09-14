@@ -1,9 +1,12 @@
 #!/usr/bin/python3
 # run from source directory
 import http.client
+import requests
 import json
 import ssl
- 
+import base64
+import logging
+
 # Defining certificate related stuff and host of endpoint
 certificate_file = './certs/client/client.crt'
 certificate_secret= './certs/client/client.key'
@@ -27,8 +30,11 @@ class Connection:
         self.context.load_cert_chain(certfile=certificate_file, keyfile=certificate_secret)
 
         # Create a connection to submit HTTP requests
-        self.connection = http.client.HTTPSConnection(host=host, port=port, context=self.context)
-
+        self.connection = http.client.HTTPSConnection(host=host, port=port, context=self.context,timeout=100)
+        self.get('/pools')
+        self.get('/pools')
+        self.get('/pools')
+                
     def post(self, url):
         return self._request('POST', url)
 
@@ -38,33 +44,26 @@ class Connection:
     def _request(self, method, url):
         self.connection.request(method=method, url=url) #, headers=request_headers, body=json.dumps(request_body_dict))
         response = self.connection.getresponse()
-        return response.read()
+        print(response)
+        return json.loads(response.read())
     
-def issue_post():
-    # Define the client certificate settings for https connection
-    context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-    context.load_cert_chain(certfile=certificate_file, keyfile=certificate_secret)
- 
-    # Create a connection to submit HTTP requests
-    connection = http.client.HTTPSConnection(host, port=9999, context=context)
- 
-    # Use connection to submit a HTTP POST request
-    connection.request(method="POST", url='/pool/foobar', headers=request_headers, body=json.dumps(request_body_dict))
- 
-    # Print the HTTP response from the IOT service endpoint
-    response = connection.getresponse()
-    print(response.status, response.reason)
-    data = response.read()
-    print(data)
-
-
-
+def build_url_put(pool_handle, key, value ):
+    # e.g., /put?pool=939392092&key=foobar&value=Zim 
+    url = '/put?pool=' + pool_handle['session'] + '&key=' + key + '&value=' + value
+    print(url)
+    return url
+    
 from multiprocessing import Process
 
 if __name__ == '__main__':
+    logging.basicConfig(level=logging.DEBUG)
+
     c = Connection()
-#    r = c.get('/pools')
-    print(c.post('/pools/mypool?sizemb=128'))
+    print(c.get('/pools'))
+    pool = c.post('/pools/mypool?sizemb=128')
+    print(pool)
+    print(c.get('/pools'))
+#    c.post(build_url_put(pool, 'K', 'Hello'))
 
     
     
