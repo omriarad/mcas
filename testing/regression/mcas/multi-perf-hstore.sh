@@ -21,14 +21,13 @@ typeset -r PERF_OPTS=${PERF_OPTS:-"--skip_json_reporting"}
 typeset -r fi_log_level=${FI_LOG_LEVEL:-Warn}
 typeset -r fi_mr_cache_max_size=${FI_MR_CACHE_MAX_SIZE:-0}
 
-typeset -r CONFIG_STR="$("$DIR/hstore-0.py" "$STORE" "$DAX_PREFIX" "$NODE_IP" "$PORT_BASE" "--shard-count" "$SHARD_COUNT")"
-
-NUMA_CMD=$(numa_cmd $DAX_PREFIX)
+NUMA_NODE=$(numa_node $DAX_PREFIX)
+typeset -r CONFIG_STR="$("$DIR/cfg_hstore.py" "$NODE_IP" "$STORE" "$DAX_PREFIX" "--port" "$PORT_BASE" "--shard-count" "$SHARD_COUNT" --numa-node "$NUMA_NODE")"
 
 # launch MCAS server
-[ 0 -lt $DEBUG ] && echo FI_MR_CACHE_MAX_SIZE=${fi_mr_cache_max_size} FI_LOG_LEVEL="${fi_log_level}" DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config \'"$CONFIG_STR"\' --forced-exit --debug $DEBUG
-#FI_MR_CACHE_MAX_SIZE=${fi_mr_cache_max_size} FI_LOG_LEVEL="${fi_log_level}" DAX_RESET=1 ${NUMA_CMD} strace -e !read,write -ff -tt ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
-FI_MR_CACHE_MAX_SIZE=${fi_mr_cache_max_size} FI_LOG_LEVEL="${fi_log_level}" DAX_RESET=1 ${NUMA_CMD} ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
+[ 0 -lt $DEBUG ] && echo FI_MR_CACHE_MAX_SIZE=${fi_mr_cache_max_size} FI_LOG_LEVEL="${fi_log_level}" DAX_RESET=1 ./dist/bin/mcas --config \'"$CONFIG_STR"\' --forced-exit --debug $DEBUG
+#FI_MR_CACHE_MAX_SIZE=${fi_mr_cache_max_size} FI_LOG_LEVEL="${fi_log_level}" DAX_RESET=1 strace -e !read,write -ff -tt ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
+FI_MR_CACHE_MAX_SIZE=${fi_mr_cache_max_size} FI_LOG_LEVEL="${fi_log_level}" DAX_RESET=1 ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
 typeset -r SERVER_PID=$!
 
 sleep 3
