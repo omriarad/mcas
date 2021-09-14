@@ -2,6 +2,7 @@ This is our experiments directory. There are two main scripts at the moment (am 
 
 1) ./mnist_dram.py
 2) ./mnist_pymm.py
+3) ./mnist_mmap.py
 
 These scripts will run a SWAG (SWA-Gaussian) experiment using either pymm or dram. Both scripts take a few optional arguments and only one required argument. The required argument is the model string (aka class name of the model in lower-case).
 
@@ -21,15 +22,15 @@ The default behavior for the scripts is to use all posterior samples (recorded a
 
             k = 60000 * epochs * frequency / batch_size
 
-Using default values, if we wanted to target the following posterior memory sizes, we would need to train for the following number of epochs:
-
-model               1gb             10gb            100gb           300gb           700gb
-------------------------------------------------------------------------------------------
-model_2conv2fc      7               64              636             1908            4452
-model_2fc           1               2               18              53              123
-model_3fc           1               2               11              33              76
-model_4fc           1               1               5               15              35
+Using default values, if we wanted to target more posterior memory sizes, you should need to train with more epochs than the defualt (-e=1).
+These are the models we have:
+model            
+-----------------
+model_2conv2fc   
+model_2fc        
+model_3fc        
+model_4fc        
 
 
 By defualt, results will be saved to ./results/mnist/{dram,pymm}.csv unless a path is specified otherwise. Please use the -h flag to see the arguments for the scripts.
-
+By default, the training excute on gpu if you want to tain on cpu, please use -c=0

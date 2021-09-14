@@ -16,7 +16,7 @@ tasks.
 
 
 
-#Link to short paper:
+#Link to the paper:
 
 
 # How to run: 
@@ -24,7 +24,7 @@ You can find all the details in the experiments folder
 
 # Examples:
 There are 4 settings of experiments:
-1. DRAM + Memory_mode
+## DRAM + Memory_mode
 Regular implementation, when the data is beyond DRAM then Optane-PM 
 accessible through DRAM cache misses --- The processing is on the DRAM data.
 Example:
@@ -32,7 +32,7 @@ Example:
 expirenants>  python3 mnist_dram.py  model_4fc -p /mnt/nvme0/models/  -c 1 -e 75  --results_filepath mnist_dram_mm_model_4fc_e75.gpu.csv
 ```
 
-2. Optane-PM - persistent mode
+## Optane-PM - persistent mode
 We use PyMM library in FS-DAX or Dev-DAX mode which offers cache-line granularity
 with direct load/store access
 ``` python
@@ -42,7 +42,7 @@ expirenants> python3 mnist_pymm.py  model_4fc -p /mnt/nvme0/models/  -f /dev/dax
 
 
 
-3. MMAP
+## MMAP
 We use the python class numpy.memmap for this implementation
 Example:
 ``` python
@@ -52,9 +52,10 @@ expirenants>  python3 mnist_mmap.py  model_4fc -p /mnt/nvme0/models/  -c 1  --po
 
 
 
-# Helpful commands for creating diffreant configurations:
+# Helpful commands for creating different configurations:
 
 ## Optane-PM - App-Direct - fsdax
+``` bash
 sudo ndctl list
 sudo ndctl destroy-namespace namespace0.0 -f
 sudo mkdir /mnt/pmem0
@@ -63,25 +64,32 @@ sudo mkfs -t ext4 /dev/pmem0
 sudo mount -o dax /dev/pmem0 /mnt/pmem0
 sudo chmod go+rw /mnt/pmem0
 mkdir /mnt/pmem0/mystuff
+```
 
 
 ## Optane-PM - App-Direct mode - dev-dax
+``` bash
 sudo ndctl list
 sudo ndctl destroy-namespace namespace0.0 -f
 sudo ndctl create-namespace -m devdax -e namespace1.0 --size 811748818944  --align 2M --force
 sudo chmod go+rw /dev/dax0.0
+```
 
 
 
 ## Optane-PM - Memory mode
+``` bash
 sudo ipmctl create -goal MemoryMode=100
 sudo ipmctl show -memoryresources
 sudo reboot
+```
 
 
 
 ## Mount NVMe0
+``` bash
 sudo mount /dev/nvme0n1 /mnt/nvme0/
+```
 
 
 
