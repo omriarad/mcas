@@ -1,0 +1,72 @@
+{
+	min_scale:	10,
+	max_scale:	12,
+	base:	2,
+	num_nodes:	10,
+	root:	0,
+	nodes:	 [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+	adjacency:	{
+		0:	{
+			is_root:	1,
+			parent:	-1,
+			scale_map: {
+				12:	[9, 7, 5, 1, 2, 3, 6, 4]
+			}
+		},
+		1:	{
+			is_root:	0,
+			parent:	0,
+			scale_map: {
+			}
+		},
+		2:	{
+			is_root:	0,
+			parent:	0,
+			scale_map: {
+			}
+		},
+		3:	{
+			is_root:	0,
+			parent:	0,
+			scale_map: {
+			}
+		},
+		4:	{
+			is_root:	0,
+			parent:	0,
+			scale_map: {
+				11:	[8]
+			}
+		},
+		5:	{
+			is_root:	0,
+			parent:	0,
+			scale_map: {
+			}
+		},
+		6:	{
+			is_root:	0,
+			parent:	0,
+			scale_map: {
+			}
+		},
+		7:	{
+			is_root:	0,
+			parent:	0,
+			scale_map: {
+			}
+		},
+		8:	{
+			is_root:	0,
+			parent:	4,
+			scale_map: {
+			}
+		},
+		9:	{
+			is_root:	0,
+			parent:	0,
+			scale_map: {
+			}
+		}
+	}
+}
