@@ -2,7 +2,7 @@
    eXokernel Development Kit (XDK)
 
    Samsung Research America Copyright (C) 2013
-   IBM Corporation 2019
+   IBM Corporation 2019-2021
 
    The GNU C Library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Lesser General Public
@@ -39,11 +39,16 @@
 #if defined(__cplusplus)
 #include <cstdio>
 #include <cstdarg>
+#include <utility> /* forward */
+#include <sstream> /* ostringstream */
 
 /* optional: print a timestamp */
+#ifndef LOG_PRINT_TIMESTAMP
+#error LOG_PRINT_TIMESTAMP undefined
 #define LOG_PRINT_TIMESTAMP 0
+#endif
 
-#if LOG_PRINT_TIMESTAMP
+#if LOG_PRINT_TIMESTAMP && defined CONFIG_DEBUG
 #include <chrono>
 
 namespace
@@ -337,6 +342,60 @@ inline void PLOG2(const char * color, const char * format, ...)
 #define CPWRN_2(level,msg) if ( (level) < this->debug_level() ) { PWRN(msg); }
 #define CPWRN_1(level)
 #define CPWRN(...) GET_MACRO(__VA_ARGS__,CPWRN_E,CPWRN_D,CPWRN_C,CPWRN_B,CPWRN_A,CPWRN_9,CPWRN_8,CPWRN_7,CPWRN_6,CPWRN_5,CPWRN_4,CPWRN_3,CPWRN_2,CPWRN_1,CPWRN_0)(__VA_ARGS__)
+
+#if defined __cplusplus
+
+#include <common/string_view.h>
+#include <stdexcept>
+namespace
+{
+	inline void faccrete(std::ostringstream &os_, common::string_view fmt_)
+	{
+		os_ << fmt_;
+	}
+
+	template <typename T, typename ... Args>
+		void faccrete(std::ostringstream &os_, common::string_view fmt_, const T &t_, Args && ... args_)
+		{
+			auto c = fmt_.data();
+			auto e = c + fmt_.size();
+			while ( c != e && *c != '{' )
+			{
+				os_ << *c++;
+			}
+			if ( c != e )
+			{
+				++c; /* skip over '{' */
+				if ( c != e && *c == '}' )
+				{
+					os_ << t_;
+				}
+				else if ( c != e && *c == ':' && ++c != e && *c == 'x' && ++c != e && *c == '}' )
+				{
+					/* our sole support of non-trivial formatting: {:x} */
+					os_ << std::hex << t_ << std::dec;
+				}
+				else
+				{
+					std::string er("Ill formed : ");
+					er.append(fmt_.data(), fmt_.size());
+					throw std::runtime_error(er);
+				}
+				++c; /* skip over '}' */
+				faccrete(os_, common::string_view(c, e-c), std::forward<Args>(args_) ...);
+			}
+		}
+}
+
+/* Simple support for logging similar to std::format */
+template <typename ... Args>
+	void FLOG(common::string_view fmt, Args && ... args)
+	{
+		std::ostringstream os;
+		faccrete(os, fmt, std::forward<Args>(args) ...);
+		PLOG("%s", os.str().c_str());
+	}
+#endif
 
 // clang-format on
 
