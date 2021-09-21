@@ -397,6 +397,13 @@ template <typename ... Args>
 	}
 #endif
 
+/* class name of what x locates */
+#define CNAME(x) typeid(*(x)).name()
+/* FLOG preceded by function name */
+#define FLOGF(fmt, ...) FLOG("{} " fmt, __func__, __VA_ARGS__)
+/* FLOG preceded by class name and function name. Code which sees the error "'this' is unavaiable" should use FLOGF instead. */
+#define FLOGM(fmt, ...) FLOG("{}::{} " fmt, CNAME(this), __func__, __VA_ARGS__)
+
 // clang-format on
 
 
