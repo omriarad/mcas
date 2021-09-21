@@ -21,7 +21,7 @@ op=put_direct
 for ct in 1
 do for lg in 23
 	do sz=$((1<<lg))
-		# STORE_SIZE assumes that only 1000 of the elements will be needed (i.i, that exp_perf_cirect,s is modified to us ony a few
+		# STORE_SIZE assumes that only 1000 of the elements will be needed, i.e, that exp_perf_direct is modified to use ony a few elements
 		#export STORE_SIZE=$((1000*(200+8+$sz)*25/10))
 		DEBUG=${debug} \
 		FI_LOG_LEVEL="${fi_log_level}" \
