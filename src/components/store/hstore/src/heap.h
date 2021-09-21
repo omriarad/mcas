@@ -63,7 +63,7 @@ public:
 	heap(const heap &) = default;
 	heap &operator=(const heap &) = delete;
 #if CW_TEST
-	byte_span scratchpad() { return common::make_byte_span(_scratchpad.data(), _scratchpad.size()); } 
+	byte_span scratchpad() { return common::make_byte_span(_scratchpad.data(), _scratchpad.size()); }
 #endif
 
 	~heap();

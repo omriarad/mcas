@@ -131,7 +131,7 @@ void incr_n_times(
 			std::ostringstream e;
 			e << __func__ << " " << descr_ << " failed code " << r << " key " << data_key_ << " data_size " << data_size << "\n";
 			std::cerr << e.str();
-		} 
+		}
 		XLOG("(", n_, ") ", th_, " exc");
 
 		ASSERT_EQ(S_OK, r);

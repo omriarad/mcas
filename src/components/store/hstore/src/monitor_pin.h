@@ -20,8 +20,8 @@
 #include "pin_control.h"
 #include "test_flags.h"
 
-/* 
- * code to arm and disarm 
+/*
+ * code to arm and disarm
  */
 template <typename Pool>
 	struct monitor_pin
