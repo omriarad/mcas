@@ -14,6 +14,7 @@
 
 #include <api/components.h>
 #include <api/kvstore_itf.h>
+#include <common/command.h>
 #include <common/profiler.h>
 #include <common/utils.h>
 #include <boost/program_options.hpp>
@@ -21,6 +22,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <ctime>
 #include <iostream>
 #include <mutex>
 #include <thread>
@@ -86,6 +88,18 @@ static const std::vector<test_element> test_vector{
 int main(int argc, char *argv[])
 {
   namespace po = boost::program_options;
+
+  {
+    common::command tm("/usr/bin/date", "date", "+%s.%N");
+  }
+  timespec ts;
+  timespec_get(&ts, TIME_UTC);
+  PLOG("UTC time %f", double(double(ts.tv_sec) + double(ts.tv_nsec)/1e9));
+  const char *env[] = {"S_TIME_FORMAT=ISO", static_cast<char *>(0)};
+  common::command_killed mon(env, "/usr/bin/mpstat", "mpstat", "-P", "ALL", "1");
+  {
+    common::command tm("/usr/bin/date", "date", "+%s.%N");
+  }
 
   try {
     std::vector<std::string> test_names;
