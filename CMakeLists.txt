@@ -28,6 +28,7 @@ option(BYTE_USES_STD "byte data uses std::byte, not gsl::byte" OFF)
 option(INVASIVE_PERF "enable invasive performance trace" OFF)
 option(CW_TEST "invaslive RDMA performance testing" OFF)
 option(PROFILE "profile the code" ON)
+option(LOG_TIMESTAMP "timestamp the log messages" OFF)
 
 set(DM_REGION_LOG_GRAIN_SIZE 25 CACHE STRING "log base 2 of the device_manager allocation granularity")
 
@@ -60,6 +61,10 @@ add_definitions(-DTBB_USE_THREADING_TOOLS -DEASTL_STD_ITERATOR_CATEGORY_ENABLED)
 
 if(CW_TEST)
 	add_definitions(-DCW_TEST=1)
+endif()
+
+if(LOG_TIMESTAMP)
+	add_definitions(-DLOG_PRINT_TIMESTAMP=1)
 endif()
 
 if(SPAN_USES_GSL)
