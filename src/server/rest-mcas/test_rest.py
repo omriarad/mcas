@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # run from source directory
 import http.client
-import requests
+import socket
 import json
 import ssl
 import base64
@@ -28,9 +28,25 @@ class Connection:
     def __init__(self, host='localhost', port=9999):
         self.context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         self.context.load_cert_chain(certfile=certificate_file, keyfile=certificate_secret)
+        
+        self.connection = http.client.HTTPSConnection(host=host, port=port, context=self.context, timeout=100)
+        
+        print("http.client Lib:", http.client.__file__)
+
+        orig_connect = http.client.HTTPSConnection.connect
+        def monkey_connect(self):            
+            orig_connect(self)
+            print(self)
+        http.client.HTTPSConnection.connect = monkey_connect            
+#             
+#             print(dir(http.client.HTTPSConnection.socket_options))
+# # #            self.sock.setsockopt(…)
+
 
         # Create a connection to submit HTTP requests
-        self.connection = http.client.HTTPSConnection(host=host, port=port, context=self.context,timeout=100)
+
+#        self.connection.sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+
         self.get('/pools')
         self.get('/pools')
         self.get('/pools')
@@ -42,7 +58,10 @@ class Connection:
         return self._request('GET', url)
 
     def _request(self, method, url):
-        self.connection.request(method=method, url=url) #, headers=request_headers, body=json.dumps(request_body_dict))
+        hdr = headers = {"Content-Type":"application/x-www-form-urlencoded", "Connection":"Keep-Alive"}
+        self.connection.request(method=method, url=url, headers=hdr)
+
+        #, headers=request_headers, body=json.dumps(request_body_dict))
         response = self.connection.getresponse()
         print(response)
         return json.loads(response.read())
