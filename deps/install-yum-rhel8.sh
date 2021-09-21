@@ -12,6 +12,7 @@ dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarc
 dnf -y update
 
 # libuuid which gmp-devel mpfr-devel CUnit CUnit-devel
+# systat included for /uar/bin/mpstat, used in performance tracing
 dnf -y --nodocs --setopt=install_weak_deps=False install automake \
     cmake git make gcc-c++ make libtool \
     openssl-devel python3 python3-devel kmod-libs pkg-config bash-completion \
@@ -28,7 +29,8 @@ dnf -y --nodocs --setopt=install_weak_deps=False install automake \
     rapidjson-devel \
     openssl-devel golang gnutls gnutls-devel \
     zeromq-devel czmq-devel czmq \
-    libstdc++-static glibc-static
+    libstdc++-static glibc-static \
+    sysstat
 
 dnf clean packages
 df -h /
