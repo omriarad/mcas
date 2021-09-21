@@ -19,6 +19,7 @@
 
 #include <api/fabric_itf.h> /* _Fabric_client */
 #include <common/errors.h> /* S_OK */
+#include <common/logging.h> /* FLOG */
 #include <common/types.h> /* status_t */
 
 #pragma GCC diagnostic push
@@ -32,8 +33,6 @@
 #include <algorithm> /* copy */
 #include <cstring> /* memcpy */
 #include <exception>
-#include <iomanip> /* hex */
-#include <iostream> /* cerr */
 #include <string>
 #include <memory> /* make_shared */
 #include <vector>
@@ -49,7 +48,7 @@ try
 }
 catch ( std::exception &e )
 {
-	std::cerr << "remote_memory_client::" << __func__ << e.what() << "\n";
+	FLOG("remote_memory_client:{} {}", __func__, e.what());
 }
 
 void remote_memory_client::check_complete(::status_t stat_, std::size_t)
@@ -92,13 +91,11 @@ try
 			}
 		, _test_type
 	);
-	std::cerr << "Client: remote memory addr " << reinterpret_cast<void*>(_vaddr) << " key " << std::hex << _key << std::endl;
-	boost::io::ios_base_all_saver sv(std::cerr);
-	std::cerr << "Client: remote memory addr " << reinterpret_cast<void*>(_vaddr) << " key " << std::hex << _key << std::endl;
+	FLOG("Client: remote memory addr {} key {:x}", reinterpret_cast<void*>(_vaddr), _key);
 }
 catch ( std::exception &e )
 {
-	std::cerr << __func__ << ": " << e.what() << "\n";
+	FLOGM("{}", e.what());
 	throw;
 }
 
@@ -117,7 +114,7 @@ remote_memory_client::~remote_memory_client()
 		}
 		catch ( std::exception &e )
 		{
-			std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+			FLOGM("exception {} {}", e.what(), eyecatcher);
 		}
 	}
 }
@@ -142,7 +139,7 @@ void remote_memory_client::wait_complete(bool force_error_)
 	}
 	if ( _last_stat != ::S_OK )
 	{
-		std::cerr << "remote_memory_client::" << __func__ << ": " << _last_stat << "\n";
+		FLOGM("{}", _last_stat);
 	}
 }
 
@@ -181,7 +178,7 @@ void remote_memory_client::read_verify(const common::string_view msg_)
 	EXPECT_EQ(_last_stat, ::S_OK);
 	if ( _last_stat != ::S_OK )
 	{
-		std::cerr << "remote_memory_client::" << __func__ << ": " << _last_stat << "\n";
+		FLOGM("{}", _last_stat);
 	}
 	std::string remote_msg(&rm_in()[0], &rm_in()[0] + msg_.size());
 	EXPECT_EQ(msg_, remote_msg);

@@ -59,13 +59,13 @@ fabric_endpoint *fabric_connection::aep() const
 
 std::string fabric_connection::get_peer_addr()
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
 	return std::string(_peer_addr.begin(), _peer_addr.end());
 }
 
 std::string fabric_connection::get_local_addr()
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
 	auto v = get_name();
 	return std::string(v.begin(), v.end());
 }
@@ -80,12 +80,12 @@ auto fabric_connection::get_name() const -> fabric_types::addr_ep_t
 
 std::size_t fabric_connection::max_message_size() const noexcept
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   return aep()->ep_info().ep_attr->max_msg_size;
 }
 
 std::size_t fabric_connection::max_inject_size() const noexcept
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   return aep()->ep_info().tx_attr->inject_size;
 }

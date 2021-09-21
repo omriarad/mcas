@@ -19,6 +19,7 @@
 #include "wait_poll.h"
 #include <api/fabric_itf.h> /* IFabric, IFabric_server_grouped_factory */
 #include <common/errors.h> /* S_OK */
+#include <common/logging.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"
@@ -29,7 +30,6 @@
 #include <sys/uio.h> /* iovec */
 #include <exception>
 #include <functional> /* ref */
-#include <iostream> /* cerr */
 #include <string>
 #include <memory> /* make_shared, shared_ptr */
 #include <thread>
@@ -72,7 +72,7 @@ void remote_memory_server_grouped::listener(
     }
     catch ( std::exception &e )
     {
-      std::cerr << "remote_memory_server_grouped::" << __func__ << ": " << e.what() << "\n";
+      FLOGM("{}", e.what());
       throw;
     }
   }
@@ -108,7 +108,7 @@ remote_memory_server_grouped::~remote_memory_server_grouped()
   }
   catch ( std::exception &e )
   {
-    std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+    FLOGM("exception; {}", e.what(), eyecatcher);
   }
 }
 

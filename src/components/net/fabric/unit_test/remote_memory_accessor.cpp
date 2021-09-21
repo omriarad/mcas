@@ -17,7 +17,7 @@
 #include "wait_poll.h"
 #include <api/fabric_itf.h> /* IFabric_endpoint_connected */
 #include <common/errors.h> /* S_OK */
-#include <boost/io/ios_state.hpp>
+#include <common/logging.h> /* FLOG */
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"
@@ -29,7 +29,6 @@
 #include <cstdint> /* uint64_t */
 #include <cstring> /* memcpy */
 #include <exception>
-#include <iostream> /* cerr */
 #include <vector>
 
 
@@ -38,9 +37,7 @@ void remote_memory_accessor::send_memory_info(component::IFabric_endpoint_connec
   std::uint64_t vaddr = reinterpret_cast<std::uint64_t>(&rm_[0]);
   std::uint64_t key = rm_.key();
   {
-    std::cerr << "Server: memory addr " << reinterpret_cast<void*>(vaddr) << std::hex << " key " << key << "\n";
-    boost::io::ios_base_all_saver sv(std::cerr);
-    std::cerr << "Server: memory addr " << reinterpret_cast<void*>(vaddr) << std::hex << " key " << key << "\n";
+    FLOG("Server: memory addr {} key {:x}", reinterpret_cast<void*>(vaddr), key);
   }
   char msg[(sizeof vaddr) + (sizeof key)];
   std::memcpy(msg, &vaddr, sizeof vaddr);
@@ -68,6 +65,6 @@ void remote_memory_accessor::send_msg(component::IFabric_endpoint_connected &cnx
   }
   catch ( const std::exception &e )
   {
-    std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+    FLOGM("exception {} {}", " exception ", e.what(), eyecatcher);
   }
 }

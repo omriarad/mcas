@@ -16,7 +16,6 @@
 #include <api/fabric_itf.h> /* IFabric_server_factory, IFabric_server */
 #include <common/logging.h>
 #include <exception>
-#include <iostream> /* cerr */
 
 namespace
 {
@@ -46,7 +45,7 @@ server_connection::~server_connection()
     }
     catch ( std::exception &e )
     {
-      std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+      FLOGM("exception {} {}", e.what(), eyecatcher);
     }
   }
 	PLOG("%s %p", __func__, static_cast<void *>(this));

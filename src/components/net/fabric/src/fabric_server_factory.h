@@ -33,7 +33,7 @@ class Fabric_server_factory
   , public Fabric_server_generic_factory
 {
 public:
-	component::IFabric_endpoint_unconnected_server * get_new_endpoint_unconnected() override { ENTER_EXIT_TRACE return Fabric_server_generic_factory::get_new_endpoint_unconnected(); }
+	component::IFabric_endpoint_unconnected_server * get_new_endpoint_unconnected() override { ENTER_EXIT_TRACE0 return Fabric_server_generic_factory::get_new_endpoint_unconnected(); }
 	gsl::not_null<component::IFabric_server *> open_connection(gsl::not_null<component::IFabric_endpoint_unconnected_server *>) override;
   /**
    * Note: fi_info is not const because we reuse it when constructing the passize endpoint
@@ -54,11 +54,11 @@ public:
 
   std::vector<component::IFabric_server*> connections() override;
 
-  std::size_t max_message_size() const noexcept override { ENTER_EXIT_TRACE return Fabric_server_generic_factory::max_message_size(); }
-  std::string get_provider_name() const override { ENTER_EXIT_TRACE return Fabric_server_generic_factory::get_provider_name(); }
+  std::size_t max_message_size() const noexcept override { ENTER_EXIT_TRACE0 return Fabric_server_generic_factory::max_message_size(); }
+  std::string get_provider_name() const override { ENTER_EXIT_TRACE0 return Fabric_server_generic_factory::get_provider_name(); }
 
-  void cb(std::uint32_t event, ::fi_eq_cm_entry &entry) noexcept override { ENTER_EXIT_TRACE return Fabric_server_generic_factory::cb(event, entry); }
-  void err(::fid_eq *eq, ::fi_eq_err_entry &entry) noexcept override { ENTER_EXIT_TRACE return Fabric_server_generic_factory::err(eq, entry); }
+  void cb(std::uint32_t event, ::fi_eq_cm_entry &entry) noexcept override { ENTER_EXIT_TRACE0 return Fabric_server_generic_factory::cb(event, entry); }
+  void err(::fid_eq *eq, ::fi_eq_err_entry &entry) noexcept override { ENTER_EXIT_TRACE0 return Fabric_server_generic_factory::err(eq, entry); }
 };
 
 #endif

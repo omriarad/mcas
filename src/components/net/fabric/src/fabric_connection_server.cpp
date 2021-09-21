@@ -51,12 +51,12 @@ void Fabric_connection_server::wait_event() const
 
 std::size_t Fabric_connection_server::max_message_size() const noexcept
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
 	return aep()->ep_info().ep_attr->max_msg_size;
 }
 
 std::size_t Fabric_connection_server::max_inject_size() const noexcept
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
 	return aep()->ep_info().tx_attr->inject_size;
 }

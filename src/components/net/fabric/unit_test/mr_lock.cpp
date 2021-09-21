@@ -13,10 +13,10 @@
 #include "mr_lock.h"
 
 #include "eyecatcher.h"
+#include <common/logging.h>
 #include <sys/mman.h> /* mlock, munlock */
 #include <cstring>
 #include <exception>
-#include <iostream>
 #include <string>
 #include <system_error>
 
@@ -40,7 +40,7 @@ mr_lock::~mr_lock()
     if ( rc == -1 )
     {
       auto e = errno;
-      std::cerr << __func__ << " ::munlock failed " << ::strerror(e) << eyecatcher << std::endl;
+      FLOGM("::munlock failed {} {}", ::strerror(e), eyecatcher);
     }
   }
 }

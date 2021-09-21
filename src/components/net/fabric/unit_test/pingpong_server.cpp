@@ -16,11 +16,11 @@
 #include "pingpong_cb_pack.h"
 #include "pingpong_server_cb.h"
 #include "pingpong_server_client_state.h"
+#include <common/logging.h>
 #include <exception>
 #include <cstdint> /* uint64_t */
 #include <chrono>
 #include <functional> /* ref */
-#include <iostream> /* cerr */
 
 namespace component
 {
@@ -77,7 +77,7 @@ try
 }
 catch ( std::exception &e )
 {
-  std::cerr << "pingpong_server::" << __func__ << ": " << e.what() << "\n";
+  FLOGM("exception {} {}", e.what(), eyecatcher);
   throw;
 }
 
@@ -119,7 +119,7 @@ pingpong_server::~pingpong_server()
     }
     catch ( std::exception &e )
     {
-      std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+      FLOGM("exception {} {}", e.what(), eyecatcher);
     }
   }
 }

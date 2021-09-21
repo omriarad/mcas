@@ -30,7 +30,7 @@ Fabric_server_factory::~Fabric_server_factory()
 
 auto Fabric_server_factory::open_connection(gsl::not_null<component::IFabric_endpoint_unconnected_server *> aep) -> gsl::not_null<component::IFabric_server *>
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
 	auto conn = new Fabric_server(aep);
 	/* wait for an acnowledgment from the client, and add to open list */
 	open_connection_generic(conn);
@@ -39,7 +39,7 @@ auto Fabric_server_factory::open_connection(gsl::not_null<component::IFabric_end
 
 std::vector<component::IFabric_server *> Fabric_server_factory::connections()
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   auto g = Fabric_server_generic_factory::connections();
   std::vector<component::IFabric_server *> v;
   std::transform(
@@ -56,6 +56,6 @@ std::vector<component::IFabric_server *> Fabric_server_factory::connections()
 
 void Fabric_server_factory::close_connection(component::IFabric_server * cnxn_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE0
   return Fabric_server_generic_factory::close_connection(static_cast<Fabric_server *>(cnxn_));
 }

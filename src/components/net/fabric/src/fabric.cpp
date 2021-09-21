@@ -45,7 +45,6 @@
 
 #include <chrono> /* seconds */
 #include <cstdlib> /* getenv */
-#include <iostream> /* cerr */
 #include <system_error> /* system_error */
 #include <thread> /* sleep_for */
 #include <utility> /* tuple */
@@ -90,7 +89,7 @@ namespace
     unsigned ct = 0;
     for ( ; f; f = f->next )
     {
-      std::cerr << "Info " << ct << " " << tostr(*f) << "\n";
+      LOG("{} Info {}", ct, tostr(*f));
       ++ct;
     }
   }
@@ -226,16 +225,16 @@ namespace
       if ( auto rp = results.get() )
       {
         auto addr_num = ntohl(common::pointer_cast<sockaddr_in>(rp->ai_addr)->sin_addr.s_addr);
-        std::cerr << "fabric_server_factory (specified by " << server_addr_env << "=" << addr_str
-          << ") listens on "
-          << (addr_num >> 24 & 0xff) << "."
-          << (addr_num >> 16 & 0xff) << "."
-          << (addr_num >> 8 & 0xff) << "."
-          << (addr_num & 0xff) << ":" << port_ << "\n";
+        FLOGF("fabric_server_factory (specified by {}={}) listens on {}.{}.{}.{}:{}", server_addr_env, addr_str
+          , (addr_num >> 24 & 0xff)
+          , (addr_num >> 16 & 0xff)
+          , (addr_num >> 8 & 0xff)
+          , (addr_num & 0xff)
+	  , port_);
         return addr_num;
       }
     }
-    std::cerr << "fabric_server_factory (not specified by " << server_addr_env << ") listens on *:" << port_ << "\n";
+    FLOGF("fabric_server_factory (not specified by {}) listens on *:{}", server_addr_env, port_);
     return INADDR_ANY;
   }
 }
@@ -264,7 +263,7 @@ std::uint16_t Fabric::choose_port(std::uint16_t port_)
 
 component::IFabric_server_factory * Fabric::open_server_factory(const common::string_view json_configuration_, std::uint16_t control_port_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   _info = parse_info(json_configuration_, _info);
   control_port_ = choose_port(control_port_);
   return new Fabric_server_factory(*this, *this, *_info, listen_addr(control_port_), control_port_);
@@ -375,7 +374,7 @@ try
       case FI_EAGAIN:
         break;
       default:
-        std::cerr << __func__ << ": fabric error " << e << " (" << ::fi_strerror(int(e)) << ")\n";
+        FLOGM("fabric error {} ({})", e, ::fi_strerror(int(e)));
         std::this_thread::sleep_for(std::chrono::seconds(1));
 #if 0
         throw fabric_runtime_error(e, __FILE__, __LINE__);
@@ -385,7 +384,7 @@ try
     }
     catch ( const std::exception &e )
     {
-      std::cerr << __func__ << " (non-error path): exception: " << e.what() << "\n";
+      FLOGM("(non-error path): exception: {}", e.what());
       throw;
     }
   }
@@ -393,7 +392,7 @@ try
   {
     bool found = false;
 #if 0
-    std::cerr << "read_eq: fid " << entry.fid << " event " << get_event_name(event) << "\n";
+    FLOGM("read_eq: fid {} event {}", entry.fid, get_event_name(event));
 #endif
     try
     {
@@ -408,12 +407,12 @@ try
     }
     catch ( const std::bad_alloc &e )
     {
-      std::cerr << __func__ << " (aep event path): bad_alloc: " << e.what() << "\n";
+      FLOGM("(aep event path): bad_alloc: {}", e.what());
       throw;
     }
     catch ( const std::exception &e )
     {
-      std::cerr << __func__ << " (aep event path): exception: " << e.what() << "\n";
+      FLOGM("(aep event path): exception: {}", e.what());
       throw;
     }
 
@@ -431,24 +430,24 @@ try
     }
     catch ( const std::bad_alloc &e )
     {
-      std::cerr << __func__ << " (pep event path): bad_alloc: " << e.what() << "\n";
+      FLOGM("(pep event path): bad_alloc: {}", e.what());
       throw;
     }
     catch ( const std::exception &e )
     {
-      std::cerr << __func__ << " (pep event path): exception: " << e.what() << "\n";
+      FLOGM("(pep event path): exception: {}", e.what());
       throw;
     }
   }
 }
 catch ( const std::bad_alloc &e )
 {
-  std::cerr << __func__ << ": bad_alloc: " << e.what() << "\n";
+  FLOGM("bad_alloc: {}", e.what());
   throw;
 }
 catch ( const std::exception &e )
 {
-  std::cerr << __func__ << ": exception: " << e.what() << "\n";
+  FLOGM("exception: {}", e.what());
   throw;
 }
 
@@ -463,7 +462,7 @@ namespace
 component::IFabric_endpoint_unconnected_client * Fabric::make_endpoint(const common::string_view json_configuration_, common::string_view remote_endpoint_, std::uint16_t port_)
 try
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   _info = parse_info(json_configuration_, _info);
   return new fabric_endpoint(*this, *this, *_info, remote_endpoint_, port_);
 }
@@ -553,6 +552,6 @@ std::shared_ptr<::fid_eq> Fabric::make_fid_eq(::fi_eq_attr &attr_, void *context
 
 const char *Fabric::prov_name() const noexcept
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   return _info && _info->fabric_attr ? _info->fabric_attr->prov_name : nullptr;
 }

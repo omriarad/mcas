@@ -226,10 +226,10 @@ public:
     , const std::size_t len
   ) override;
 
-  std::string get_peer_addr() override { ENTER_EXIT_TRACE return Fabric_connection_client::get_peer_addr(); }
-  std::string get_local_addr() override { ENTER_EXIT_TRACE return Fabric_connection_client::get_local_addr(); }
-  std::size_t max_message_size() const noexcept override { ENTER_EXIT_TRACE return Fabric_connection_client::max_message_size(); }
-  std::size_t max_inject_size() const noexcept override { ENTER_EXIT_TRACE return Fabric_connection_client::max_inject_size(); }
+  std::string get_peer_addr() override { ENTER_EXIT_TRACE0 return Fabric_connection_client::get_peer_addr(); }
+  std::string get_local_addr() override { ENTER_EXIT_TRACE0 return Fabric_connection_client::get_local_addr(); }
+  std::size_t max_message_size() const noexcept override { ENTER_EXIT_TRACE0 return Fabric_connection_client::max_message_size(); }
+  std::size_t max_inject_size() const noexcept override { ENTER_EXIT_TRACE0 return Fabric_connection_client::max_inject_size(); }
 };
 #pragma GCC diagnostic pop
 

@@ -252,7 +252,7 @@ public:
 
   std::size_t stalled_completion_count() override
   {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
     return _rxcq.stalled_completion_count() + _txcq.stalled_completion_count();
   }
   /*

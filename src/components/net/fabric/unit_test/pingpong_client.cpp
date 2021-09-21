@@ -17,6 +17,7 @@
 #include "pingpong_cnxn_state.h"
 
 #include <common/errors.h> /* S_OK */
+#include <common/logging.h>
 #include <common/types.h> /* status_t */
 
 #pragma GCC diagnostic push
@@ -26,7 +27,6 @@
 #pragma GCC diagnostic pop
 
 #include <exception>
-#include <iostream> /* cerr */
 
 namespace component
 {
@@ -117,7 +117,7 @@ try
 }
 catch ( std::exception &e )
 {
-  std::cerr << __func__ << ": " << e.what() << "\n";
+  FLOGM("exception: {}", e.what());
   throw;
 }
 

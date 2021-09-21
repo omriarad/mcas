@@ -24,7 +24,7 @@
 #include "fabric_cq.h" /* fi_cq_entry_t */
 #include "fabric_runtime_error.h"
 #include <common/env.h> /* env_value */
-#include <iostream> /* cerr */
+#include <common/logging.h>
 
 /**
  * Fabric/RDMA-based network component
@@ -44,7 +44,7 @@ Fabric_cq_grouped::stats::~stats()
 {
   if ( common::env_value("FABRIC_STATS", false) )
   {
-    std::cerr << "Fabric_cq_grouped(" << this << ") ct " << ct_total << " defer " << defer_total << " redirect " << redirect_total << "\n";
+  FLOG("Fabric_cq_grouped({}} ct {} defer {} redirect {}", this, ct_total, defer_total, redirect_total);
   }
 }
 

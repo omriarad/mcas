@@ -22,9 +22,9 @@
 #include "rdma-fabric.h"
 
 #if 0
-#include <iostream> /* cerr */
+#include <common/logging.h>
 #include <typeinfo>
-#define FABRIC_TRACE_FID(f) ( std::cerr << __func__ << " " << typeid(*f).name() << " " << (f) << std::endl )
+#define FABRIC_TRACE_FID(f) FLOG("{} {} {}", __func__, typeid(*(f)).name(), (f))
 #else
 #define FABRIC_TRACE_FID(f) static_cast<void>(0)
 #endif

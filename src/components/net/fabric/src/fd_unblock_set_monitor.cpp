@@ -19,7 +19,7 @@
 
 #include "fd_unblock_set_monitor.h"
 
-#include <iostream> /* cerr */
+#include <common/logging.h>
 
 using guard = std::lock_guard<std::mutex>;
 
@@ -43,7 +43,7 @@ fd_unblock_set_monitor::~fd_unblock_set_monitor()
   {
     try
     {
-      std::cerr << __func__ << " exception " << e.what() << "\n";
+      FLOGF("exception {}", e.what());
     }
     catch ( const std::exception & )
     {}

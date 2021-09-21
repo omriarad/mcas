@@ -16,11 +16,11 @@
 #include "pingpong_cb_pack.h"
 #include "pingpong_server_cb.h"
 #include <api/fabric_itf.h> /* IFabric_server_factory */
+#include <common/logging.h>
 
 #include <algorithm> /* transform */
 #include <exception>
 #include <functional> /* ref */
-#include <iostream> /* cerr */
 #include <list>
 #include <vector>
 
@@ -84,7 +84,7 @@ try
 }
 catch ( std::exception &e )
 {
-  std::cerr << "pingpong_server::" << __func__ << ": " << e.what() << "\n";
+  FLOGM("exception {} {}", e.what(), eyecatcher);
   throw;
 }
 
@@ -132,7 +132,7 @@ pingpong_server_n::~pingpong_server_n()
     }
     catch ( std::exception &e )
     {
-      std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+      FLOGM("exception {} {}", e.what(), eyecatcher);
     }
   }
 }

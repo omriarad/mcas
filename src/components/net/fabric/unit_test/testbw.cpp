@@ -148,11 +148,6 @@ const char *Fabric_test::domain_name_verbs = ::getenv("DOMAIN_VERBS");
 const char *Fabric_test::domain_name_sockets = ::getenv("DOMAIN_SOCKETS");
 const char *Fabric_test::remote_host = ::getenv("SERVER");
 
-std::ostream &describe_ep(std::ostream &o_, const component::IFabric_server_factory &e_)
-{
-	return o_ << "provider '" << e_.get_provider_name() << "' max_message_size " << e_.max_message_size();
-}
-
 namespace
 {
 	auto empty_object_json = common::json::serializer<common::json::dummy_writer>::object{};
@@ -200,7 +195,7 @@ void write_read_sequential_client(
 	 * state, causing server "bind" to fail with EADDRINUSE.
 	 */
 	std::this_thread::sleep_for(std::chrono::milliseconds(2500));
-	std::cerr << "CLIENT begin " << iter0_ << " port " << control_port_ << std::endl;
+	FLOG("CLIENT begin {} port {}", iter0_, control_port_);
 
 	unsigned longish_write = 0;
 	unsigned long_write = 0;
@@ -237,21 +232,22 @@ void write_read_sequential_client(
 		{
 			unsigned total = std::accumulate(_ct.begin(), _ct.end(), 0U);
 			unsigned printed = 0;
-			std::cerr << _tag << " ";
+			std::ostringstream os;
+			os << _tag << " ";
 			for ( auto it = _ct.begin(); it != _ct.end() && printed != total; ++it )
 			{
 				auto i = *it;
 				if ( i && ! printed )
 				{
-					std::cerr << "(" << (1 << (it - _ct.begin())) << " usec) ";
+					os << "(" << (1 << (it - _ct.begin())) << " usec) ";
 				}
 				if ( i || ( printed && printed != total ) )
 				{
-					std::cerr << i << " ";
+					os << i << " ";
 					printed += i;
 				}
 			}
- 			std::cerr << "\n";
+ 			FLOG("{}", os.str());
 		}
 		ct(common::string_view tag_)
 			: _tag(tag_)
@@ -261,7 +257,6 @@ void write_read_sequential_client(
 
 	ct ct_w("wr");
 	ct ct_r("rd");
-	std::cerr << std::dec;
 
 	for ( auto iter1 = 0U; iter1 != count; ++iter1 )
 	{
@@ -276,7 +271,7 @@ void write_read_sequential_client(
 			ct_w.record(t);
 			longish_write += ( 1.0 <= t );
 			long_write += ( 2.0 <= t );
-			if ( 1.0 <= t ) std::cerr << "longish write (" << iter1 << ") " << t << "s\n";
+			if ( 1.0 <= t ) FLOG("longish write ({}} {}s", iter1, t);
 		}
 		if ( ! force_error_ )
 		{
@@ -287,7 +282,7 @@ void write_read_sequential_client(
 			++ct_r.at(unsigned(std::log2(t*1e6))); /* element 0 is [1..2) microsecond */
 			longish_read += ( 1.0 <= t );
 			long_read += ( 2.0 <= t );
-			if ( 1.0 <= t ) std::cerr << "longish read (" << iter1 << ") " << t << "s\n";
+			if ( 1.0 <= t ) FLOG("longish read ({}} {}s", iter1, t);
 #endif
 		}
 		/* client destructor sends FI_SHUTDOWN to server */
@@ -295,7 +290,10 @@ void write_read_sequential_client(
 	auto t_duration = std::chrono::steady_clock::now() - t_start;
 
 	auto data_size_total = uint64_t(count) * msg.size();
-	std::cerr << "Data rate " << std::dec << data_size_total << " bytes in " << double_seconds(t_duration) << " seconds " << double(data_size_total) / 1e9 / double_seconds(t_duration) << " GB/sec" << " lw " << longish_write << "/" << long_write <<  " lr " << longish_read << "/" << long_read << ", histogram base 1 usec:\n";
+	FLOG("Data rate {} bytes in {} seconds {} GB/sec lw {}/{}/{}/{}, histogram base 1 usec:"
+		, data_size_total, double_seconds(t_duration)
+		, double(data_size_total) / 1e9 / double_seconds(t_duration)
+		, longish_write, long_write, longish_read, long_read);
 	ct_w.print();
 
 	/* In case the provider actually uses the remote keys which we provide, make them unique.
@@ -307,13 +305,13 @@ void write_read_sequential_client(
 
 void write_read_sequential_server(component::IFabric & fabric_, const unsigned iter0_, const uint16_t control_port_, const std::size_t memory_size_)
 {
-	std::cerr << "SERVER begin " << iter0_ << " port " << control_port_ << std::endl;
+	FLOG("SERVER begin {} port {}", iter0_, control_port_);
 	{
 		auto remote_key_base = 0U;
 		remote_memory_server server(test_type::performance, fabric_, empty_object_json.str(), control_port_, "", memory_size_, remote_key_base);
 		EXPECT_LT(0U, server.max_message_size());
 	}
-	std::cerr << "SERVER end " << iter0_ << std::endl;
+	FLOG("SERVER end ", iter0_);
 }
 
 void write_read_sequential(const std::string &fabric_spec_, const char *const remote_host, uint16_t control_port_
@@ -350,7 +348,7 @@ void write_read_sequential(const std::string &fabric_spec_, const char *const re
 
 TEST_F(Fabric_test, WriteReadSequential)
 {
-	std::cerr << "size " << data_size << " count " << count << "\n";
+	FLOG("size {} count {}", data_size, count);
 	write_read_sequential(fabric_spec("verbs"), remote_host, control_port_2, memory_size, data_size, count, false);
 }
 
@@ -364,8 +362,8 @@ int main(int argc, char **argv)
 	 *   SERVER=10.0.0.91 fabric-test1
 	 */
 
-	std::cerr << "Domain/verbs is " << (Fabric_test::domain_name_verbs ? Fabric_test::domain_name_verbs : "unspecified") << "\n";
-	std::cerr << "Domain/sockets is " << (Fabric_test::domain_name_sockets ? Fabric_test::domain_name_sockets : "unspecified") << "\n";
+	FLOG("Domain/verbs is {}", Fabric_test::domain_name_verbs ? Fabric_test::domain_name_verbs : "unspecified");
+	FLOG("Domain/sockets is {}", Fabric_test::domain_name_sockets ? Fabric_test::domain_name_sockets : "unspecified");
 
 	::testing::InitGoogleTest(&argc, argv);
 	auto r = RUN_ALL_TESTS();

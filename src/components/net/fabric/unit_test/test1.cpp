@@ -50,9 +50,9 @@
 #include <exception>
 #include <stdexcept> /* domain_error */
 #include <memory> /* shared_ptr */
-#include <iostream> /* cerr */
 #include <future> /* async, future */
 #include <thread> /* sleep_for */
+#include <sstream> /* ostringstream */
 
 // The fixture for testing class Foo.
 class Fabric_test : public ::testing::Test
@@ -148,9 +148,11 @@ const char *Fabric_test::domain_name_verbs = ::getenv("DOMAIN_VERBS");
 const char *Fabric_test::domain_name_sockets = ::getenv("DOMAIN_SOCKETS");
 const char *Fabric_test::remote_host = ::getenv("SERVER");
 
-std::ostream &describe_ep(std::ostream &o_, const component::IFabric_server_factory &e_)
+std::string describe_ep(const component::IFabric_server_factory &e_)
 {
-  return o_ << "provider '" << e_.get_provider_name() << "' max_message_size " << e_.max_message_size();
+	std::ostringstream os;
+	os << "provider '" << e_.get_provider_name() << "' max_message_size " << e_.max_message_size();
+	return os.str();
 }
 
 namespace
@@ -171,14 +173,14 @@ void instantiate_server(const std::string &fabric_spec_, uint16_t control_port_)
       std::shared_ptr<component::IFabric_server_factory>(
         fabric->open_server_factory(empty_object_json.str(), control_port_)
       );
-    describe_ep(std::cerr << "InstantiateServer " << fabric_spec_ << "Endpoint 1 ", *srv1) << std::endl;
+    FLOG("InstantiateServer {} Endpoint 1 {}", fabric_spec_, describe_ep(*srv1));
   }
   {
     auto srv2 =
       std::shared_ptr<component::IFabric_server_factory>(
         fabric->open_server_factory(empty_object_json.str(), control_port_)
        );
-    describe_ep(std::cerr << "InstantiateServer " << fabric_spec_ << " Endpoint 2 ", *srv2) << std::endl;
+    FLOG("InstantiateServer {} Endpoint 2 {}", fabric_spec_, describe_ep(*srv2));
   }
 }
 
@@ -215,7 +217,7 @@ void write_read_sequential(const std::string &fabric_spec_, const char *const re
       std::size_t msg_max(0U);
       for ( auto iter1 = 0U; iter1 != count_inner; ++iter1 )
       {
-        std::cerr << "CLIENT begin " << iter0 << "." << iter1 << " port " << control_port << std::endl;
+        FLOG("CLIENT begin {}.{} port {}", iter0, iter1 , control_port);
 
         /* In case the provider actually uses the remote keys which we provide, make them unique. */
         auto remote_key_index = iter1;
@@ -242,7 +244,7 @@ void write_read_sequential(const std::string &fabric_spec_, const char *const re
           client.read_verify(msg);
         }
         /* client destructor sends FI_SHUTDOWN to server */
-        std::cerr << "CLIENT end " << iter0 << "." << iter1 << std::endl;
+        FLOG("CLIENT end {}.{}", iter0 , iter1);
       }
 
       /* In case the provider actually uses the remote keys which we provide, make them unique.
@@ -257,13 +259,13 @@ void write_read_sequential(const std::string &fabric_spec_, const char *const re
     }
     else
     {
-      std::cerr << "SERVER begin " << iter0 << " port " << control_port << std::endl;
+      FLOG("SERVER begin {} port {}", iter0, control_port);
       {
         auto remote_key_base = 0U;
         remote_memory_server server(test_type::function, *fabric, empty_object_json.str(), control_port, "", memory_size, remote_key_base);
         EXPECT_LT(0U, server.max_message_size());
       }
-      std::cerr << "SERVER end " << iter0 << std::endl;
+      FLOG("SERVER endi {}", iter0);
     }
   }
 }
@@ -319,7 +321,7 @@ void ping_pong(const std::string &fabric_spec_, const char *const remote_host, s
     /* allow time for the server to listen before the client restarts */
     std::this_thread::sleep_for(start_delay);
 
-    std::cerr << "CLIENT begin port " << control_port << std::endl;
+    FLOG("CLIENT begin port {}", control_port);
 
     using clock     = std::chrono::high_resolution_clock;
 
@@ -359,12 +361,12 @@ void ping_pong(const std::string &fabric_spec_, const char *const remote_host, s
     auto cpu_stop = cpu_time();
     cpu_user = usec(cpu_start.first, cpu_stop.first);
     cpu_system = usec(cpu_start.second, cpu_stop.second);
-    std::cerr << "CLIENT end\n";
+    FLOG("CLIENT end");
      __sync_synchronize();
 
     auto secs = std::chrono::duration<double>(clock::now() - start_time).count();
-    double per_sec = double(iterations) / secs; 
-    std::cerr << "Rate: " << per_sec << "/sec\n";
+    double per_sec = double(iterations) / secs;
+    FLOG("Rate: {}/sec", per_sec);
 
     t = stop_max - start_min;
     start_stagger = start_max - start_min;
@@ -372,7 +374,7 @@ void ping_pong(const std::string &fabric_spec_, const char *const remote_host, s
   }
   else
   {
-    std::cerr << "SERVER (no remote) begin port " << control_port << std::endl;
+    FLOG("SERVER (no remote) begin port {}" , control_port);
 
     auto ep =
       std::unique_ptr<component::IFabric_server_factory>(
@@ -412,7 +414,7 @@ void ping_pong(const std::string &fabric_spec_, const char *const remote_host, s
     auto cpu_stop = cpu_time();
     cpu_user = usec(cpu_start.first, cpu_stop.first);
     cpu_system = usec(cpu_start.second, cpu_stop.second);
-    std::cerr << "SERVER end\n";
+    FLOG("SERVER end");
 
     t = stop_max - start_min;
     start_stagger = start_max - start_min;
@@ -462,7 +464,7 @@ void pingpong_single_server(const std::string &fabric_spec_, const char *const r
     /* allow time for the server to listen before the client restarts */
     std::this_thread::sleep_for(start_delay);
 
-    std::cerr << "CLIENT begin port " << control_port << std::endl;
+    FLOG("CLIENT begin port {}", control_port );
     std::vector<std::future<pingpong_stat>> clients;
     /* In case the provider actually uses the remote keys which we provide, make them unique. */
     auto cpu_start = cpu_time();
@@ -493,19 +495,19 @@ void pingpong_single_server(const std::string &fabric_spec_, const char *const r
       stop_min = std::min(stop_min, r.stop());
       stop_max = std::max(stop_max, r.stop());
       poll_count += r.poll_count();
-      std::cerr << "CLIENT end " << double_seconds(r.stop() - r.start()) << " sec" << std::endl;
+      FLOG("CLIENT end {} sec", double_seconds(r.stop() - r.start()));
     }
     auto cpu_stop = cpu_time();
     cpu_user = usec(cpu_start.first, cpu_stop.first);
     cpu_system = usec(cpu_start.second, cpu_stop.second);
-    std::cerr << "CLIENT end" << std::endl;
+    FLOG("CLIENT end" );
     t = stop_max - start_min;
     start_stagger = start_max - start_min;
     stop_stagger = stop_max - stop_min;
   }
   else
   {
-    std::cerr << "SERVER begin port " << control_port << std::endl;
+    FLOG("SERVER begin port {}", control_port );
 
     auto ep =
       std::unique_ptr<component::IFabric_server_factory>(
@@ -524,7 +526,7 @@ void pingpong_single_server(const std::string &fabric_spec_, const char *const r
     t = f2.stop() - f2.start();
     poll_count += f2.poll_count();
 
-    std::cerr << "SERVER end" << std::endl;
+    FLOG("SERVER end" );
   }
 
   auto iter = client_count_ * iterations;
@@ -565,8 +567,8 @@ void instantiate_server_dual(const std::string &fabric_spec_, uint16_t control_p
       std::shared_ptr<component::IFabric_server_factory>(
         fabric->open_server_factory(empty_object_json.str(), control_port_1_)
       );
-    describe_ep(std::cerr << "ISD Endpoint 1 ", *srv1) << std::endl;
-    describe_ep(std::cerr << "ISD Endpoint 2 ", *srv2) << std::endl;
+    FLOG("ISD Endpoint 1 {}", describe_ep(*srv1));
+    FLOG("ISD Endpoint 2 {}", describe_ep(*srv2));
   }
   catch ( std::exception & )
   {
@@ -623,11 +625,11 @@ TEST_F(Fabric_test, JsonSucceed)
           , control_port_1
         )
       );
-    describe_ep(std::cerr << "Endpoint 1 ", *pep1) << std::endl;
+    FLOG("Endpoint 1 {}", describe_ep(*pep1));
   }
   catch ( const std::domain_error &e )
   {
-    std::cerr << "Unexpected exception: " << e.what() << std::endl;
+    FLOG("Unexpected exception: {}", e.what());
     EXPECT_TRUE(false);
   }
 }
@@ -661,7 +663,7 @@ TEST_F(Fabric_test, JsonParseAddrStr)
     }
     catch ( const std::exception &e )
     {
-      std::cerr << "Unexpected exception: " << e.what() << std::endl;
+      FLOG("Unexpected exception: {}", e.what() );
       EXPECT_TRUE(false);
     }
   }
@@ -767,12 +769,12 @@ void instantiate_server_and_client(const std::string &fabric_spec_, std::uint16_
     auto local_addr = client->get_local_addr();
     EXPECT_EQ(local_addr.size(), 16);
 
-    std::cerr << "local addr bytes ";
+    std::ostringstream os;
     for ( auto c : local_addr )
     {
-      std::cerr << (0xff & unsigned(c)) << " ";
+      os << (0xff & unsigned(c)) << " ";
     }
-    std::cerr << "\n";
+    FLOG("local addr bytes {}", os.str());
   }
 }
 
@@ -820,14 +822,14 @@ TEST_F(Fabric_test, WriteReadParallel)
     auto fabric = std::shared_ptr<component::IFabric>(factory->make_fabric(fabric_spec("verbs")));
     if ( is_server() )
     {
-      std::cerr << "SERVER begin " << iter0 << " port " << control_port << std::endl;
+      FLOG("SERVER begin {} port {}", iter0, control_port );
       {
         auto expected_client_count = count_inner;
         auto remote_key_base = 0U;
         remote_memory_server server(test_type::function, *fabric, empty_object_json.str(), control_port, "", memory_size, remote_key_base, expected_client_count);
         EXPECT_LT(0U, server.max_message_size());
       }
-      std::cerr << "SERVER end " << iter0 << std::endl;
+      FLOG("SERVER end {}", iter0 );
     }
     else
     {
@@ -892,13 +894,13 @@ TEST_F(Fabric_test, GroupedClients)
 
     if ( is_server() )
     {
-      std::cerr << "SERVER begin " << iter0 << std::endl;
+      FLOG("SERVER begin {}", iter0 );
       {
         auto remote_key_base = 0U;
         remote_memory_server server(test_type::function, *fabric, empty_object_json.str(), control_port, "", memory_size, remote_key_base);
         EXPECT_LT(0U, server.max_message_size());
       }
-      std::cerr << "SERVER end " << iter0 << std::endl;
+      FLOG("SERVER end {}", iter0 );
     }
     else
     {
@@ -907,7 +909,7 @@ TEST_F(Fabric_test, GroupedClients)
       std::size_t msg_max(0U);
       for ( unsigned iter1 = 0U; iter1 != count_inner; ++iter1 )
       {
-        std::cerr << "CLIENT begin " << iter0 << "." << iter1 << " port " << control_port << std::endl;
+        FLOG("CLIENT begin {}.{} port {}", iter0, iter1, control_port);
         /* In case the provider actually uses the remote keys which we provide, make them unique. */
         auto remote_key_index = iter1 * 3U;
 
@@ -936,7 +938,7 @@ TEST_F(Fabric_test, GroupedClients)
         g1.read_verify(msg);
 
         /* client destructor sends FI_SHUTDOWN to server */
-        std::cerr << "CLIENT end " << iter0 << "." << iter1 << std::endl;
+        FLOG("CLIENT end {}.{}", iter0, iter1);
       }
 
       /* In case the provider actually uses the remote keys which we provide, make them unique.
@@ -946,7 +948,7 @@ TEST_F(Fabric_test, GroupedClients)
       /* A special client to tell the server to shut down. Placed after other clients because the server apparently cannot abide concurrent clients. */
       remote_memory_client client_shutdown(test_type::function, *fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index
         , quit_option::do_quit
-      );
+     );
       EXPECT_EQ(client_shutdown.max_message_size(), msg_max);
     }
   }
@@ -973,7 +975,7 @@ TEST_F(Fabric_test, GroupedServer)
 
     if ( is_server() )
     {
-      std::cerr << "SERVER begin " << iter0 << std::endl;
+      FLOG("SERVER begin {}", iter0);
       {
         auto remote_key_base = 0U;
         remote_memory_server_grouped server(test_type::function, *fabric, empty_object_json.str(), control_port, memory_size, remote_key_base);
@@ -984,7 +986,7 @@ TEST_F(Fabric_test, GroupedServer)
          */
         EXPECT_LT(0U, server.max_message_size());
       }
-      std::cerr << "SERVER end " << iter0 << std::endl;
+      FLOG("SERVER end {}", iter0);
     }
     else
     {
@@ -995,7 +997,7 @@ TEST_F(Fabric_test, GroupedServer)
         /* In case the provider actually uses the remote keys which we provide, make them unique. */
         auto remote_key_index = iter1;
 
-        std::cerr << "CLIENT begin " << iter0 << "." << iter1 << " port " << control_port << std::endl;
+        FLOG("CLIENT begin {}.{} port {}", iter0, iter1, control_port);
         remote_memory_client client(test_type::function, *fabric, empty_object_json.str(), remote_host, control_port, memory_size, remote_key_index);
 
         std::string msg = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
@@ -1004,7 +1006,7 @@ TEST_F(Fabric_test, GroupedServer)
         client.read_verify(msg);
 
         /* client destructor sends FI_SHUTDOWN to server */
-        std::cerr << "CLIENT end " << iter0 << "." << iter1 << std::endl;
+        FLOG("CLIENT end {}.{}", iter0, iter1);
       }
 
       /* In case the provider actually uses the remote keys which we provide, make them unique.
@@ -1089,8 +1091,8 @@ int main(int argc, char **argv)
    *   SERVER=10.0.0.91 fabric-test1
    */
 
-  std::cerr << "Domain/verbs is " << (Fabric_test::domain_name_verbs ? Fabric_test::domain_name_verbs : "unspecified") << "\n";
-  std::cerr << "Domain/sockets is " << (Fabric_test::domain_name_sockets ? Fabric_test::domain_name_sockets : "unspecified") << "\n";
+  FLOG("Domain/verbs is {}", Fabric_test::domain_name_verbs ? Fabric_test::domain_name_verbs : "unspecified");
+  FLOG("Domain/sockets is {}", Fabric_test::domain_name_sockets ? Fabric_test::domain_name_sockets : "unspecified");
 
   ::testing::InitGoogleTest(&argc, argv);
   auto r = RUN_ALL_TESTS();

@@ -27,7 +27,6 @@
 #include <common/string_view.h>
 #include <common/types.h> /* status_t */
 
-#include <boost/io/ios_state.hpp>
 #include <boost/core/noncopyable.hpp>
 
 #include <sys/uio.h> /* iovec */
@@ -43,10 +42,8 @@
 #include <functional> /* function, ref */
 #include <future>
 #include <iomanip> /* hex */
-#include <iostream> /* cerr */
 #include <memory> /* make_shared, shared_ptr */
 #include <numeric> /* accumulate */
-#include <iostream> /* cerr */
 #include <string>
 #include <system_error>
 #include <thread> /* sleep_for */
@@ -147,9 +144,7 @@ void remote_memory_accessor::send_memory_info(component::IFabric_endpoint_connec
 	std::uint64_t vaddr = reinterpret_cast<std::uint64_t>(&rm_[0]);
 	std::uint64_t key = rm_.key();
 	{
-		std::cerr << "Server: memory addr " << reinterpret_cast<void*>(vaddr) << std::hex << " key " << key << "\n";
-		boost::io::ios_base_all_saver sv(std::cerr);
-		std::cerr << "Server: memory addr " << reinterpret_cast<void*>(vaddr) << std::hex << " key " << key << "\n";
+		FLOG("Server: memory addr {} key {:x}", reinterpret_cast<void*>(vaddr), key);
 	}
 	char msg[(sizeof vaddr) + (sizeof key)];
 	std::memcpy(msg, &vaddr, sizeof vaddr);
@@ -178,7 +173,7 @@ void remote_memory_accessor::send_msg(component::IFabric_endpoint_connected &cnx
 	}
 	catch ( const std::exception &e )
 	{
-		std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+		FLOGM("exception {} {}", e.what(), eyecatcher);
 	}
 }
 struct cw_remote_memory_client
@@ -245,7 +240,7 @@ try
 }
 catch ( std::exception &e )
 {
-	std::cerr << "cw_remote_memory_client::" << __func__ << e.what() << "\n";
+	FLOGF("exception {}", e.what());
 }
 
 void cw_remote_memory_client::check_complete(::status_t stat_, std::size_t)
@@ -289,13 +284,11 @@ try
 				std::memcpy(&_key, &rm_out()[sizeof _vaddr], sizeof _key);
 			}
 	);
-	std::cerr << "Client: remote memory addr " << reinterpret_cast<void*>(_vaddr) << " key " << std::hex << _key << std::endl;
-	boost::io::ios_base_all_saver sv(std::cerr);
-	std::cerr << "Client: remote memory addr " << reinterpret_cast<void*>(_vaddr) << " key " << std::hex << _key << std::endl;
+	FLOG("Client: remote memory addr {} key {:x}", reinterpret_cast<void*>(_vaddr), std::hex);
 }
 catch ( std::exception &e )
 {
-	std::cerr << __func__ << ": " << e.what() << "\n";
+	FLOGM("{}", e.what());
 	throw;
 }
 
@@ -314,7 +307,7 @@ cw_remote_memory_client::~cw_remote_memory_client()
 		}
 		catch ( std::exception &e )
 		{
-			std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+			FLOGM("exception {} {}", e.what(), eyecatcher);
 		}
 	}
 }
@@ -330,7 +323,7 @@ status_t cw_remote_memory_client::wait_complete()
 	);
 	if ( _last_stat != ::S_OK )
 	{
-		std::cerr << "cw_remote_memory_client::" << __func__ << ": " << _last_stat << "\n";
+		FLOGM(": {}", _last_stat);
 	}
 	return _last_stat;
 }
@@ -472,7 +465,7 @@ server_connection_and_memory::~server_connection_and_memory()
 	}
 	catch ( std::exception &e )
 	{
-		std::cerr << "(destructor) " << __func__ << ": " << e.what() << "\n";
+		FLOGM("{}", e.what());
 	}
 }
 
@@ -514,7 +507,7 @@ void cw_remote_memory_server::listener(
 		}
 		catch ( std::exception &e )
 		{
-			std::cerr << "remote_memory_server::" << __func__ << ": " << e.what() << "\n";
+			FLOGM("{}",  e.what());
 			throw;
 		}
 	}
@@ -589,7 +582,7 @@ cw_remote_memory_server::~cw_remote_memory_server()
 	}
 	catch ( std::exception &e )
 	{
-		std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+		FLOGM("exception {} {}", e.what(), eyecatcher);
 	}
 }
 
@@ -724,7 +717,7 @@ void write_read_sequential_client(
 	 * state, causing server "bind" to fail with EADDRINUSE.
 	 */
 	std::this_thread::sleep_for(std::chrono::milliseconds(2500));
-	std::cerr << "CLIENT begin " << " port " << control_port_ << std::endl;
+	FLOG("CLIENT begin port {}", control_port_);
 
 	unsigned longish_write = 0;
 	unsigned long_write = 0;
@@ -767,7 +760,6 @@ void write_read_sequential_client(
 
 	ct ct_w("wr");
 	ct ct_r("rd");
-	std::cerr << std::dec;
 
 	for ( auto iter1 = 0U; iter1 != count; ++iter1 )
 	{
@@ -786,7 +778,7 @@ void write_read_sequential_client(
 			ct_w.record(t);
 			longish_write += ( 1.0 <= t );
 			long_write += ( 2.0 <= t );
-			if ( 1.0 <= t ) std::cerr << "longish write (" << iter1 << ") " << t << "s\n";
+			if ( 1.0 <= t ) FLOG("longish write ({}) {}s", iter1, t);
 		}
 		{
 #if 0
@@ -796,7 +788,7 @@ void write_read_sequential_client(
 			++ct_r.at(unsigned(std::log2(t*1e6))); /* element 0 is [1..2) microsecond */
 			longish_read += ( 1.0 <= t );
 			long_read += ( 2.0 <= t );
-			if ( 1.0 <= t ) std::cerr << "longish read (" << iter1 << ") " << t << "s\n";
+			if ( 1.0 <= t ) FLOG("longish read ({}) {}s", iter1, t);
 #endif
 		}
 		/* client destructor sends FI_SHUTDOWN to server */
@@ -804,8 +796,8 @@ void write_read_sequential_client(
 	auto t_duration = std::chrono::steady_clock::now() - t_start;
 
 	auto data_size_total = uint64_t(count) * msg.size();
-	std::cerr << "Data rate " << std::dec << data_size_total << " bytes in " << double_seconds(t_duration) << " seconds " << double(data_size_total) / 1e9 / double_seconds(t_duration) << " GB/sec" << " lw " << longish_write << "/" << long_write <<  " lr " << longish_read << "/" << long_read << ", histogram base 1 usec:\n";
-	std::cerr << "wr " << ct_w.out("usec") << "\n";
+	FLOG("Data rate {} bytes in {} seconds {} GB/sec lw {}/{} lr {}/{}, histogram base 1 usec", data_size_total, double_seconds(t_duration), double(data_size_total) / 1e9 / double_seconds(t_duration), longish_write, long_write, longish_read, long_read);
+	FLOG("wr {}", ct_w.out("usec"));
 
 	/* In case the provider actually uses the remote keys which we provide, make them unique.
 	 * (At server shutdown time there are no other clients, so the shutdown client may use any value.)
@@ -816,20 +808,20 @@ void write_read_sequential_client(
 
 void write_read_sequential_server(component::IFabric & fabric_, const uint16_t control_port_, const std::size_t memory_size_)
 {
-	std::cerr << "SERVER begin " << " port " << control_port_ << std::endl;
+	FLOG("SERVER begin port {}", control_port_);
 	{
 		auto remote_key_base = 0U;
 		cw_remote_memory_server server(fabric_, empty_object_json.str(), control_port_, "", memory_size_, remote_key_base);
 		assert(0U < server.max_message_size());
 	}
-	std::cerr << "SERVER end " << std::endl;
+	FLOG("SERVER end");
 }
 
 } // namespace
 
 void Fabric_test::WriteReadSequential()
 {
-	std::cerr << "size " << data_size << " count " << count << "\n";
+	FLOG("size {} count {}", data_size, count);
 	const char *remote_host = ::getenv("SERVER");
 	if ( remote_host )
 	{

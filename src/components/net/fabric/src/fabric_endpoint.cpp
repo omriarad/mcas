@@ -53,8 +53,8 @@
 
 #include <algorithm> /* min */
 #include <chrono> /* milliseconds */
-#include <iostream> /* cerr */
 #include <limits> /* <int>::max */
+#include <sstream> /* ostringstream */
 #include <typeinfo> /* typeinfo::name */
 
 namespace component
@@ -232,7 +232,7 @@ void fabric_endpoint::post_send(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   CHECK_FI_EQ(
     ::fi_sendv(
       &ep()
@@ -252,7 +252,7 @@ void fabric_endpoint::post_send(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   auto desc = populated_desc(buffers_);
   post_send(buffers_, &*desc.begin(), context_);
 }
@@ -271,7 +271,7 @@ void fabric_endpoint::post_recv(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   CHECK_FI_EQ(
     ::fi_recvv(
       &ep()
@@ -291,7 +291,7 @@ void fabric_endpoint::post_recv(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   auto desc = populated_desc(buffers_);
   post_recv(buffers_, &*desc.begin(), context_);
 }
@@ -314,7 +314,7 @@ void fabric_endpoint::post_read(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   CHECK_FI_EQ(
     ::fi_readv(
       &ep()
@@ -338,7 +338,7 @@ void fabric_endpoint::post_read(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   auto desc = populated_desc(buffers_);
   post_read(buffers_, &*desc.begin(), remote_addr_, key_, context_);
 }
@@ -361,7 +361,7 @@ void fabric_endpoint::post_write(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   CHECK_FI_EQ(
     ::fi_writev(
       &ep()
@@ -385,7 +385,7 @@ void fabric_endpoint::post_write(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   auto desc = populated_desc(buffers_);
   post_write(buffers_, &*desc.begin(), remote_addr_, key_, context_);
 }
@@ -405,7 +405,7 @@ void fabric_endpoint::sendmsg(
 	, std::uint64_t flags
 )
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
 	const ::fi_msg m {
 		&*buffers_.begin(), desc_, buffers_.size(), addr_, context_, flags
 	};
@@ -432,7 +432,7 @@ void fabric_endpoint::sendmsg(
    */
 void fabric_endpoint::inject_send(const void *buf_, std::size_t len_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   CHECK_FI_EQ(::fi_inject(&ep(), buf_, len_, ::fi_addr_t{}), 0);
 }
 
@@ -451,7 +451,7 @@ void fabric_endpoint::inject_send(const void *buf_, std::size_t len_)
 
 std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_completer::complete_old &cb_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions(cb_);
@@ -466,7 +466,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
 
 std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_completer::complete_definite &cb_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE_N
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions(cb_);
@@ -481,7 +481,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
 
 std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric_op_completer::complete_tentative &cb_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions_tentative(cb_);
@@ -496,7 +496,7 @@ std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric
 
 std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_completer::complete_param_definite &cb_, void *cb_param_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions(cb_, cb_param_);
@@ -511,7 +511,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
 
 std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative &cb_, void *cb_param_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE_N
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions_tentative(cb_, cb_param_);
@@ -526,7 +526,7 @@ std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric
 
 std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_completer::complete_param_definite_ptr_noexcept cb_, void *cb_param_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE_N
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions(cb_, cb_param_);
@@ -541,7 +541,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
 
 std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric_op_completer::complete_param_tentative_ptr_noexcept cb_, void *cb_param_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   std::size_t ct_total = 0;
 
   ct_total += _rxcq.poll_completions_tentative(cb_, cb_param_);
@@ -566,7 +566,7 @@ std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric
  */
 void fabric_endpoint::wait_for_next_completion(std::chrono::milliseconds timeout)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   Fd_pair fd_unblock;
   fd_unblock_set_monitor(_m_fd_unblock_set, _fd_unblock_set, fd_unblock.fd_write());
   /* Only block if we have not seen FI_SHUTDOWN */
@@ -631,7 +631,7 @@ void fabric_endpoint::wait_for_next_completion(std::chrono::milliseconds timeout
 
 void fabric_endpoint::wait_for_next_completion(unsigned polls_limit)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   for ( ; polls_limit != 0; --polls_limit )
   {
     try
@@ -654,7 +654,7 @@ void fabric_endpoint::wait_for_next_completion(unsigned polls_limit)
  */
 void fabric_endpoint::unblock_completions()
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   std::lock_guard<std::mutex> g{_m_fd_unblock_set};
   for ( auto fd : _fd_unblock_set )
   {
@@ -677,7 +677,7 @@ try
 }
 catch ( const std::exception &e )
 {
-  std::cerr << typeid(*this).name() << "::" << __func__ << " " << e.what() << "\n";
+  FLOGM("{}", e.what());
 }
 
 void fabric_endpoint::err(::fid_eq *eq_, ::fi_eq_err_entry &e_) noexcept
@@ -686,7 +686,8 @@ try
   char pe_buffer[512];
   auto pe = ::fi_eq_strerror(eq_, e_.prov_errno, e_.err_data, pe_buffer, sizeof pe_buffer);
   /* An error event; not what we were expecting */
-  std::cerr << "Fabric error event:"
+  std::ostringstream os;
+  os << "Fabric error event:"
     << " fid " << e_.fid
     << " context " << e_.context
     << " data " << e_.data
@@ -695,22 +696,21 @@ try
     << " \"" << pe << "/" << pe_buffer << "\""
     << " err_data ";
 
-  boost::io::ios_base_all_saver sv(std::cerr);
   for ( auto i = static_cast<uint8_t *>(e_.err_data)
     ; i != static_cast<uint8_t *>(e_.err_data) + e_.err_data_size
     ; ++i
   )
   {
-    std::cerr << std::setfill('0') << std::setw(2) << std::hex << *i;
+    os << std::setfill('0') << std::setw(2) << std::hex << *i;
   }
-  std::cerr << std::endl;
+  PLOG("%s", os.str().c_str());
 
   std::uint32_t event = FI_NOTIFY;
   _event_pipe.write(&event, sizeof event);
 }
 catch ( const std::exception &e )
 {
-  std::cerr << typeid(*this).name() << "::" << __func__ << " " << e.what() << "\n";
+  FLOGM("{}", e.what());
 }
 
 void fabric_endpoint::ensure_event(const fabric_connection *cnxn_) const
@@ -757,11 +757,11 @@ void fabric_endpoint::ensure_event(const fabric_connection *cnxn_) const
 #if 0
       if ( have_event )
       {
-        std::cerr << __func__ << " ready count " << ready << "\n";
+        FLOGM("ready count {}", ready);
       }
       else
       {
-        std::cerr << __func__ << " timeout, ready count " << ready << "\n";
+        FLOGM("timeout, ready count {}", ready);
       }
 #endif
     }
@@ -890,11 +890,11 @@ void fabric_endpoint::print_registry() const
 	{
 		if ( i < limit )
 		{
-			std::cerr << "Token " << &*j.second << " mr " << j.second->mr_unshared() << " refcount " << j.second->count() << " " << j.second->v() << "\n";
+			FLOG("Token {} mr {} refcount {} {}", &*j.second, j.second->mr_unshared(), j.second->count(), j.second->v());
 		}
 		else
 		{
-			std::cerr << "Token (suppressed " << _mr_addr_to_mra.size() - limit << " more)\n";
+			FLOG("Token (suppressed {} more", _mr_addr_to_mra.size() - limit);
 			break;
 		}
 		++i;
@@ -904,7 +904,7 @@ void fabric_endpoint::print_registry() const
 
 auto fabric_endpoint::register_memory(const_byte_span contig_, std::uint64_t key_, std::uint64_t flags_) -> memory_region_t
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
 	guard g{_m};
 
 	auto it = mr_covering_it(contig_);
@@ -935,7 +935,7 @@ auto fabric_endpoint::register_memory(const_byte_span contig_, std::uint64_t key
 
 	if ( mr_trace )
 	{
-		std::cerr << "Registered token ref(" << it->second->count() << ") " << &*it->second << " mr " << it->second->mr_unshared() << " " << it->second->v() << " desc " << get_memory_descriptor(&*it->second) << " key " << get_memory_remote_key(&*it->second) << "\n";
+		FLOG("Registered token ref({}} mr {} {} desc {} key {}", it->second->count(), &*it->second, it->second->mr_unshared(), it->second->v(), get_memory_descriptor(&*it->second), get_memory_remote_key(&*it->second));
 		print_registry();
 	}
 
@@ -949,7 +949,7 @@ auto fabric_endpoint::register_memory(const_byte_span contig_, std::uint64_t key
 
 void fabric_endpoint::deregister_memory(const memory_region_t mr_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
 	guard g{_m};
 
 	auto lb = _mr_addr_to_mra.lower_bound(::data(mr_->v()));
@@ -965,7 +965,7 @@ void fabric_endpoint::deregister_memory(const memory_region_t mr_)
 
 	if ( it == ub )
 	{
-		std::cerr << "Deregistered token " << mr_ << " mr " << mr_->mr_unshared() << " failed, not in \n";
+		FLOG("Deregistered token {} mr {} failed, not in registry", mr_, mr_->mr_unshared());
 		print_registry();
 		throw std::logic_error(
 			common::to_string(
@@ -976,7 +976,7 @@ void fabric_endpoint::deregister_memory(const memory_region_t mr_)
 	}
 	if ( mr_trace )
 	{
-		std::cerr << "Deregistered token (before) ref(" << mr_->count() << ")" << mr_ << " mr/sought " << mr_->mr_unshared() << " mr/found " << it->second->mr_unshared() << " " << it->second->v() << "\n";
+		FLOG("Deregistered token (before) ref({}) mr/sought {} mr/found {} {}", mr_->count(), mr_, mr_->mr_unshared(), it->second->mr_unshared(), it->second->v());
 		print_registry();
 	}
 
@@ -988,7 +988,7 @@ void fabric_endpoint::deregister_memory(const memory_region_t mr_)
 
 std::uint64_t fabric_endpoint::get_memory_remote_key(const memory_region_t mr_) const noexcept
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   /* recover the memory region */
   auto mr = &*mr_->mr();
   /* ask fabric for the key */
@@ -997,7 +997,7 @@ std::uint64_t fabric_endpoint::get_memory_remote_key(const memory_region_t mr_) 
 
 void *fabric_endpoint::get_memory_descriptor(const memory_region_t mr_) const noexcept
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   /* recover the memory region */
   auto mr = &*mr_->mr();
   /* ask fabric for the descriptor */
@@ -1007,7 +1007,7 @@ void *fabric_endpoint::get_memory_descriptor(const memory_region_t mr_) const no
 /* find iiterator for registered memory region which covers the iovec range. Must hold lock for _mr_addr_to_mra */
 auto fabric_endpoint::mr_covering_it(const const_byte_span v) -> map_addr_to_mra::reverse_iterator
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE_N
 	/* _mr_addr_to_mr is sorted by starting address.
 	 * Find the last acceptable starting address, and iterate
 	 * backwards through the map until we find a covering range
@@ -1044,7 +1044,7 @@ auto fabric_endpoint::mr_covering_throws(const const_byte_span v) -> memory_regi
   }
 
 #if 0
-  std::cerr << "mr_covering( " << v << ") found mr " << it->second->mr_unshared() << " with range " << it->second->v() << "\n";
+  FLOG("mr_covering( {}) found mr {} with range {}", v, it->second->mr_unshared(), it->second->v());
 #endif
   return &*it->second;
 }
@@ -1053,7 +1053,7 @@ auto fabric_endpoint::mr_covering_throws(const const_byte_span v) -> memory_regi
 auto fabric_endpoint::mr_covering(const const_byte_span v) noexcept -> memory_region_t
 try
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
 	return mr_covering_throws(v);
 }
 catch ( const std::exception &e )

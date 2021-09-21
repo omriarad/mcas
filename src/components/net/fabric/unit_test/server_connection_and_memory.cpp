@@ -14,6 +14,7 @@
 
 #include "wait_poll.h"
 #include <common/errors.h> /* S_OK */
+#include <common/logging.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"
@@ -61,6 +62,6 @@ server_connection_and_memory::~server_connection_and_memory()
   }
   catch ( std::exception &e )
   {
-    std::cerr << "(destructor) " << __func__ << ": " << e.what() << "\n";
+    FLOGM("exception: {}", e.what());
   }
 }

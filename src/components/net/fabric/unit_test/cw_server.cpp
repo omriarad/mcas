@@ -36,7 +36,6 @@
 #include <exception>
 #include <functional> /* ref */
 #include <future>
-#include <iostream> /* cerr */
 #include <memory> /* make_shared, shared_ptr */
 #include <string>
 #include <vector>
@@ -70,6 +69,7 @@ namespace
 {
 	gsl::not_null<component::IFabric_endpoint_unconnected_server *> get_ep(gsl::not_null<component::IFabric_server_factory *> f_)
 	{
+		PLOG("cw server_connection::%s", __func__);
 		component::IFabric_endpoint_unconnected_server *ep = nullptr;
 		while ( ! ( ep = f_->get_new_endpoint_unconnected() ) ) {}
 		return gsl::not_null<component::IFabric_endpoint_unconnected_server *>(ep);
@@ -94,7 +94,7 @@ server_connection::~server_connection()
 		}
 		catch ( std::exception &e )
 		{
-			std::cerr << __func__ << " exception " << e.what() << std::endl;
+			FLOGM("exception: {}", e.what());
 		}
 	}
 	PLOG("%s %p", __func__, static_cast<void *>(this));
@@ -173,7 +173,7 @@ cw_remote_memory_server::~cw_remote_memory_server()
 	}
 	catch ( std::exception &e )
 	{
-		std::cerr << __func__ << " exception " << e.what() << std::endl;
+		FLOGM("exception: {}", e.what());
 	}
 }
 
@@ -249,7 +249,7 @@ int main(int, const char *argv[])
 	(void)argv;
 	assert( ! argv[1] );
 
-	std::cerr << "SERVER begin " << " port " << fabric_fabric::control_port << std::endl;
+	FLOG("SERVER begin port {}", fabric_fabric::control_port);
 
 	auto remote_key_base = 0U;
 
@@ -343,13 +343,13 @@ int main(int, const char *argv[])
 			}
 			catch ( std::exception &e )
 			{
-				std::cerr << __func__ << ": " << e.what() << "\n";
+				FLOGF("exception: {}", e.what());
 				throw;
 			}
 		}
 	);
 
-	std::cerr << "SERVER end " << std::endl;
+	FLOG("SERVER end");
 
 	return 0;
 }

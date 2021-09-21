@@ -17,6 +17,7 @@
 #include "remote_memory_subclient.h"
 #include "wait_poll.h"
 #include <common/errors.h> /* S_OK */
+#include <common/logging.h> /* FLOG */
 #include <boost/io/ios_state.hpp>
 
 #pragma GCC diagnostic push
@@ -64,13 +65,11 @@ try
       }
 			, get_test_type()
   );
-  std::cerr << "Client: remote memory addr " << reinterpret_cast<void*>(_vaddr) << " key " << std::hex << _key << std::endl;
-  boost::io::ios_base_all_saver sv(std::cerr);
-  std::cerr << "Client: remote memory addr " << reinterpret_cast<void*>(_vaddr) << " key " << std::hex << _key << std::endl;
+  FLOG("Client: remote memory addr {} key {:x}", reinterpret_cast<void*>(_vaddr), _key);
 }
 catch ( std::exception &e )
 {
-  std::cerr << __func__ << ": " << e.what() << "\n";
+  FLOGM("{}", e.what());
   throw;
 }
 
@@ -84,7 +83,7 @@ remote_memory_client_grouped::~remote_memory_client_grouped()
   }
   catch ( std::exception &e )
   {
-    std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+    FLOGM("exception {} {}", e.what(), eyecatcher);
   }
 }
 

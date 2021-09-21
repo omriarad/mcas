@@ -33,7 +33,7 @@ Fabric_factory::Fabric_factory()
 
 auto Fabric_factory::make_fabric(common::string_view json_configuration_) -> component::IFabric *
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE0
 	return make_fabric(json_configuration_, map_create());
 }
 
@@ -42,7 +42,7 @@ auto Fabric_factory::make_fabric(
 	, const map_create & mc_
 ) -> component::IFabric *
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
 	auto debug_it = mc_.find(+k_debug);
 	unsigned debug_level = unsigned(debug_it == mc_.end() ? 0 : std::stoul(debug_it->second));
   return new Fabric(debug_level, json_configuration_);

@@ -21,6 +21,7 @@
 #include <common/env.h> /* env_value */
 #include <common/errors.h> /* S_OK */
 #include <common/histogram.h>
+#include <common/logging.h>
 #include <common/string_view.h>
 #include <common/types.h> /* status_t */
 
@@ -35,7 +36,6 @@
 #include <cstring> /* memcpy */
 #include <exception>
 #include <iomanip> /* hex */
-#include <iostream> /* cerr */
 #include <memory> /* make_shared, shared_ptr */
 #include <string>
 #include <system_error>
@@ -133,7 +133,7 @@ try
 }
 catch ( std::exception &e )
 {
-	std::cerr << __func__ << ": " << e.what() << "\n";
+	FLOGM("{}", e.what());
 	throw;
 }
 
@@ -203,7 +203,7 @@ int main(int, char **argv)
 	 * state, causing server "bind" to fail with EADDRINUSE.
 	 */
 	std::this_thread::sleep_for(std::chrono::milliseconds(2500));
-	std::cerr << "CLIENT begin " << " port " << fabric_fabric::control_port << std::endl;
+	FLOG("CLIENT begin port {}", fabric_fabric::control_port);
 
 	auto remote_key_index = 0;
 	/* An ordinary client which tests RDMA to server memory */
@@ -237,10 +237,8 @@ int main(int, char **argv)
 	unsigned longish_read = 0;
 	unsigned long_read = 0;
 
-	// std::cerr << std::dec;
-
 	const std::size_t count = common::env_value<std::size_t>("COUNT", 10000);
-	std::cerr << "size " << cw::test_data::size() << " count " << count << "\n";
+	FLOG("size {} count {}", cw::test_data::size(), count);
 
 	for ( auto iter1 = 0U; iter1 != count; ++iter1 )
 	{
@@ -259,7 +257,7 @@ int main(int, char **argv)
 			ct_w.record(tm);
 			longish_write += ( 1.0 <= tm );
 			long_write += ( 2.0 <= tm );
-			if ( 1.0 <= tm ) std::cerr << "longish write (" << iter1 << ") " << tm << "s\n";
+			if ( 1.0 <= tm ) FLOG("longish write ({}) {}s", iter1, tm);
 		}
 		{
 #if 0
@@ -269,7 +267,7 @@ int main(int, char **argv)
 			++ct_r.at(unsigned(std::log2(t*1e6))); /* element 0 is [1..2) microsecond */
 			longish_read += ( 1.0 <= t );
 			long_read += ( 2.0 <= t );
-			if ( 1.0 <= t ) std::cerr << "longish read (" << iter1 << ") " << t << "s\n";
+			if ( 1.0 <= t ) FLOG("longish read ({}) {}s", iter1, t);
 #endif
 		}
 		/* client destructor sends FI_SHUTDOWN to server */
@@ -277,8 +275,8 @@ int main(int, char **argv)
 	auto t_duration = std::chrono::steady_clock::now() - t_start;
 
 	auto data_size_total = uint64_t(count) * msg.size();
-	std::cerr << "Data rate " << std::dec << data_size_total << " bytes in " << double_seconds(t_duration) << " seconds " << double(data_size_total) / 1e9 / double_seconds(t_duration) << " GB/sec" << " lw " << longish_write << "/" << long_write <<  " lr " << longish_read << "/" << long_read << "\n";
-	std::cerr << "wr " << ct_w.out("usec") << "\n";
+	FLOG("Data rate {} bytes in {} seconds {} GB/sec lw {}/{}/{}/{}", data_size_total, double_seconds(t_duration), double(data_size_total) / 1e9 / double_seconds(t_duration), longish_write, long_write, longish_read, long_read);
+	FLOG("wr {}", ct_w.out("usec"));
 
 #else
 	(void)argv;

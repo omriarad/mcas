@@ -23,8 +23,7 @@
 #include "fabric_check.h" /* CHECK_FI_ERR */
 #include "fabric_runtime_error.h"
 #include <common/env.h>
-#include <boost/io/ios_state.hpp>
-#include <iostream> /* cerr */
+#include <common/logging.h>
 #include <tuple> /* get */
 #include <utility> /* move, swap */
 
@@ -45,7 +44,7 @@ Fabric_cq::~Fabric_cq()
   {
     try
     {
-      std::cerr << __func__ << " " << _type << " completions left " << _inflight << "\n";
+      FLOGM("{} completions left {}", _type, _inflight);
     }
     catch ( std::exception & )
     {}
@@ -58,7 +57,7 @@ Fabric_cq::stats::~stats()
   {
     try
     {
-      std::cerr << "Fabric_cq(" << this << ") ct " << ct_total << " defer " << defer_total << "\n";
+      FLOGM("Fabric_cq({:x}) ct {} defer {}", this, ct_total, defer_total);
     }
     catch ( std::exception & )
     {}
@@ -76,12 +75,11 @@ namespace
   ::fi_cq_err_entry err{0,0,0,0,0,0,0,0,0,0,0};
   CHECK_FI_ERR(cq_readerr(&err, 0));
 
-  boost::io::ios_base_all_saver sv(std::cerr);
-
   char pe_buffer[512];
   auto pe = ::fi_cq_strerror(&*_cq, err.prov_errno, err.err_data, pe_buffer, sizeof pe_buffer);
 
-  std::cerr << __func__ << " : "
+  std::ostringstream os;
+  os << __func__ << " : "
                   << " op_context " << err.op_context
                   << std::hex
                   << " flags " << err.flags
@@ -99,6 +97,7 @@ namespace
                   << " err_data_size " << err.err_data_size
                   << " (text) " << pe << "/" << pe_buffer
         << std::endl;
+  PLOG("%s", os.str().c_str());
   return err;
 }
 

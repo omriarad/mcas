@@ -26,6 +26,7 @@
 
 #include "rdma-fi_cm.h" /* fi_listen */
 
+#include <common/logging.h>
 #include <common/pointer_cast.h>
 #include <unistd.h> /* write */
 #include <netinet/in.h> /* sockaddr_in */
@@ -36,7 +37,6 @@
 #include <chrono> /* seconds */
 #include <exception>
 #include <functional> /* ref */
-#include <iostream> /* cerr */
 #include <memory> /* make_shared */
 #include <string> /* to_string */
 #include <thread> /* sleep_for */
@@ -73,7 +73,7 @@ Fabric_server_generic_factory::~Fabric_server_generic_factory()
   auto sz = ::write(_end.fd_write(), &c, 1);
   if ( sz != 1 )
   {
-    std::cerr << __func__ << ": failed to signal end of connection" << "\n";
+    FLOGM("{}", "failed to signal end of connection");
   }
   try
   {
@@ -81,19 +81,19 @@ Fabric_server_generic_factory::~Fabric_server_generic_factory()
   }
   catch ( const std::exception &e )
   {
-    std::cerr << __func__ << ": SERVER connection error: " << e.what() << "\n";
+    FLOGM("SERVER connection error: ", e.what());
   }
 }
 
 size_t Fabric_server_generic_factory::max_message_size() const noexcept
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   return _info.ep_attr->max_msg_size;
 }
 
 std::string Fabric_server_generic_factory::get_provider_name() const
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   return _info.fabric_attr->prov_name;
 }
 
@@ -118,7 +118,7 @@ try
 }
 catch ( const std::exception &e )
 {
-  std::cerr << __func__ << " (Fabric_server_factory) " << e.what() << "\n";
+  FLOGM("(Fabric_server_factory) {}", e.what());
 }
 
 void Fabric_server_generic_factory::err(::fid_eq *, ::fi_eq_err_entry &) noexcept
@@ -199,7 +199,7 @@ try
 }
 catch ( const std::exception &e )
 {
-  std::cerr << __func__ << ": listen failure " << e.what() << "\n";
+  FLOGM("listen failure {}", e.what());
   _listen_exception = std::current_exception();
   throw;
 }
@@ -246,7 +246,7 @@ void Fabric_server_generic_factory::listen_loop(
           if ( r == -1 )
           {
             auto e = errno;
-            system_fail(e, (" in accept fd " + std::to_string(listen_fd_.fd())));
+            system_fail(e, ("in accept fd " + std::to_string(listen_fd_.fd())));
           }
 
           Fd_control conn_fd(r);
@@ -257,7 +257,7 @@ void Fabric_server_generic_factory::listen_loop(
         }
         catch ( const std::exception &e )
         {
-          std::cerr << "exception establishing connection: " << e.what() << "\n";
+          FLOGM("exception establishing connection: ()" , e.what());
           std::this_thread::sleep_for(std::chrono::seconds(1));
 #if 0
           throw;
@@ -274,12 +274,12 @@ void Fabric_server_generic_factory::listen_loop(
         }
         catch ( const std::bad_alloc &e )
         {
-          std::cerr << "bad_alloc in event queue: " << e.what() << "\n";
+          FLOGM("bad_alloc in event queue: {}", e.what());
           std::this_thread::sleep_for(std::chrono::seconds(1));
         }
         catch ( const std::exception &e )
         {
-          std::cerr << "exception handling event queue: " << e.what() << "\n";
+          FLOGM("exception handling event queue: {}", e.what());
           std::this_thread::sleep_for(std::chrono::seconds(1));
 #if 0
           throw;
@@ -293,10 +293,10 @@ void Fabric_server_generic_factory::listen_loop(
 
 auto Fabric_server_generic_factory::get_new_endpoint_unconnected() -> component::IFabric_endpoint_unconnected_server *
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE0
   if ( _listen_exception )
   {
-    std::cerr << __func__ << ": _listen_exception present, rethrowing\n";
+    FLOGM("{}", "_listen_exception present, rethrowing");
     std::rethrow_exception(_listen_exception);
   }
 
@@ -312,12 +312,12 @@ void Fabric_server_generic_factory::open_connection_generic(event_expecter *c)
 
 std::vector<event_expecter *> Fabric_server_generic_factory::connections()
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   return _open.enumerate();
 }
 
 void Fabric_server_generic_factory::close_connection(event_expecter * cnxn_)
 {
-	ENTER_EXIT_TRACE
+	ENTER_EXIT_TRACE1
   _open.remove(cnxn_);
 }

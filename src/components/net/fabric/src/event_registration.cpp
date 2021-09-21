@@ -23,7 +23,7 @@
 
 #include "rdma-fi_endpoint.h" /* fid_ep */
 
-#include <iostream> /* cerr */
+#include <common/logging.h>
 
 event_registration::event_registration(event_producer &ev_, event_consumer &ec_, ::fid_ep &ep_)
   : _ev(ev_)
@@ -51,7 +51,7 @@ event_registration::~event_registration()
   {
     try
     {
-      std::cerr << __func__ << " exception " << e.what() << "\n";
+      FLOGM("exception {}", e.what());
     }
     catch ( const std::exception & ) {}
   }

@@ -47,7 +47,7 @@ public:
 		, std::uint64_t key
 		, std::uint64_t flags
 	) override
-	{ ENTER_EXIT_TRACE return fabric_endpoint::register_memory(contig, key, flags); }
+	{ ENTER_EXIT_TRACE0 return fabric_endpoint::register_memory(contig, key, flags); }
 
 	/**
 	 * @throw std::range_error - address not registered
@@ -56,22 +56,22 @@ public:
 	void deregister_memory(
 		const memory_region_t memory_region
 	) override
-	{ ENTER_EXIT_TRACE return fabric_endpoint::deregister_memory(memory_region); }
+	{ ENTER_EXIT_TRACE0 return fabric_endpoint::deregister_memory(memory_region); }
 
 	std::uint64_t get_memory_remote_key(
 		const memory_region_t memory_region
 	) const noexcept override
-	{ ENTER_EXIT_TRACE return fabric_endpoint::get_memory_remote_key(memory_region); }
+	{ ENTER_EXIT_TRACE0 return fabric_endpoint::get_memory_remote_key(memory_region); }
 
 	void *get_memory_descriptor(
 		const memory_region_t memory_region
 	) const noexcept override
-	{ ENTER_EXIT_TRACE return fabric_endpoint::get_memory_descriptor(memory_region); }
+	{ ENTER_EXIT_TRACE0 return fabric_endpoint::get_memory_descriptor(memory_region); }
 
 	memory_region_t mr_covering(
 		const const_byte_span contig_
 	) noexcept override
-	{ ENTER_EXIT_TRACE return fabric_endpoint::mr_covering(contig_); }
+	{ ENTER_EXIT_TRACE0 return fabric_endpoint::mr_covering(contig_); }
 
 	/*
 	 * @throw fabric_runtime_error : std::runtime_error : ::fi_recvv fail
@@ -81,13 +81,13 @@ public:
 		, void **desc
 		, context_t context
 	) override
-	{ ENTER_EXIT_TRACE return fabric_endpoint::post_recv(buffers, desc, context); }
+	{ ENTER_EXIT_TRACE0 return fabric_endpoint::post_recv(buffers, desc, context); }
 
 	void post_recv(
 		gsl::span<const ::iovec> buffers
 		, context_t context
 	) override
-	{ ENTER_EXIT_TRACE return fabric_endpoint::post_recv(buffers, context); }
+	{ ENTER_EXIT_TRACE0 return fabric_endpoint::post_recv(buffers, context); }
 };
 
 #endif

@@ -15,7 +15,7 @@
 #include "eyecatcher.h"
 #include <api/fabric_itf.h> /* Fabric_connection */
 #include <exception>
-#include <iostream> /* cerr */
+#include <common/logging.h>
 
 registration::registration(component::IFabric_memory_control &cnxn_, const void *contig_addr_, std::size_t size_, std::uint64_t key_, std::uint64_t flags_)
   : _cnxn(cnxn_)
@@ -35,7 +35,7 @@ registration::~registration()
     }
     catch ( std::exception &e )
     {
-      std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+      FLOGM("exception {} {}", e.what(), eyecatcher);
     }
   }
 }

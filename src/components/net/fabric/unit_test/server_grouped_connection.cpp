@@ -14,8 +14,8 @@
 
 #include "eyecatcher.h"
 #include <api/fabric_itf.h> /* IFabric_server_grouped_factory */
+#include <common/logging.h>
 #include <exception>
-#include <iostream> /* cerr */
 
 namespace
 {
@@ -43,7 +43,7 @@ server_grouped_connection::~server_grouped_connection()
   }
   catch ( std::exception &e )
   {
-    std::cerr << __func__ << " exception " << e.what() << eyecatcher << std::endl;
+    FLOGM("exception {} {}", e.what(), eyecatcher);
   }
 }
 

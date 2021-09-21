@@ -17,6 +17,7 @@
 #include "wait_poll.h"
 #include <api/fabric_itf.h> /* IFabric, IFabric_commuicator */
 #include <common/errors.h> /* S_OK */
+#include <common/logging.h>
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Weffc++"
@@ -78,7 +79,7 @@ try
 }
 catch ( std::exception &e )
 {
-  std::cerr << "remote_memory_subclient::" << __func__ << ": " << e.what() << "\n";
+  FLOGM("exception {}", e.what());
   throw;
 }
 
@@ -104,6 +105,6 @@ try
 }
 catch ( std::exception &e )
 {
-  std::cerr << "remote_memory_subclient::" << __func__ << ": " << e.what() << "\n";
+  FLOGM("excpetion: ", e.what());
   throw;
 }
