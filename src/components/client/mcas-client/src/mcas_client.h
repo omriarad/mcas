@@ -121,7 +121,7 @@ class MCAS_client
    * Pick one and use it for registrations.
    */
   Registrar_memory_direct *registrar() { return static_cast<component::IKVStore *>(this); }
-  
+
  public:
   using IKVStore::Addr;
   using IKVStore::Attribute;
@@ -293,7 +293,7 @@ class MCAS_client
                                   const size_t                      root_len,
                                   const ado_flags_t                 flags,
                                   std::vector<IMCAS::ADO_response> &out_response) override;
-  
+
   virtual status_t async_invoke_put_ado(const IMCAS::pool_t           pool,
                                         const string_view_key key,
                                         const string_view_request   request,
@@ -360,7 +360,7 @@ class MCAS_client_factory : public component::IMCAS_factory {
                                     const string_view src_ip_addr,
                                     const string_view dest_addr_with_port,
                                     const string_view other) override;
-  
+
   component::IKVStore *create(unsigned          debug_level,
                               const string_view owner,
                               const string_view addr,

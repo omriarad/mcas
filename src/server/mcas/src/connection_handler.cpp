@@ -40,7 +40,7 @@ Connection_handler::Connection_handler(unsigned debug_level_,
                                        gsl::not_null<Factory *> factory,
                                        std::unique_ptr<Preconnection> && preconnection
                                        , unsigned buffer_count_
-#if 0 && 11
+#if CW_TEST && 0
 	, byte_span scratchpad_
 #endif
 )
@@ -293,7 +293,7 @@ void Connection_handler::respond_to_handshake(
   post_send_buffer(reply_iob, reply_msg, __func__);
 #if CW_TEST
 	{
-		std::cerr << "TEST SERVER vaddr " << static_cast<void *>(&_rm[0]) << " key " << _rm.key() << "\n";
+		FLOG("TEST SERVER vaddr {} key {}", static_cast<void *>(&_rm[0]), _rm.key());
 
 	}
 #endif

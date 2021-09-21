@@ -24,8 +24,6 @@
 #include <common/moveable_ptr.h>
 #include <common/types.h>
 
-#include <boost/io/ios_state.hpp>
-
 #include <sys/uio.h> /* iovec */
 
 #include <cstddef> /* size_t */
@@ -33,7 +31,6 @@
 #include <cstring> /* memcpy */
 #include <exception>
 #include <functional> /* function */
-#include <iostream> /* cerr */
 #include <vector>
 
 using cw::remote_memory_accessor;
@@ -43,9 +40,7 @@ void remote_memory_accessor::send_memory_info(component::IFabric_endpoint_connec
 	std::uint64_t vaddr = reinterpret_cast<std::uint64_t>(&rm_[0]);
 	std::uint64_t key = rm_.key();
 	{
-		std::cerr << "Server: memory addr " << reinterpret_cast<void*>(vaddr) << std::hex << " key " << key << "\n";
-		boost::io::ios_base_all_saver sv(std::cerr);
-		std::cerr << "Server: memory addr " << reinterpret_cast<void*>(vaddr) << std::hex << " key " << key << "\n";
+		FLOG("Server: memory addr {} key {:x}", reinterpret_cast<void*>(vaddr), key);
 	}
 	char msg[(sizeof vaddr) + (sizeof key)];
 	std::memcpy(msg, &vaddr, sizeof vaddr);
@@ -74,6 +69,6 @@ void remote_memory_accessor::send_msg(component::IFabric_endpoint_connected &cnx
 	}
 	catch ( const std::exception &e )
 	{
-		std::cerr << __func__ << " exception " << e.what() << std::endl;
+		FLOGM("exception {}", e.what());
 	}
 }

@@ -207,7 +207,7 @@ public:
                               gsl::not_null<Factory *> factory,
                               std::unique_ptr<Preconnection> && preconnection
     , unsigned buffer_count
-#if 0 && 11
+#if CW_TEST && 0
 		, byte_span scratchpad
 #endif
 	);

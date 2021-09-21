@@ -30,7 +30,7 @@ class Connection_handler;
 class Fabric_transport {
   bool _fabric_debug;
 
-#if 0 && 11
+#if CW_TEST && 0
 	using byte_span = common::byte_span;
 #endif
  public:
@@ -55,7 +55,7 @@ class Fabric_transport {
   std::unique_ptr<component::IFabric_server_factory> _server_factory;
   unsigned                                           _port;
   unsigned                                           _buffer_count;
-#if 0 && 11
+#if CW_TEST && 0
 protected:
 	byte_span _scratchpad;
 #endif

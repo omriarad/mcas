@@ -46,7 +46,6 @@ struct async_buffer_set_put_locate
 	, private ::fi_context2 /* context for the RDMA write */
 {
 private:
-	static constexpr const char *_cname = "async_buffer_set_put_locate";
 	iob_ptr                      _iobs2;
 	iob_ptr                      _iobr2;
 	component::IMCAS::pool_t     _pool;
@@ -76,7 +75,7 @@ private:
 	}
 	catch ( std::exception &e )
 	{
-		std::cerr << _cname << "::" << __func__ << e.what() << "\n";
+		FLOGF("{}", e.what());
 	}
 
 	void check_complete(::status_t stat_, std::size_t)
@@ -95,7 +94,7 @@ private:
 		);
 		if ( _last_stat != ::S_OK )
 		{
-			std::cerr << _cname << "::" << __func__ << ": " << _last_stat << "\n";
+			FLOGM("{}", _last_stat);
 		}
 	}
 

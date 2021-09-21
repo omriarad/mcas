@@ -116,7 +116,6 @@ inline std::ostream &operator<<(std::ostream &o_, const mcas::protocol::Message_
 
 inline std::ostream &operator<<(std::ostream &o_, const mcas::protocol::Message_numbered_response &msg)
 {
-  boost::io::ios_flags_saver s(o_);
   return o_ << static_cast<const mcas::protocol::Message &>(msg) << " id " << msg.request_id();
 }
 

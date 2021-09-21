@@ -24,8 +24,6 @@
 #include <common/moveable_ptr.h>
 #include <common/types.h>
 
-#include <boost/io/ios_state.hpp>
-
 #include <sys/uio.h> /* iovec */
 
 #include <cstddef> /* size_t */
@@ -33,7 +31,6 @@
 #include <cstring> /* memcpy */
 #include <exception>
 #include <functional> /* function */
-#include <iostream> /* cerr */
 #include <vector>
 
 /*
@@ -88,7 +85,6 @@ auto cw::get_rm(
 				std::memcpy(&key, rm_ + (sizeof vaddr), sizeof key);
 			}
 	);
-	boost::io::ios_base_all_saver sv(std::cerr);
-	std::cerr << "Client: remote memory addr " << reinterpret_cast<void*>(std::get<1>(r)) << " key " << std::hex << std::get<2>(r) << std::endl;
+	FLOG("Client: remote memory addr {} key {:x}", reinterpret_cast<void*>(std::get<1>(r)), std::get<2>(r));
 	return r;
 }

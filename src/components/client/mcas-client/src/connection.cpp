@@ -238,7 +238,6 @@ struct async_buffer_set_get_locate
   : public async_buffer_set_t
   , public memory_registered {
 private:
-  static constexpr const char *_cname = "async_buffer_set_get_locate";
   iob_ptr                      _iobrd;
   component::IMCAS::pool_t     _pool;
   std::uint64_t                _auth_id;
@@ -288,7 +287,7 @@ public:
 
     CPLOG(2,
           "%s::%s post_read %p local (addr %p.%zx desc %p) <- (_addr 0x%zx, key 0x%zx)"
-          , _cname
+          , CNAME(this)
           , __func__
           , common::p_fmt(&*_iobrd)
           , _v[0].iov_base, _v[0].iov_len
@@ -368,7 +367,6 @@ struct async_buffer_set_put_locate
 	, private mr_many
 {
 private:
-  static constexpr const char *_cname = "async_buffer_set_put_locate";
   iob_ptr                      _iobrd;
   iob_ptr                      _iobs2;
   iob_ptr                      _iobr2;
@@ -550,7 +548,6 @@ struct async_buffer_set_get_direct_offset
   , public memory_registered {
 private:
   using locate_element                               = protocol::Message_IO_response::locate_element;
-  static constexpr const char *               _cname = "async_buffer_set_get_direct_offset";
   iob_ptr                                     _iobrd;
   iob_ptr                                     _iobs2;
   iob_ptr                                     _iobr2;
@@ -633,7 +630,7 @@ public:
 
         CPLOG(2,
               "%s::%s: edata count %zu %p to %p"
-              , _cname
+              , CNAME(this)
               , __func__
               , response->element_count()
               , common::p_fmt(cursor)
@@ -644,7 +641,7 @@ public:
         for (const auto &e : _addr_list) {
           _length += e.len;
           CPLOG(2, "%s::%s: addr 0x%" PRIx64 " len 0x%" PRIx64
-                , _cname
+                , CNAME(this)
                 , __func__
                 , e.addr, e.len);
         }
@@ -678,7 +675,7 @@ public:
 
       CPLOG(2,
             "%s::%s post_read %p local (addr %p.%zx desc %p) <- (_addr 0x%zx, key 0x%zx)"
-            , _cname
+            , CNAME(this)
             , __func__
             , common::p_fmt(&*_iobrd)
             , _v[0].iov_base, _v[0].iov_len
@@ -698,7 +695,7 @@ public:
       /* What to do when DMA completes */
       /* DMA done. Might need another DMA */
       CPLOG(2, "%s::%s dma read complete %p"
-            , _cname
+            , CNAME(this)
             , __func__
             , common::p_fmt(&*_iobrd)
             );
@@ -736,7 +733,6 @@ struct async_buffer_set_put_direct_offset
   , public memory_registered {
 private:
   using locate_element                               = protocol::Message_IO_response::locate_element;
-  static constexpr const char *               _cname = "async_buffer_set_put_direct_offset";
   iob_ptr                                     _iobrd;
   iob_ptr                                     _iobs2;
   iob_ptr                                     _iobr2;
@@ -818,7 +814,7 @@ public:
         _addr_list  = std::vector<locate_element>(cursor, cursor + response->element_count());
         CPLOG(2,
               "%s::%s: edata count %zu %p to %p"
-              , _cname
+              , CNAME(this)
               , __func__
               , response->element_count()
               , common::p_fmt(cursor)
@@ -829,7 +825,7 @@ public:
           _length += e.len;
           CPLOG(2,
                 "%s::%s: addr 0x%" PRIx64 " len 0x%" PRIx64
-                , _cname
+                , CNAME(this)
                 , __func__
                 , e.addr, e.len
                 );
@@ -865,7 +861,7 @@ public:
 
       CPLOG(2,
             "%s::%s post_write %p local (addr %p.%zx desc %p) -> (_addr 0x%zx, key 0x%zx)"
-            , _cname
+            , CNAME(this)
             , __func__
             , common::p_fmt(&*_iobrd)
             , _v[0].iov_base, _v[0].iov_len
@@ -888,7 +884,7 @@ public:
       /* DMA done. Might need another DMA */
       CPLOG(2
             , "%s::%s dma write complete %p"
-            , _cname
+            , CNAME(this)
             , __func__
             , common::p_fmt(&*_iobrd)
             );
@@ -1002,10 +998,10 @@ Connection::~Connection()
 {
   PLOG("%s: (%p)", __func__, common::p_fmt(this));
 #if CW_TEST
-	std::cerr << "wr " << _ct_w.out("usec") << "\n";
-	std::cerr << "wr_real_to_test " << _ct_wr_real_to_test.out("usec") << "\n";
-	std::cerr << "wr_test_to_real " << _ct_wr_test_to_real.out("usec") << "\n";
-	std::cerr << "rd_test_from_real " << _ct_rd_test_from_real.out("usec") << "\n";
+	FLOG("wr {} ", _ct_w.out("usec"));
+	FLOG("wr_real_to_test {}", _ct_wr_real_to_test.out("usec"));
+	FLOG("wr_test_to_real {}", _ct_wr_test_to_real.out("usec"));
+	FLOG("rd_test_from_real {}", _ct_rd_test_from_real.out("usec"));
 #endif
 }
 
@@ -1214,7 +1210,7 @@ auto Connection::create_pool(const string_view  name_,
 			{
 				write_test_to_real(sz, base, scratchpad_rma_key);
 			}
-			std::cerr << __func__ << "perf check: wr_test_to_real aligned at " << reinterpret_cast<void *>(base) << " " << _ct_wr_test_to_real.out("usec") << "\n";
+			FLOGM("perf check: wr_test_to_real aligned at {} {}", reinterpret_cast<void *>(base), _ct_wr_test_to_real.out("usec"));
 		}
 		{
 			/* run a performance test on the pool: read 8MiB, then write 8 Mib 10K times */
@@ -1224,7 +1220,7 @@ auto Connection::create_pool(const string_view  name_,
 			{
 				write_test_to_real(sz, scratchpad_base, scratchpad_rma_key);
 			}
-			std::cerr << __func__ << "perf check: wr_test_to_real " << _ct_wr_test_to_real.out("usec") << "\n";
+			FLOGM("perf check: wr_test_to_real {}", _ct_wr_test_to_real.out("usec"));
 		}
 	}
   return { pool_id, scratchpad_base, scratchpad_rma_key };
@@ -2696,9 +2692,9 @@ status_t Connection::get(const pool_t pool, const string_view_key key, std::stri
 		auto t_duration = std::chrono::steady_clock::now() - t_start;
 
 		auto data_size_total = _test_data.count() * _test_data.size();
-		std::cerr << "test " << id_ << ": data rate " << std::dec << data_size_total << " bytes in " << cw::double_seconds(t_duration) << " seconds " << double(data_size_total) / 1e9 / cw::double_seconds(t_duration) << " GB/sec" << "\n";
-		std::cerr << "wr " << _ct_w.out("usec") << "\n";
-		std::cerr << __func__ << " local " << _client->write_from_test_local_addr() << "-> remote " << _client->write_to_test_remote_addr() << "\n";
+		FLOG("test {}: data rate {} bytes in {} seconds {} GB/sec", id_, data_size_total, cw::double_seconds(t_duration), double(data_size_total) / 1e9 / cw::double_seconds(t_duration));
+		FLOG("wr {}", _ct_w.out("usec"));
+		FLOGM("local {} -> remote {}", _client->write_from_test_local_addr(), _client->write_to_test_remote_addr());
 	}
 
 	void Connection::run_intermittent_sleep() const
@@ -2735,7 +2731,7 @@ status_t Connection::get(const pool_t pool, const string_view_key key, std::stri
 		_ct_w.record(tm);
 		if ( 1.0 <= tm )
 		{
-			std::cerr << __func__ << " local " << _client->write_from_test_local_addr() << "-> remote " << _client->write_to_test_remote_addr() << " (at " << connection_seconds() << " sec, delta " << connection_delta_seconds() << "): long write (" << _ct_w.count() << ") " << tm << " sec\n";
+			FLOGM("local {} -> remote {} delta {}): long write ({}) {} sec", _client->write_from_test_local_addr(), _client->write_to_test_remote_addr(), connection_delta_seconds(), _ct_w.count(), tm);
 		}
 		run_intermittent_sleep();
 		run_intermittent_ping_pong(_test_data.post_ping_pong_interval());
@@ -2753,7 +2749,7 @@ status_t Connection::get(const pool_t pool, const string_view_key key, std::stri
 		_ct_wr_real_to_test.record(tm);
 		if ( 1.0 <= tm )
 		{
-			std::cerr << __func__ << " local " << src_ << "-> remote " << _client->write_to_test_remote_addr() << " (at " << connection_seconds() << " sec, delta " << connection_delta_seconds() << "): long write (" << _ct_wr_real_to_test.count() << ") " << tm << " sec\n";
+			FLOGM("local {} -> remote {}, delta {}): long write ({}) {} sec", src_, _client->write_to_test_remote_addr(), connection_delta_seconds(), _ct_wr_real_to_test.count(), tm);
 		}
 	}
 
@@ -2769,7 +2765,10 @@ status_t Connection::get(const pool_t pool, const string_view_key key, std::stri
 		_ct_wr_test_to_real.record(tm);
 		if ( 1.0 <= tm )
 		{
-			std::cerr << __func__ << " remote " << reinterpret_cast<void *>(vaddr_) << " <- local " << _client->write_from_test_local_addr() <<   " (at " << connection_seconds() << " sec, delta " << connection_delta_seconds() << "): long write (" << _ct_wr_test_to_real.count() << ") " << tm << " sec\n";
+			FLOG("{} remote {} <- local {} (at {} sec, delta {} ): long write ({}) {} sec"
+				, __func__, reinterpret_cast<void *>(vaddr_), _client->write_from_test_local_addr()
+				, connection_seconds(), connection_delta_seconds(), _ct_wr_test_to_real.count(), tm
+			);
 		}
 	}
 
@@ -2783,9 +2782,10 @@ status_t Connection::get(const pool_t pool, const string_view_key key, std::stri
 		if ( st != ::S_OK ) { throw std::runtime_error(__func__ + std::string(" failed")); }
 		auto tm = double_seconds(t_write.elapsed());
 		_ct_rd_test_from_real.record(tm);
+		FLOG("FLOG TEST one {} two {} three {}", 0, 2.0, "3");
 		if ( 1.0 <= tm )
 		{
-			std::cerr << __func__ << " remote " << reinterpret_cast<void *>(vaddr_) << " <- local " << _client->write_from_test_local_addr() <<   " (at " << connection_seconds() << " sec, delta " << connection_delta_seconds() << "): long write (" << _ct_rd_test_from_real.count() << ") " << tm << " sec\n";
+			FLOGM("remote {} <- local {} (at {} sec, delta {}): long write ({}) {} sec", reinterpret_cast<void *>(vaddr_), _client->write_from_test_local_addr(), connection_seconds(), connection_delta_seconds(), _ct_rd_test_from_real.count(), tm);
 		}
 	}
 #endif
@@ -2875,17 +2875,20 @@ status_t Connection::get(const pool_t pool, const string_view_key key, std::stri
 
 					// Initial count taken from server side, as that is typically local and easier to alter via env variables or parameters
 					// count = common:t_cenv_value<std::size_t>("COUNT", 10000); }
-					std::cerr << "TEST CLIENT vaddr " << reinterpret_cast<void *>(response_msg->vaddr)
-						<< " key " << response_msg->key
-						<< " size " << _test_data.size() << " count " << _test_data.count()
-						<< " pre_ping_pong interval " << _test_data.pre_ping_pong_interval()
-						<< " post_ping_pong interval " << _test_data.post_ping_pong_interval()
-						<< " sleep interval " << _test_data.sleep_interval()
-						<< " sleep time " << std::chrono::duration<double>(_test_data.sleep_time()).count() << " sec"
-						<< "\n";
-					std::cerr << __func__ << " local " << _client->write_from_test_local_addr()
-						<< "-> remote " << _client->write_to_test_remote_addr()
-						<< "\n";
+					FLOG("TEST CLIENT vaddr {} key {} size {} count {} pre_ping_pong interval {} post_ping_pong interval {} sleep interval {} sleep time {} sec"
+						, reinterpret_cast<void *>(response_msg->vaddr)
+						, response_msg->key
+						, _test_data.size()
+						,  _test_data.count()
+						, _test_data.pre_ping_pong_interval()
+						, _test_data.post_ping_pong_interval()
+						, _test_data.sleep_interval()
+						, std::chrono::duration<double>(_test_data.sleep_time()).count()
+					);
+					FLOGM("local {} -> remote {}"
+						, _client->write_from_test_local_addr()
+						, _client->write_to_test_remote_addr()
+					);
 					{
 						auto t_start = std::chrono::steady_clock::now();
 						while ( _ct_w.count() < _test_data.count() )
@@ -2895,8 +2898,8 @@ status_t Connection::get(const pool_t pool, const string_view_key key, std::stri
 						auto t_duration = std::chrono::steady_clock::now() - t_start;
 
 						auto data_size_total = _test_data.count() * _test_data.size();
-						std::cerr << "Data rate " << std::dec << data_size_total << " bytes in " << double_seconds(t_duration) << " seconds " << double(data_size_total) / 1e9 / double_seconds(t_duration) << " GB/sec" << "\n";
-						std::cerr << "wr " << _ct_w.out("usec") << "\n";
+						FLOG("Data rate {} bytes in {} {} seconds {} GB/sec", data_size_total, double_seconds(t_duration), double(data_size_total) / 1e9 / double_seconds(t_duration));
+						FLOG("wr ()", _ct_w.out("usec"));
 					}
 				}
 #endif

@@ -59,7 +59,7 @@ private:
 	}
 	catch ( std::exception &e )
 	{
-		std::cerr << _cname << "::" << __func__ << e.what() << "\n";
+		FLOGF("{}", e.what());
 	}
 
 	void check_complete(::status_t stat_, std::size_t)
@@ -81,7 +81,7 @@ PLOG("%s enter", __func__);
 PLOG("%s done", __func__);
 		if ( _last_stat != ::S_OK )
 		{
-			std::cerr << _cname << "::" << __func__ << ": " << _last_stat << "\n";
+			FLOGM("{}", _last_stat);
 		}
 	}
 #endif

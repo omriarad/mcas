@@ -64,7 +64,7 @@ try
 }
 catch ( std::exception &e )
 {
-	std::cerr << "cw::remote_memory_client::" << __func__ << e.what() << "\n";
+	FLOG("cw::remote_memory_client::{}: {}", __func__, e.what());
 }
 
 void remote_memory_client_connected::check_complete(::status_t stat_, std::size_t)
@@ -88,7 +88,7 @@ remote_memory_client_connected::~remote_memory_client_connected()
 	}
 	catch ( std::exception &e )
 	{
-		std::cerr << __func__ << " exception " << e.what() << std::endl;
+		FLOGM("exception {}", e.what());
 	}
 }
 
@@ -103,7 +103,7 @@ status_t remote_memory_client_connected::wait_complete()
 	);
 	if ( _last_stat != ::S_OK )
 	{
-		std::cerr << "cw::remote_memory_client::" << __func__ << ": " << _last_stat << "\n";
+		FLOGM("{}", _last_stat);
 	}
 	return _last_stat;
 }
