@@ -1,14 +1,14 @@
 # List of publications
 
-5. Non-Volatile Memory Accelerated Geometric Multi-Scale Resolution Analysis - HPEC 2021 (see code example [GMRA](./code_example/GMRA_HPEC2021))
+1. Non-Volatile Memory Accelerated Geometric Multi-Scale Resolution Analysis - HPEC 2021 (see code example [GMRA](./code_example/GMRA_HPEC2021))
 
-4. Non-Volatile Memory Accelerated Posterior Estimation - HPEC 2021 (see code example [Postrerior_estimation](./code_example/Postrerior_estimation_HPEC2021))
+2. Non-Volatile Memory Accelerated Posterior Estimation - HPEC 2021 (see code example [Postrerior_estimation](./code_example/Postrerior_estimation_HPEC2021))
 
 3. An Architecture for Memory Centric Active Storage (MCAS) - arxiv
 
-2. A High-Performance Persistent Memory Key-Value Store with Near-Memory Compute - arxiv
+4. A High-Performance Persistent Memory Key-Value Store with Near-Memory Compute - arxiv
 
-1. Evaluating Intel 3D-Xpoint NVDIMM Persistent Memory in the Context of a Key-Value Store - ISPASS 2020 
+5. Evaluating Intel 3D-Xpoint NVDIMM Persistent Memory in the Context of a Key-Value Store - ISPASS 2020 
  
 
 # More Details  
@@ -19,9 +19,9 @@
 mensionality reduction algorithms are standard tools in a researcher’s toolbox. Dimensionality reduction algorithms are frequently used to augment downstream tasks such as machine learning, data science, and also are exploratory methods for understanding complex phenomena. For instance, dimensionality reduction is commonly used in Biology as well as Neuroscience to understand data collected from biological subjects. However, dimensionality reduction techniques are limited by the von-Neumann architectures that they execute on. Specifically, data intensive algorithms such as dimensionality
 reduction techniques often require fast, high capacity, persistent memory which historically hardware has been unable to provide at the same time. In this paper, we present a re-implementation of an existing dimensionality reduction technique called Geometric Multi-Scale Resolution Analysis (GMRA) which has been accelerated via novel persistent memory technology called Memory Centric Active Storage (MCAS). Our implementation uses a specialized version of MCAS called PyMM that provides native support for Python datatypes including NumPy arrays and PyTorch tensors. We compare our PyMM implementation against a DRAM implementation, and show that when data fits in DRAM, PyMM offers competitive runtimes. When data does not fit in DRAM, our PyMM implementation is still able to process the data.
 
-### Link for the paper: 
+%### Link for the paper: 
 
-### Bibtex entry
+%### Bibtex entry
 
 
 ## Non-Volatile Memory Accelerated Posterior Estimation
@@ -31,9 +31,9 @@ Bayesian inference allows machine learning models to express uncertainty. Curren
 
 
 
-### Link to the paper:
+%### Link to the paper:
 
-### Bibtex
+%### Bibtex
 
 
 
