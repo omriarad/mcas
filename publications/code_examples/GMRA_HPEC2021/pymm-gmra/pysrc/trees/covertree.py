@@ -1,3 +1,10 @@
+"""
+Description: Cover-tree    
+Author      : Andrew Wood
+Author_email: dewood@bu.edu
+License     : Apache License, Version 2.0
+"""
+
 # SYSTEM IMPORTS
 from tqdm import tqdm
 from itertools import product

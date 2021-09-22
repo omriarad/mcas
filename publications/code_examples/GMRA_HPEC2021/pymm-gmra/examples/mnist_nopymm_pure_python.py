@@ -1,3 +1,10 @@
+"""
+Description: Example of using GMRA DRAM pure python     
+Author      : Andrew Wood
+Author_email: dewood@bu.edu
+License     : Apache License, Version 2.0
+"""
+
 # SYSTEM IMPORTS
 from tensorflow.keras.datasets import mnist
 from typing import Set
