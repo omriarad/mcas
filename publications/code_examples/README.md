@@ -1,6 +1,6 @@
 # Code examples for published papers
-##[Non-Volatile Memory Accelerated Posterior Estimation - HPEC2021](./Posterior_estimation_HPEC2021)
-##[Non-Volatile Memory Accelerated Geometric Multi-Scale Resolution Analysis - HPEC2021](./GMRA_HPEC2021) 
+## [Non-Volatile Memory Accelerated Posterior Estimation - HPEC2021](./Posterior_estimation_HPEC2021)
+## [Non-Volatile Memory Accelerated Geometric Multi-Scale Resolution Analysis - HPEC2021](./GMRA_HPEC2021) 
 
 
 # Helpful commands for creating different configurations:
