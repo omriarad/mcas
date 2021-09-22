@@ -1,3 +1,11 @@
+"""
+Description: Base Posterior class 
+Author      : Andrew Wood
+Author_email: dewood@bu.edu
+License     : Apache License, Version 2.0
+"""
+
+
 # SYSTEM IMPORTS
 from abc import ABC, abstractmethod
 import numpy as np

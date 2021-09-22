@@ -1,3 +1,14 @@
+"""
+Description: MMAP NumPy handler 
+Author      : Andrew Wood
+Author_email: dewood@bu.edu
+License     : Apache License, Version 2.0
+"""
+
+
+
+
+
 # SYSTEM IMPORTS
 from typing import List, Tuple, Union
 import numpy as np

@@ -1,3 +1,10 @@
+"""
+Description: Lazy MMAP Posterior class - use NVMe for the storage and DRAM for processing 
+Author      : Andrew Wood
+Author_email: dewood@bu.edu
+License     : Apache License, Version 2.0
+"""
+
 # SYSTEM IMPORTS
 from abc import ABC, abstractmethod
 import numpy as np

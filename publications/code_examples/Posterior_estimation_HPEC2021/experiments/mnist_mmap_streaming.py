@@ -1,3 +1,11 @@
+"""
+Description: Example of using mnist with lazy DRAM Posterior
+Author      : Andrew Wood
+Author_email: dewood@bu.edu
+License     : Apache License, Version 2.0
+"""
+
+
 # SYSTEM IMPORTS
 from typing import List
 from tqdm import tqdm
