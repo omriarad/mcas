@@ -1,8 +1,8 @@
 # List of publications
 
-1. Non-Volatile Memory Accelerated Geometric Multi-Scale Resolution Analysis - HPEC 2021 (see code example [GMRA](./code_example/GMRA_HPEC2021))
+1. Non-Volatile Memory Accelerated Geometric Multi-Scale Resolution Analysis - HPEC 2021 (see code example [GMRA](./code_examples/GMRA_HPEC2021))
 
-2. Non-Volatile Memory Accelerated Posterior Estimation - HPEC 2021 (see code example [Postrerior_estimation](./code_example/Postrerior_estimation_HPEC2021))
+2 Non-Volatile Memory Accelerated Posterior Estimation - HPEC 2021 (see code example [Postrerior_estimation](./code_examples/Posterior_estimation_HPEC2021))
 
 3. An Architecture for Memory Centric Active Storage (MCAS) - arxiv
 
