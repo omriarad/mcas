@@ -2,12 +2,14 @@
 #include <stdlib.h>
 #include <common/logging.h>
 #include <common/utils.h>
+#include <common/dump_utils.h>
 #include <api/mcas_itf.h>
 #include <api/kvstore_itf.h>
 #include <Python.h>
 #include <structmember.h>
 #include <libpmem.h>
 
+#include "metadata.h"
 #include "pymm_config.h"
 
 /* defaults */
@@ -15,7 +17,7 @@ constexpr const char * DEFAULT_PMEM_PATH = "/mnt/pmem0";
 constexpr const char * DEFAULT_POOL_NAME = "default";
 constexpr const char * DEFAULT_BACKEND = "hstore-cc";
 constexpr uint64_t DEFAULT_LOAD_ADDR = 0x900000000;
-
+constexpr uint64_t DEFAULT_ADDR_CARVEOUT = 0x100000000;
 using namespace component;
 
 /* Python type */
@@ -115,7 +117,7 @@ IKVStore * Backend_instance_manager::load_backend(const std::string backend,
                                                   const uint64_t load_addr,
                                                   const unsigned debug_level)
 {
-  PLOG("load_backend: (%s) (%s) (%s)", backend.c_str(), path.c_str(), mm_plugin_path.c_str());
+  PLOG("load_backend: (%s) (%s) (%s) (0x%lx)", backend.c_str(), path.c_str(), mm_plugin_path.c_str(), load_addr);
   IBase* comp = nullptr;
   std::string checked_mm_plugin_path = mm_plugin_path;
 
@@ -169,7 +171,9 @@ IKVStore * Backend_instance_manager::load_backend(const std::string backend,
                          {
                           {+component::IKVStore_factory::k_debug, std::to_string(debug_level)},
                           {+component::IKVStore_factory::k_dax_config, ss.str()},
-                          {+component::IKVStore_factory::k_mm_plugin_path, checked_mm_plugin_path}
+                          {+component::IKVStore_factory::k_mm_plugin_path, checked_mm_plugin_path},
+                          {+component::IKVStore_factory::k_dax_base, std::to_string(load_addr)},
+                          {+component::IKVStore_factory::k_dax_size, std::to_string(DEFAULT_ADDR_CARVEOUT) } /* TODO */
                          });
   }
   else if(backend == "hstore" || backend == "hstore-cc") {
@@ -181,7 +185,9 @@ IKVStore * Backend_instance_manager::load_backend(const std::string backend,
     store = fact->create(debug_level,
                          {
                           {+component::IKVStore_factory::k_debug, std::to_string(debug_level)},
-                          {+component::IKVStore_factory::k_dax_config, ss.str()}
+                          {+component::IKVStore_factory::k_dax_config, ss.str()},
+                          {+component::IKVStore_factory::k_dax_base, std::to_string(load_addr)},
+                          {+component::IKVStore_factory::k_dax_size, std::to_string(DEFAULT_ADDR_CARVEOUT) } /* TODO */
                          });
   }
   else {
@@ -227,7 +233,7 @@ static int MemoryResource_init(MemoryResource *self, PyObject *args, PyObject *k
   
   if (! PyArg_ParseTupleAndKeywords(args,
                                     kwds,
-                                    "s|nssOOp",
+                                    "snssOOp",
                                     const_cast<char**>(kwlist),
                                     &p_pool_name,
                                     &size_mb,
@@ -236,7 +242,7 @@ static int MemoryResource_init(MemoryResource *self, PyObject *args, PyObject *k
                                     &p_backend,
                                     &p_mm_plugin,
                                     &force_new)) {
-    PyErr_SetString(PyExc_RuntimeError, "bad arguments");
+    PyErr_SetString(PyExc_RuntimeError, "MemoryResource_init: bad arguments");
     PWRN("bad arguments or argument types to MemoryResource constructor");
     return -1;
   }
@@ -574,7 +580,8 @@ static PyObject * MemoryResource_put_named_memory(MemoryResource *self, PyObject
                                name,
                                data_ptr,
                                data_len);
-  
+  assert(s == S_OK);
+
   return PyLong_FromLong(s);
 }
 
@@ -610,8 +617,7 @@ static PyObject * MemoryResource_get_named_memory(MemoryResource *self, PyObject
 
 
   auto result = PyByteArray_FromStringAndSize(static_cast<const char *>(data_ptr), data_len);
-  //  ::free(data_ptr);
-  
+  mr->_store->free_memory(data_ptr);
   return result;
 }
 
@@ -648,7 +654,12 @@ static PyObject * MemoryResource_persist_memory_view(MemoryResource *self, PyObj
 
   Py_buffer * pybuffer = PyMemoryView_GET_BUFFER(mview);
 
-  PNOTICE("persisting %p %lu", pybuffer->buf, pybuffer->len);
+  PLOG("persisting memory @%p", pybuffer->buf);
+  // /* update version in header */
+  // PyMM::Meta::Header* hdr = PyMM::Meta::GetMutableHeader(reinterpret_cast<char*>(pybuffer->buf) + 4);
+  // hdr->mutable_hdr()->mutate_version(hdr->hdr()->version() + 1);
+    
+  //  PNOTICE("persisting %p %lu", pybuffer->buf, pybuffer->len);
   pmem_persist(pybuffer->buf, pybuffer->len); /* part of libpmem */
   
   return PyLong_FromLong(0);

@@ -22,14 +22,10 @@ import copy
 import numpy
 import torch
 import weakref
-
 import numpy as np
 import torch
 
-import PyMM.Meta.Header as Header
-import PyMM.Meta.Constants as Constants
-import PyMM.Meta.DataType as DataType
-
+from .metadata import *
 from .memoryresource import MemoryResource
 from .check import methodcheck
 from flatbuffers import util
@@ -53,9 +49,6 @@ class ShelvedCommon:
             return self._value_named_memory.addr()
         if name == 'namedmemory':
             return self._value_named_memory
-
-#        else:
-#            raise AttributeError()
             
 
 class Shadow:
@@ -69,9 +62,14 @@ class shelf():
     '''
     A shelf is a logical collection of variables held in CXL or persistent memory
     '''
-    def __init__(self, name, pmem_path='/mnt/pmem0', size_mb=32, backend=None, mm_plugin=None, force_new=False):
+    def __init__(self, name, pmem_path='/mnt/pmem0', size_mb=32, load_addr='0x900000000',
+                 backend=None, mm_plugin=None, force_new=False, ):
+        if not(isinstance(load_addr, str)):
+            raise RuntimeError('shelf ctor parameter load_addr should be string')
         self.name = name
-        self.mr = MemoryResource(name, size_mb, pmem_path=pmem_path, backend=backend, mm_plugin=mm_plugin, force_new=force_new)
+        self.mr = MemoryResource(name, size_mb, pmem_path=pmem_path, backend=backend,
+                                 mm_plugin=mm_plugin, load_addr=load_addr, force_new=force_new)
+        
         if self.mr == None:
             raise RuntimeError('shelf initialization failed')
         
@@ -86,35 +84,32 @@ class shelf():
                     print("WARNING: no named memory for '{}'".format(varname))
                     continue
                     
-                hdr_size = util.GetSizePrefix(buffer, 0)
-                if hdr_size != 28:
-                    print("WARNING: invalid header for '{}'; prior version?".format(varname))
-                    continue
-
-                root = Header.Header()
-                hdr = root.GetRootAsHeader(buffer[4:], 0) # size prefix is 4 bytes
+                hdr = MetaHeader.from_buffer(memoryview(buffer))
                 
-                if(hdr.Magic() != Constants.Constants().Magic):
-                    print("WARNING: bad magic number")
+                if (hdr.magic != int(HeaderMagic)):
+                    print("WARNING: (shelf.py) bad magic {} number for variable: {}".format(hdr.magic,varname))
                     continue
                 
-                stype = hdr.Type()
-
+                stype = hdr.type
                 # call appropriate existing_instance for detected type
                 
                 # type: pymm.string
-                if (stype == DataType.DataType().AsciiString or
-                    stype == DataType.DataType().Utf8String or
-                    stype == DataType.DataType().Utf16String or
-                    stype == DataType.DataType().Latin1String):
+                if (stype == DataType_String):
                     (existing, value) = pymm.string.existing_instance(self.mr, varname)
+                    if existing == True:
+                        self.__dict__[varname] = value
+                        print("Value '{}' has been made available on shelf '{}'!".format(varname, name))
+                        continue
+
+                elif (stype == DataType_Bytes):
+                    (existing, value) = pymm.bytes.existing_instance(self.mr, varname)
                     if existing == True:
                         self.__dict__[varname] = value
                         print("Value '{}' has been made available on shelf '{}'!".format(varname, name))
                         continue
                     
                 # type: pymm.ndarray
-                elif (stype == DataType.DataType().NumPyArray):
+                elif (stype == DataType_NumPyArray):
                     (existing, value) = pymm.ndarray.existing_instance(self.mr, varname)
                     if existing == True:
                         self.__dict__[varname] = value
@@ -122,7 +117,7 @@ class shelf():
                         continue
 
                 # type: pymm.torch_tensor
-                elif (stype == DataType.DataType().TorchTensor):
+                elif (stype == DataType_TorchTensor):
                     (existing, value) = pymm.torch_tensor.existing_instance(self.mr, varname)
                     if existing == True:
                         self.__dict__[varname] = value
@@ -130,7 +125,7 @@ class shelf():
                         continue
 
                 # type: pymm.float_number
-                elif (stype == DataType.DataType().NumberFloat):
+                elif (stype == DataType_NumberFloat):
                     (existing, value) = pymm.float_number.existing_instance(self.mr, varname)
                     if existing == True:
                         self.__dict__[varname] = value
@@ -138,7 +133,7 @@ class shelf():
                         continue
 
                 # type: pymm.integer_number
-                elif (stype == DataType.DataType().NumberInteger):
+                elif (stype == DataType_NumberInteger):
                     (existing, value) = pymm.integer_number.existing_instance(self.mr, varname)
                     if existing == True:
                         self.__dict__[varname] = value
@@ -146,7 +141,7 @@ class shelf():
                         continue
                     
                 # type: pymm.linked_list (needs shelf)
-                elif (stype == DataType.DataType().LinkedList):
+                elif (stype == DataType_LinkedList):
                     (existing, value) = pymm.linked_list.existing_instance(self, varname)
                     if existing == True:
                         self.__dict__[varname] = value
@@ -154,13 +149,6 @@ class shelf():
                         continue
 
                     
-                    
-                # (existing, value) = pymm.pickled.existing_instance(self.mr, varname)
-                # if existing == True:
-                #     self.__dict__[varname] = value
-                #     print("Value '{}' has been made available on shelf '{}'!".format(varname, name))
-                #     continue
-
                 print("Value '{}' is unknown type!".format(varname))
 
 
@@ -182,7 +170,7 @@ class shelf():
         Handle attribute assignment
         '''
         # constant members
-        if self.mr and name is 'mr':
+        if self.mr and name == 'mr':
             raise RuntimeError('invalid assignment')
 
         # selective pass through
@@ -224,6 +212,8 @@ class shelf():
             self.__dict__[name] = pymm.float_number.build_from_copy(self.mr, name, value)
         elif isinstance(value, int):
             self.__dict__[name] = pymm.integer_number.build_from_copy(self.mr, name, value)
+        elif isinstance(value, bytes):
+            self.__dict__[name] = pymm.bytes.build_from_copy(self.mr, name, value)
         elif issubclass(type(value), pymm.ShelvedCommon):
             raise RuntimeError('persistent reference not yet supported - use a volatile one!')            
         elif type(value) == type(None):
@@ -244,22 +234,25 @@ class shelf():
                 return None
             return self.__dict__[name]
         if not name in self.__dict__:
-            raise RuntimeError('invalid member {}'.format(name))
+            return None
+            #raise RuntimeError('invalid member {}'.format(name))
         else:
             return self.__dict__[name]
 #            return weakref.ref(self.__dict__[name])
             
     @methodcheck(types=[])
-    def get_item_names(self):
+    def get_item_names(self, all=False):
         '''
         Get names of items on the shelf
         '''
         items = []
         for s in self.__dict__:
-            if issubclass(type(self.__dict__[s]), pymm.ShelvedCommon):
-                items.append(s) # or to add object itself...self.__dict__[s]
-            elif issubclass(type(self.__dict__[s]), torch.Tensor):
-                items.append(s)
+            if s == 'name' or s == 'mr':
+                continue
+            if all==False and s[0] == '-':
+                continue
+            items.append(s)
+                
                 
         return items
             
@@ -291,19 +284,79 @@ class shelf():
     def get_percent_used(self):
         return self.mr.get_percent_used()
 
+    @methodcheck(types=[])
+    def persist(self):
+        '''
+        Persist memory for all variables on the shelf
+        '''
+        for varname in self.get_item_names():
+            # get memory resource associated with variable
+            metadata_memory_resource = self.__dict__[varname]._metadata_named_memory
+            if self.__dict__[varname]._metadata_named_memory == None:
+                print('error: var {} has no metadata'.format(varname))
+                continue
+            else:
+                metadata_memory_resource.persist()
+            value_memory_resource = self.__dict__[varname]._value_named_memory
+            if value_memory_resource != None:
+                value_memory_resource.persist()
+        
+
+
+    @methodcheck(types=[bool])
+    def inspect(self, verbose=False):
+        '''
+        Inspect variables on shelf
+        '''
+        for varname in self.get_item_names(all=verbose):
+
+            # get header info
+            if self.__dict__[varname]._metadata_named_memory == None:
+                print('error: var {} has no metadata'.format(varname))
+                continue
+            
+            metadata_memory = self.__dict__[varname]._metadata_named_memory.buffer
+
+            try:
+                hdr = construct_header_from_buffer(metadata_memory)
+
+                print('var {}: addr={} magic={} type={} subtype={} txbits={} ver={}'
+                      .format(varname,
+                              self.__dict__[varname]._metadata_named_memory.addr(),
+                              hex(hdr.magic),
+                              hdr.type,
+                              hdr.subtype,
+                              hdr.txbits,
+                              hdr.version))
+
+                if verbose:
+                    print('var {}: {}'.format(varname, bytes(metadata_memory[:HeaderSize])))
+                    
+            except RuntimeError:
+                print('var {}: failed header check!!'.format(varname))
+                print('var {}: {}'.format(varname, bytes(metadata_memory[:HeaderSize])))
+                pass
+
+            value_memory = self.__dict__[varname]._value_named_memory
+            if value_memory != None:
+                print('var {} has value memory {}'.format(varname, value_memory.addr()))
+            
+
     def _is_supported_shadow_type(self, value):
         '''
         Helper function to return True if value is of a shadow type
         '''
         return (isinstance(value, pymm.ndarray) or
-                isinstance(value, pymm.string) or
                 isinstance(value, pymm.torch_tensor) or
+                isinstance(value, pymm.string) or
                 isinstance(value, pymm.float_number) or
-                isinstance(value, pymm.integer_number)
+                isinstance(value, pymm.integer_number) or
+                isinstance(value, pymm.bytes)
         )
 
     def supported_types(self):
-        return ["pymm.ndarray", "pymm.torch_tensor", "pymm.string", "pymm.float_number"]
+        return ["pymm.ndarray", "pymm.torch_tensor", "pymm.string", "pymm.float_number", "pymm.integer_number",
+                "pymm.bytes"]
 
 
 
