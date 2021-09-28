@@ -34,11 +34,12 @@ class shard_proto(dm):
 
     def incr(self,n):
         self.core_ix = self.core_ix + n
+        self._value["core"] = self.cores[self.core_ix]
         self.port = self.port + n
+        self._value["port"] = self.port
 
     def step(self,n):
-        # error: must create a shard_proto from all keys in self.
-        s = copy.copy(self)
+        s = copy.deepcopy(self)
         s.incr(n)
         return s
 
@@ -60,11 +61,11 @@ class shard_proto_dax(shard_proto):
     def __init__(self, ipaddr, backend, path, cores=[], port=11911):
         shard_proto.__init__(self, ipaddr, backend, cores, port=port)
         self.path = path
-        self.merge({"dax_config": path.value()})
 
     def incr(self,n):
         shard_proto.incr(self, n)
         self.path = self.path.step(n)
+        self.merge({"dax_config": self.path.value()})
 
 class shard_proto_ado(shard_proto):
     """ shard prototype (for ado) """

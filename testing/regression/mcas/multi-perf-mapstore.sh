@@ -20,10 +20,10 @@ typeset -r PERF_OPTS=${PERF_OPTS:-"--skip_json_reporting"}
 typeset -r fi_log_level=${FI_LOG_LEVEL:-Warn}
 typeset -r fi_mr_cache_max_size=${FI_MR_CACHE_MAX_SIZE:-0}
 
-typeset -r CONFIG_STR="$("$DIR/mapstore-0.py" "$NODE_IP" "$PORT_BASE" "--shard-count" "$SHARD_COUNT")"
+typeset -r CONFIG_STR="$("$DIR/cfg_mapstore.py" "$NODE_IP" --port "$PORT_BASE" "--shard-count" "$SHARD_COUNT")"
 # launch MCAS server
 [ 0 -lt $DEBUG ] && echo FI_MR_CACHE_MAX_SIZE=${fi_mr_cache_max_size} FI_LOG_LEVEL="${fi_log_level}" DAX_RESET=1 ./dist/bin/mcas --config \'"$CONFIG_STR"\' --forced-exit --debug $DEBUG
- FI_MR_CACHE_MAX_SIZE=${fi_mr_cache_max_size} FI_LOG_LEVEL="${fi_log_level}" DAX_RESET=1 ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
+FI_MR_CACHE_MAX_SIZE=${fi_mr_cache_max_size} FI_LOG_LEVEL="${fi_log_level}" DAX_RESET=1 ./dist/bin/mcas --config "$CONFIG_STR" --forced-exit --debug $DEBUG &> test$TESTID-server.log &
 typeset -r SERVER_PID=$!
 
 sleep 3
@@ -33,9 +33,24 @@ client_log() {
   echo "test$TESTID-$1-client.log"
 }
 
+mlx_server_log() {
+  echo "test$TESTID-mlx-server.log"
+}
+
+mlx_client_log() {
+  echo "test$TESTID-mlx-client.log"
+}
+
+MLX_INTERVAL="0.5"
+
 ELEMENT_COUNT=$(scale_by_transport $ELEMENT_COUNT)
 SCALE=${SCALE:-100}
 typeset -r ELEMENT_COUNT=$(scale $ELEMENT_COUNT $SCALE)
+
+ssh "$CLIENT_HOST" $DIR/mlxstat --delta --log $MLX_INTERVAL &> $(mlx_client_log) &
+MLX_CLIENT_PID=$!
+$DIR/mlxstat --delta --log $MLX_INTERVAL &> $(mlx_server_log) &
+MLX_SERVER_PID=$!
 
 typeset -a CLIENT_PID
 for SH in $(seq 0 $((SHARD_COUNT-1)))
@@ -53,7 +68,7 @@ do :
 done
 
 # arm cleanup
-trap "kill -9 $SERVER_PID ${CLIENT_PID[*]} &> /dev/null" EXIT
+trap "kill -KILL $SERVER_PID ${CLIENT_PID[*]} $MLX_CLIENT_PID $MLX_SERVER_PID &> /dev/null" EXIT
 
 # wait for client to complete
 typeset -a CLIENT_RC
@@ -66,6 +81,9 @@ do :
 done
 [ 0 -ne $CLIENT_RC_MAX ] && kill $SERVER_PID
 wait $SERVER_PID; SERVER_RC=$?
+kill -TERM $MLX_CLIENT_PID $MLX_SERVER_PID
+wait $MLX_CLIENT_PID 2> /dev/null
+wait $MLX_SERVER_PID
 
 # check result
 

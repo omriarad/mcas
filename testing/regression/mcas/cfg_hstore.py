@@ -8,7 +8,7 @@ import re
 import stores
 
 class cfg_hstore(config):
-    def __init__(self, hstoretype, dax_prefix, ipaddr, numa_node=0, port=None, mm_plugin_path=None, count=1, accession=0):
+    def __init__(self, ipaddr, hstoretype, dax_prefix, port=None, count=1, numa_node=0, mm_plugin_path=None, accession=0):
         cores=numa_cores(numa_node)
         store_ctor = getattr(stores, hstoretype.replace('-', '_')) # hstore, hstore-cc, hstore-mc, hstore-mr
         h = store_ctor()
@@ -26,4 +26,4 @@ if __name__ == '__main__':
     from argparse_cfg_hstore import argparse_cfg_hstore
     parser = argparse_cfg_hstore()
     args = parser.parse_args()
-    print(cfg_hstore(args.store, args.dax_prefix, args.ipaddr, args.numa_node, args.port, args.mm_plugin_path, args.shard_count, args.region).json())
+    print(cfg_hstore(args.ipaddr, args.store, args.dax_prefix, port=port=args.port, count=args.shard_count, numa_node=args.numa_node, args.mm_plugin_path, args.region).json())
