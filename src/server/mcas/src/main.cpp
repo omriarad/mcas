@@ -11,7 +11,6 @@
   limitations under the License.
 */
 #include <common/logging.h>
-#include <common/command.h>
 #include <common/moveable_ptr.h>
 #include <common/net.h>
 #include <common/delete_copy.h>
@@ -118,15 +117,9 @@ int main(int argc, char *argv[])
 
   try {
     {
-      common::command tm("/usr/bin/date", "date", "+%s.%N");
-    }
-    timespec ts;
-    timespec_get(&ts, TIME_UTC);
-    PLOG("UTC time %f", double(double(ts.tv_sec) + double(ts.tv_nsec)/1e9));
-    const char *env[] = {"S_TIME_FORMAT=ISO", static_cast<char *>(0)};
-    common::command_killed mpstat(env, "/usr/bin/mpstat", "mpstat", "-P", "ALL", "1");
-    {
-      common::command tm("/usr/bin/date", "date", "+%s.%N");
+      timespec ts;
+      timespec_get(&ts, TIME_UTC);
+      PLOG("UTC time %f", double(double(ts.tv_sec) + double(ts.tv_nsec)/1e9));
     }
 
     init_locale();
