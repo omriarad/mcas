@@ -20,9 +20,9 @@
 #define MCAS_COMMON_COMMAND_H
 
 #include <cerrno>
+#include <csignal> /* SIGTERM */
 #include <cstdlib> /* exit */
-#include <unistd.h> /* fork, execl */
-#include <sys/wait.h> /* wait */
+#include <unistd.h> /* fork, execle */
 
 namespace common
 {
@@ -44,9 +44,10 @@ namespace common
 				switch ( _pid )
 				{
 				case 0:
-					exit(::execle(args..., static_cast<char *>(0), env));
+					::exit(::execle(args..., static_cast<char *>(0), env));
 				case -1:
 					_err = errno;
+					break;
 				default:
 					;
 				}
@@ -57,29 +58,13 @@ namespace common
 				: command(env0, args...)
 			{}
 
-		int kill(int sig_)
-		{
-			return _pid
-				? ::kill(_pid, sig_)
-				: 0
-				;
-		}
+		~command();
 
-		void wait()
-		{
-			if ( _pid )
-			{
-				::waitpid(_pid, &_status, 0);
-			}
-		}
-
-		~command()
-		{
-			wait();
-		}
+		int kill(int sig_);
+		void wait();
 	};
 
-	/* Run a command which needs to by killed to force an exit (e.g. "mpstat 1") */
+	/* Run a command which needs to by killed to force an exit, e.g. "mpstat 1" */
 	struct command_killed
 		: public command
 	{
@@ -94,13 +79,10 @@ namespace common
 
 		template<typename... Args>
 			command_killed(Args ... args)
-				: command_killed(SIGINT, args...)
+				: command_killed(SIGTERM, args...)
 			{}
 
-		~command_killed()
-		{
-			kill(_signal);
-		}
+		~command_killed();
 	};
 }
 

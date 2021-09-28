@@ -17,5 +17,41 @@
  */
 
 #include <common/command.h>
+#include <common/logging.h>
 
-const char *common::command::env0[] = { static_cast<char *>(0) };
+#include <csignal> /* kill */
+#include <sys/wait.h> /* waitpid */
+
+using command = common::command;
+
+const char *command::env0[] = { static_cast<char *>(0) };
+
+int command::kill(int sig_)
+{
+	FLOGM("killing {} with {}", _pid, sig_);
+	return _pid
+		? ::kill(_pid, sig_)
+		: 0
+		;
+}
+
+void command::wait()
+{
+	if ( _pid )
+	{
+		::waitpid(_pid, &_status, 0);
+		FLOGM(" status {}", _status);
+	}
+}
+
+command::~command()
+{
+	wait();
+}
+
+
+common::command_killed::~command_killed()
+{
+	FLOGM("killing with {}", _signal);
+	kill(_signal);
+}
