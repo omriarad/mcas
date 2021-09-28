@@ -33,16 +33,33 @@ endif()
 
 add_executable(hstore-test1 test1.cpp store_map.cpp)
 target_link_libraries(hstore-test1 ${ASAN_LIB} common numa ${GTEST_LIB} pthread dl)
+set_target_properties(hstore-test1 PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/lib64)
+
 add_executable(hstore-test1s test1s.cpp store_map.cpp)
 target_link_libraries(hstore-test1s ${ASAN_LIB} common numa ${GTEST_LIB} pthread dl)
+set_target_properties(hstore-test1s PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/lib64)
+
 add_executable(hstore-test2 test2.cpp store_map.cpp)
 target_link_libraries(hstore-test2 ${ASAN_LIB} common numa ${GTEST_LIB} pthread dl)
+set_target_properties(hstore-test2 PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/lib64)
+
 add_executable(hstore-test2y test2.cpp store_map.cpp)
 target_compile_definitions(hstore-test2y PRIVATE MAKE_SYNDROME_REPORT=1)
 target_link_libraries(hstore-test2y ${ASAN_LIB} common numa ${GTEST_LIB} pthread dl)
+set_target_properties(hstore-test2y PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/lib64)
+
 add_executable(hstore-test3 test3.cpp store_map.cpp)
 target_link_libraries(hstore-test3 ${ASAN_LIB} common numa ${GTEST_LIB} pthread dl ${PROFILER})
+set_target_properties(hstore-test2 PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/lib64)
+
 add_executable(hstore-test4 test4.cpp store_map.cpp)
 target_link_libraries(hstore-test4 ${ASAN_LIB} common numa ${GTEST_LIB} pthread dl ${PROFILER})
+set_target_properties(hstore-test3 PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/lib64)
+
 add_executable(hstore-testmt testmt.cpp store_map.cpp)
 target_link_libraries(hstore-testmt ${ASAN_LIB} common numa ${GTEST_LIB} pthread dl ${PROFILER})
+set_target_properties(hstore-testmt PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/lib64)
+
+install(TARGETS hstore-test1 RUNTIME DESTINATION testing)
+#install(TARGETS hstore-test2 RUNTIME DESTINATION testing)
+install(TARGETS hstore-testmt RUNTIME DESTINATION testing)
