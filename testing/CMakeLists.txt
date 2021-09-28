@@ -18,4 +18,6 @@ if(IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/mcas-testing")
   add_subdirectory(mcas-testing)
 endif()
 
+add_subdirectory(mlxstat)
+
 endif(BOOTSTRAP_DEPS)
