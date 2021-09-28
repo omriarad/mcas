@@ -232,7 +232,7 @@ void fabric_endpoint::post_send(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE1
+	ENTER_EXIT_TRACE_N
   CHECK_FI_EQ(
     ::fi_sendv(
       &ep()
@@ -271,7 +271,7 @@ void fabric_endpoint::post_recv(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE1
+	ENTER_EXIT_TRACE_N
   CHECK_FI_EQ(
     ::fi_recvv(
       &ep()
@@ -314,7 +314,7 @@ void fabric_endpoint::post_read(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE1
+	ENTER_EXIT_TRACE_N
   CHECK_FI_EQ(
     ::fi_readv(
       &ep()
@@ -361,7 +361,7 @@ void fabric_endpoint::post_write(
   , context_t context_
 )
 {
-	ENTER_EXIT_TRACE1
+	ENTER_EXIT_TRACE_N
   CHECK_FI_EQ(
     ::fi_writev(
       &ep()
@@ -432,7 +432,7 @@ void fabric_endpoint::sendmsg(
    */
 void fabric_endpoint::inject_send(const void *buf_, std::size_t len_)
 {
-	ENTER_EXIT_TRACE1
+	ENTER_EXIT_TRACE_N
   CHECK_FI_EQ(::fi_inject(&ep(), buf_, len_, ::fi_addr_t{}), 0);
 }
 
@@ -904,7 +904,7 @@ void fabric_endpoint::print_registry() const
 
 auto fabric_endpoint::register_memory(const_byte_span contig_, std::uint64_t key_, std::uint64_t flags_) -> memory_region_t
 {
-	ENTER_EXIT_TRACE1
+	ENTER_EXIT_TRACE_N
 	guard g{_m};
 
 	auto it = mr_covering_it(contig_);
@@ -949,7 +949,7 @@ auto fabric_endpoint::register_memory(const_byte_span contig_, std::uint64_t key
 
 void fabric_endpoint::deregister_memory(const memory_region_t mr_)
 {
-	ENTER_EXIT_TRACE1
+	ENTER_EXIT_TRACE_N
 	guard g{_m};
 
 	auto lb = _mr_addr_to_mra.lower_bound(::data(mr_->v()));
@@ -988,7 +988,7 @@ void fabric_endpoint::deregister_memory(const memory_region_t mr_)
 
 std::uint64_t fabric_endpoint::get_memory_remote_key(const memory_region_t mr_) const noexcept
 {
-	ENTER_EXIT_TRACE1
+	ENTER_EXIT_TRACE_N
   /* recover the memory region */
   auto mr = &*mr_->mr();
   /* ask fabric for the key */
@@ -997,7 +997,7 @@ std::uint64_t fabric_endpoint::get_memory_remote_key(const memory_region_t mr_) 
 
 void *fabric_endpoint::get_memory_descriptor(const memory_region_t mr_) const noexcept
 {
-	ENTER_EXIT_TRACE1
+	ENTER_EXIT_TRACE_N
   /* recover the memory region */
   auto mr = &*mr_->mr();
   /* ask fabric for the descriptor */

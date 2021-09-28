@@ -57,6 +57,6 @@ std::size_t Fabric_connection_server::max_message_size() const noexcept
 
 std::size_t Fabric_connection_server::max_inject_size() const noexcept
 {
-	ENTER_EXIT_TRACE1
+	ENTER_EXIT_TRACE_N
 	return aep()->ep_info().tx_attr->inject_size;
 }
