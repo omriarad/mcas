@@ -18,17 +18,12 @@ run_hstore() {
   typeset ado_prereq="$1"
   shift
   # hstore unit tests: basic
-  #DAX_RESET=1 STORE=hstore ./src/components/store/hstore/unit_test/hstore-test1 # (out of space)
-  STORE_LOCATION="$("$DIR/dax.py" --prefix "$DAX_PREFIX")"
-  [ -n "$DEBUG" ] && [ 0 -lt "$DEBUG" ] && echo DAX_RESET=1 STORE=hstore-cc STORE_LOCATION=\'"$STORE_LOCATION"\' ./src/components/store/hstore/unit_test/hstore-test1
-  DAX_RESET=1 STORE=hstore-cc STORE_LOCATION="$STORE_LOCATION" ./src/components/store/hstore/unit_test/hstore-test1
-  [ -n "$DEBUG" ] && [ 0 -lt "$DEBUG" ] && echo DAX_RESET=1 STORE=hstore-mm STORE_LOCATION=\'"$STORE_LOCATION"\' MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-test1
-  DAX_RESET=1 STORE=hstore-mm STORE_LOCATION="$STORE_LOCATION" MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-test1
+  SL="$("$DIR/dax.py" --prefix "$DAX_PREFIX")"
+  STORE=hstore-cc STORE_LOCATION="$SL" $DIR/unit-test-wrap.sh hstore-test1
+  STORE=hstore-mm STORE_LOCATION="$SL" MM_PLUGIN_PATH=libmm-plugin-ccpm.so $DIR/unit-test-wrap.sh hstore-test1
   # hstore unit tests: multithreaded lock/unlock
-  [ -n "$DEBUG" ] && [ 0 -lt "$DEBUG" ] && echo DAX_RESET=1 STORE=hstore-mt STORE_LOCATION=\'"$STORE_LOCATION"\' MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-testmt
-  DAX_RESET=1 STORE=hstore-mt STORE_LOCATION="$STORE_LOCATION" MM_PLUGIN_PATH=./dist/lib/libmm-plugin-ccpm.so ./src/components/store/hstore/unit_test/hstore-testmt
-  [ -n "$DEBUG" ] && [ 0 -lt "$DEBUG" ] && echo DAX_RESET=1 STORE=hstore-mt STORE_LOCATION=\'"$STORE_LOCATION"\' MM_PLUGIN_PATH=./dist/lib/libmm-plugin-rcalb.so ./src/components/store/hstore/unit_test/hstore-testmt
-  DAX_RESET=1 STORE=hstore-mt STORE_LOCATION="$STORE_LOCATION" MM_PLUGIN_PATH=./dist/lib/libmm-plugin-rcalb.so ./src/components/store/hstore/unit_test/hstore-testmt
+  STORE=hstore-mt STORE_LOCATION="$SL" MM_PLUGIN_PATH=libmm-plugin-ccpm.so $DIR/unit-test-wrap.sh hstore-testmt
+  STORE=hstore-mt STORE_LOCATION="$SL" MM_PLUGIN_PATH=libmm-plugin-rcalb.so $DIR/unit-test-wrap.sh hstore-testmt
   # run performance tests
   prefix
   GOAL=140000 ELEMENT_COUNT=2000000 STORE=hstore PERFTEST=put $DIR/mcas-hstore-put-0.sh $1
