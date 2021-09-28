@@ -28,7 +28,6 @@
 namespace mcas
 {
 class Shard_launcher {
-  static constexpr const char *_cname = "Shard_launcher";
  public:
   Shard_launcher(Program_options &options) : _config_file(options.debug_level, options.config), _shards{}
   {
@@ -68,7 +67,7 @@ class Shard_launcher {
     }
   }
 
-  ~Shard_launcher() { PLOG("%s::%s (%p)", _cname, __func__, common::p_fmt(this)); }
+  ~Shard_launcher() { FLOGM(" ({})", common::p_fmt(this)); }
 
   bool threads_running()
   {
@@ -95,11 +94,11 @@ class Shard_launcher {
       }
       catch ( const Exception &e )
       {
-        PLOG("%s::%s: shard (%p): Exception %s",  _cname, __func__, common::p_fmt(this), e.cause());
+        FLOG("shard ({}): Exception {}", common::p_fmt(this), e.cause());
       }
       catch ( const std::exception &e )
       {
-        PLOG("%s::%s: shard (%p) std::exception %s",  _cname, __func__, common::p_fmt(this), e.what());
+        FLOG("shard ({}) std::exception {}", common::p_fmt(this), e.what());
       }
     }
   }

@@ -169,10 +169,10 @@ void ADO_manager::exit()
     _thread.get(); /* wait for thread to exit */
   }
   catch ( const Exception &e ) {
-    PERR("%s:%s ended with Exception: %s", _cname, __func__, e.cause());
+    FERRM("ended with Exception: {}", e.cause());
   }
   catch ( const std::exception &e )  {
-    PERR("%s:%s ended with std::exception: %s", _cname, __func__, e.what());
+    FERRM("ended with std::exception: {}", e.what());
   }
   
   CPLOG(1, "Ado_manager: threads joined");

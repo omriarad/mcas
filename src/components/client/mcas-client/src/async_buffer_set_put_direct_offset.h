@@ -34,7 +34,6 @@ private:
 	using Message_IO_response = mcas::protocol::Message_IO_response;
 	using OP_TYPE = mcas::protocol::OP_TYPE;
 	using locate_element                               = Message_IO_response::locate_element;
-	static constexpr const char *               _cname = "async_buffer_set_put_direct_offset";
 	iob_ptr                                     _iobrd;
 	iob_ptr                                     _iobs2;
 	iob_ptr                                     _iobr2;
@@ -84,8 +83,7 @@ public:
 		_addr_list{},
 		_addr_cursor{}
 	{
-		CPLOG(2, "%s iobs2 %p iobr2 %p"
-			, __func__
+		CFLOGM(2, "iobs2 {} iobr2 {}"
 			, common::p_fmt(&*_iobs2)
 			, common::p_fmt(&*_iobr2)
 		);
@@ -114,10 +112,8 @@ public:
 			{
 				auto cursor = response->edata();
 				_addr_list  = std::vector<locate_element>(cursor, cursor + response->element_count());
-				CPLOG(2,
-					"%s::%s: edata count %zu %p to %p"
-					, _cname
-					, __func__
+				CFLOGM(2,
+					"edata count {} {} to {}"
 					, response->element_count()
 					, common::p_fmt(cursor)
 					, common::p_fmt(cursor + response->element_count())
@@ -125,10 +121,8 @@ public:
 				_length = 0;
 				for (const auto &e : _addr_list) {
 					_length += e.len;
-					CPLOG(2,
-						"%s::%s: addr 0x%" PRIx64 " len 0x%" PRIx64
-						, _cname
-						, __func__
+					CFLOGM(2,
+						"addr 0x{:x} len 0x{:x}"
 						, e.addr, e.len
 					);
 				}
@@ -153,18 +147,13 @@ public:
 			}
 
 			_iobrd = c->make_iob_ptr_write();
-			CPLOG(2, "%s iobrd %p"
-						, __func__
-						, common::p_fmt(&*_iobrd)
-						);
+			CFLOGM(2, "iobrd {}", common::p_fmt(&*_iobrd));
 
 			/* reply received, with credentials for the DMA */
 			_v[0] = ::iovec{const_cast<char *>(_buffer), _addr_cursor->len};
 
-			CPLOG(2,
-				"%s::%s post_write %p local (addr %p.%zx desc %p) -> (_addr 0x%zx, key 0x%zx)"
-				, _cname
-				, __func__
+			CFLOGM(2,
+				"post_write {} local (addr {}.{:x} desc {}) -> (_addr 0x{:x}, key 0x{:x})"
 				, common::p_fmt(&*_iobrd)
 				, _v[0].iov_base, _v[0].iov_len
 				, _desc[0]
@@ -184,12 +173,10 @@ public:
 			}
 			/* What to do when DMA completes */
 			/* DMA done. Might need another DMA */
-			CPLOG(2
-						, "%s::%s dma write complete %p"
-						, _cname
-						, __func__
-						, common::p_fmt(&*_iobrd)
-						);
+			CFLOGM(2
+				, "dma write complete {}"
+				, common::p_fmt(&*_iobrd)
+			);
 
 			_iobrd.reset(nullptr);
 			/* DMA is complete. Issue OP_RELEASE */

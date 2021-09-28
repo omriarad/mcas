@@ -54,7 +54,6 @@ public:
   void setSLA();
 
 private:
-  static constexpr const char *_cname = "ADO_manager";
   SLA *                   _sla = NULL;
   std::vector<struct ado> _ados;
   // std::set<std::pair<unsigned int, unsigned int>, compare> _ado_cpu_pool;

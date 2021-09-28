@@ -44,7 +44,7 @@ private:
       , _key(_memory_control->get_memory_remote_key(_r))
       , _desc(_memory_control->get_memory_descriptor(_r))
   {
-    CPLOG(0, "%s %p (%p:0x%zx)", __func__, common::p_fmt(_r), ::base(region_), ::size(region_));
+    CPLOG(1, "%s %p (%p:0x%zx)", __func__, common::p_fmt(_r), ::base(region_), ::size(region_));
   }
 
   explicit memory_registered(unsigned      debug_level_,
@@ -56,7 +56,7 @@ private:
       , _key(memory_control_->get_memory_remote_key(_r))
       , _desc(memory_control_->get_memory_descriptor(_r))
   {
-    CPLOG(0, "%s %p", __func__, common::p_fmt(_r));
+    CPLOG(1, "%s %p", __func__, common::p_fmt(_r));
   }
 
   memory_registered(const memory_registered &) = delete;

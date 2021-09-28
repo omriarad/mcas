@@ -136,7 +136,7 @@ arena_fs::arena_fs(const common::log_source &ls_, path dir_)
 
 void arena_fs::debug_dump() const
 {
-  PLOG("%s::%s: fsdax directory %s", _cname, __func__, _dir.c_str());
+  FLOGM("fsdax directory {}", _dir);
 }
 
 /* used only inside region_create */
@@ -205,7 +205,7 @@ auto arena_fs::region_create(
 	auto e = ::posix_fallocate(fd.fd(), 0, ::off_t(size));
 	if ( e != 0 )
 	{
-		PLOG("%s::%s posix_fallocate: %zu: %s", _cname, __func__, size, strerror(e));
+		FLOGM("posix_fallocate: {}: {}", size, strerror(e));
 		return region_descriptor();
 	}
 	CPLOG(1, "%s posix_fallocate %i to %zu", __func__, fd.fd(), size);
@@ -267,7 +267,7 @@ void arena_fs::region_resize(
 			auto e = ::posix_fallocate(sr_->_or.fd(), 0, ::off_t(size_));
 			if ( e != 0 )
 			{
-				PLOG("%s::%s posix_fallocate: failed %zu: %s", _cname, __func__, size_, strerror(e));
+				FLOGM("posix_fallocate: failed {}: {}", size_, strerror(e));
 				return;
 			}
 			CPLOG(1, "%s posix_fallocate %i to %zu", __func__, sr_->_or.fd(), size_);
@@ -318,7 +318,7 @@ void arena_fs::region_resize(
 			auto e = ::posix_fallocate(sr_->_or.fd(), 0, ::off_t(size_));
 			if ( e != 0 )
 			{
-				PLOG("%s::%s posix_fallocate: failed %zu: %s", _cname, __func__, size_, strerror(e));
+				FLOGM("posix_fallocate: failed {}: {}", size_, strerror(e));
 			}
 			CPLOG(1, "%s posix_fallocate %i to %zu", __func__, sr_->_or.fd(), size_);
 		}

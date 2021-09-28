@@ -34,7 +34,6 @@ private:
 	using Message_IO_response = mcas::protocol::Message_IO_response;
 	using OP_TYPE = mcas::protocol::OP_TYPE;
 	using locate_element                               = Message_IO_response::locate_element;
-	static constexpr const char *               _cname = "async_buffer_set_get_direct_offset";
 	iob_ptr                                     _iobrd;
 	iob_ptr                                     _iobs2;
 	iob_ptr                                     _iobr2;
@@ -112,10 +111,8 @@ public:
 				auto cursor = response->edata();
 				_addr_list  = std::vector<locate_element>(cursor, cursor + response->element_count());
 
-				CPLOG(2,
-					"%s::%s: edata count %zu %p to %p"
-					, _cname
-					, __func__
+				CFLOGM(2,
+					"edata count {} {} to {}"
 					, response->element_count()
 					, common::p_fmt(cursor)
 					, common::p_fmt(cursor + response->element_count())
@@ -124,9 +121,7 @@ public:
 				_length = 0;
 				for (const auto &e : _addr_list) {
 					_length += e.len;
-					CPLOG(2, "%s::%s: addr 0x%" PRIx64 " len 0x%" PRIx64
-						, _cname
-						, __func__
+					CFLOGM(2, "addr 0x{:x} len 0x[:x}"
 						, e.addr, e.len);
 				}
 			}
@@ -157,10 +152,8 @@ public:
 			/* reply have been received, with credentials for the DMA */
 			_v[0] = ::iovec{_buffer, _addr_cursor->len};
 
-			CPLOG(2,
-				"%s::%s post_read %p local (addr %p.%zx desc %p) <- (_addr 0x%zx, key 0x%zx)"
-				, _cname
-				, __func__
+			CFLOGM(2,
+				"post_read %p local (addr %p.%zx desc %p) <- (_addr 0x%zx, key 0x%zx)"
 				, common::p_fmt(&*_iobrd)
 				, _v[0].iov_base, _v[0].iov_len
 				, _desc[0]
@@ -178,11 +171,7 @@ public:
 			}
 			/* What to do when DMA completes */
 			/* DMA done. Might need another DMA */
-			CPLOG(2, "%s::%s dma read complete %p"
-						, _cname
-						, __func__
-						, common::p_fmt(&*_iobrd)
-						);
+			CFLOGM(2, "dma read complete {}", common::p_fmt(&*_iobrd));
 
 			_iobrd.reset(nullptr);
 			/* DMA is complete. Issue OP_RELEASE */

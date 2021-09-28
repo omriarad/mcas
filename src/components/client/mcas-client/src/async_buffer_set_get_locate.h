@@ -20,6 +20,7 @@
 #include "range.h"
 
 #include <chrono>
+#include <common/type_name.h>
 #include "wait_poll.h"
 struct async_buffer_set_get_locate
 	: public async_buffer_set_t
@@ -27,7 +28,6 @@ struct async_buffer_set_get_locate
 	, private ::fi_context2 /* context for the RDMA read */
 {
 private:
-	static constexpr const char *_cname = "async_buffer_set_get_locate";
 	component::IMCAS::pool_t     _pool;
 	std::uint64_t                _auth_id;
 	void *                       _value;
@@ -130,10 +130,8 @@ public:
 		);
 		/* reply have been received, with credentials for the DMA */
 
-		CPLOG(2,
-			"%s::%s post_read %p local (addr %p.%zx desc %p) <- (_addr 0x%zx, key 0x%zx)"
-			, _cname
-			, __func__
+		CFLOGM(2,
+			"post_read {} local (addr {}.{:x} desc {}) <- (_addr 0x{:x}, key 0x{:x})"
 			, common::p_fmt(this)
 			, _v[0].iov_base, _v[0].iov_len
 			, _desc[0]

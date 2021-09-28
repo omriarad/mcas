@@ -57,8 +57,6 @@ namespace mcas
 template <class Memory>
 class Buffer_manager : private common::log_source {
 
-  static constexpr const char *_cname       = "Buffer_manager";
-
 public:
   static constexpr size_t BUFFER_LEN           = MiB(2); /* corresponds to huge page see below */
   using memory_registered_t                    = memory_registered<Memory>;
@@ -92,33 +90,17 @@ public:
   struct buffer_base : public component::Registrar_memory_direct::Opaque_memory_region, private common::log_source
   {
   private:
-    static constexpr const char *_cname = "buffer_base";
-#if 1
     common::byte_span _span;
-#else
-    void *_base;
-    std::size_t _original_length;
-#endif
     memory_registered_t _region;
     const unsigned magic;
 
   public:
     buffer_base(unsigned    debug_level_,
              Memory * transport_,
-#if 1
              common::byte_span span_
-#else
-             void *      base_,
-             size_t      length_
-#endif
     )
       : common::log_source(debug_level_)
-#if 1
       , _span(span_)
-#else
-      , _base(base_)
-      , _original_length(length_)
-#endif
       , _region(memory_registered_t(debug_level_, transport_, common::make_const_byte_span(span_), 0 /* proposed key */, 0 /* flags */))
       , magic(0xC0FFEE)
     {
@@ -126,7 +108,7 @@ public:
       {
         throw std::domain_error("buffer length too small");
       }
-      CPLOG(1, "%s::%s %p transport %p region %p", _cname, __func__, common::p_fmt(this),
+      CFLOGM(1, "{} transport {} region {}", common::p_fmt(this),
             common::p_fmt(transport()), common::p_fmt(region()));
     }
 
@@ -137,7 +119,7 @@ public:
   protected:
     ~buffer_base()
     {
-      CPLOG(1, "%s::%s %p transport %p region %p", _cname, __func__, common::p_fmt(this),
+      CFLOGM(1, "{} transport {} region {}", common::p_fmt(this),
             common::p_fmt(transport()), common::p_fmt(region()));
     }
 
@@ -186,7 +168,7 @@ public:
       , value_adjunct(nullptr)
     {
 #if 0
-PLOG("%s: ctl %p buffer %p.%zx", __func__, static_cast<void*>(this), static_cast<void *>(get()), length_);
+FLOG("ctl {} buffer {}.{:x}", static_cast<void*>(this), static_cast<void *>(get()), length_);
 #endif
     }
 
@@ -212,9 +194,6 @@ PLOG("%s: ctl %p buffer %p.%zx", __func__, static_cast<void*>(this), static_cast
   Buffer_manager(unsigned debug_level_,
                  Memory *transport,
 			size_t buffer_count
-#if 0
-				 = DEFAULT_BUFFER_COUNT
-#endif
 		)
     : common::log_source(debug_level_),
       _buffer_count(buffer_count),
@@ -242,7 +221,7 @@ PLOG("%s: ctl %p buffer %p.%zx", __func__, static_cast<void*>(this), static_cast
     if (UNLIKELY(_free.empty())) throw Program_exception("Buffer_manager: no shard buffers remaining");
     gsl::not_null<buffer_internal *> iob = _free.back();
     _free.pop_back();
-    CPLOG(3, "%s::%s %p (%lu free)", _cname, __func__, common::p_fmt(iob), _free.size());
+    CFLOGM(3, "{} ({} free)", common::p_fmt(iob), _free.size());
     iob->reset_length();
     iob->set_completion(completion_);
     return iob;
@@ -250,7 +229,7 @@ PLOG("%s: ctl %p buffer %p.%zx", __func__, static_cast<void*>(this), static_cast
 
   void free(gsl::not_null<buffer_internal *> iob)
   {
-    CPLOG(3, "%s::%s %p (%lu free)", _cname, __func__, common::p_fmt(iob), _free.size());
+    CFLOG(3, "{} ({} free)", common::p_fmt(iob), _free.size());
     iob->reset_length();
     iob->set_completion(nullptr);
     _free.push_back(iob);

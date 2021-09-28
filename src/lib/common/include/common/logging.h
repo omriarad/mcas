@@ -346,6 +346,7 @@ inline void PLOG2(const char * color, const char * format, ...)
 #if defined __cplusplus
 
 #include <common/string_view.h>
+#include <common/type_name.h>
 #include <stdexcept>
 namespace
 {
@@ -395,14 +396,26 @@ template <typename ... Args>
 		faccrete(os, fmt, std::forward<Args>(args) ...);
 		PLOG("%s", os.str().c_str());
 	}
-#endif
 
-/* class name of what x locates */
-#define CNAME(x) typeid(*(x)).name()
-/* FLOG preceded by function name */
+template <typename ... Args>
+	void FERR(common::string_view fmt, Args && ... args)
+	{
+		std::ostringstream os;
+		faccrete(os, fmt, std::forward<Args>(args) ...);
+		PERR("%s", os.str().c_str());
+	}
+
+#define CFLOG(level, ...) ( (level) < this->debug_level() && (FLOG(__VA_ARGS__), true) )
+
+/* [C]FLOG preceded by function name */
 #define FLOGF(fmt, ...) FLOG("{} " fmt, __func__, __VA_ARGS__)
-/* FLOG preceded by class name and function name. Code which sees the error "'this' is unavaiable" should use FLOGF instead. */
-#define FLOGM(fmt, ...) FLOG("{}::{} " fmt, CNAME(this), __func__, __VA_ARGS__)
+#define FERRF(fmt, ...) FERR("{} " fmt, __func__, __VA_ARGS__)
+#define CLOGF(level, fmt, ...) CFLOG(level, "{} " fmt, __func__, __VA_ARGS__)
+/* [C]FLOG preceded by class name and function name. Code which sees the error "'this' is unavaiable" should use FLOGF instead. */
+#define FLOGM(fmt, ...) FLOG("{}::{} " fmt, type_of(*this), __func__, __VA_ARGS__)
+#define FERRM(fmt, ...) FERR("{}::{} " fmt, type_of(*this), __func__, __VA_ARGS__)
+#define CFLOGM(level, fmt, ...) CFLOG(level, "LEVEL {} {}::{} " fmt, level, type_of(*this), __func__, __VA_ARGS__)
+#endif
 
 // clang-format on
 

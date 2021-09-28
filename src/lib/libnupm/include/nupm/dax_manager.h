@@ -89,20 +89,9 @@ struct dax_manager_log_source
  */
 struct dax_manager
 	: public dax_manager_abstract
-#if 0
-	, private dax_manager_log_source
-#endif
 	, public range_manager_impl
 	, private registry_memory_mapped
 {
-#if 0
-	unsigned debug_level() const { return dax_manager_log_source::debug_level(); }
-#endif
- private:
-  static constexpr const char *_cname = "dax_manager";
-  using byte = common::byte;
-
- public:
   using arena_id_t = unsigned;
   using string_view = common::string_view;
   static const bool have_odp;
@@ -208,9 +197,6 @@ struct dax_manager
 
   void register_range(const void *begin, std::size_t size);
   void deregister_range(const void *begin, std::size_t size);
-#if 0
-  void * locate_free_address_range(std::size_t size) override { return range_manager_impl::locate_free_address_range(size); }
-#endif
 
  private:
   using byte_span = common::byte_span;
