@@ -25,8 +25,8 @@ sleep 3
 CLIENT_LOG="test$TESTID-client.log"
 
 # launch client
-[ 0 -lt $DEBUG ] && echo ./dist/bin/ado-test --src_addr "$NODE_IP" --server $NODE_IP --port 11911 --debug $DEBUG
-./dist/bin/ado-test --src_addr "$NODE_IP" --server $NODE_IP --port 11911 --debug $DEBUG &> $CLIENT_LOG &
+[ 0 -lt $DEBUG ] && echo ./dist/testing/ado-test --src_addr "$NODE_IP" --server $NODE_IP --port 11911 --debug $DEBUG
+./dist/testing/ado-test --src_addr "$NODE_IP" --server $NODE_IP --port 11911 --debug $DEBUG &> $CLIENT_LOG &
 CLIENT_PID=$!
 
 # arm cleanup

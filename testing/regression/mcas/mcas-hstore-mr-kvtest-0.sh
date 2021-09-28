@@ -25,8 +25,8 @@ sleep 3
 # launch client
 CLIENT_LOG="test$TESTID-client.log"
 # OBJECT_COUNT=3326 is experimental limit for PoolCapacity test using hstore-mr allocator
-[ 0 -lt $DEBUG ] && echo OBJECT_COUNT=5500 ./dist/bin/kv-test --server $NODE_IP  --src_addr $NODE_IP --debug $DEBUG
-OBJECT_COUNT=3200 ./dist/bin/kv-test --server $NODE_IP  --src_addr $NODE_IP --debug $DEBUG &> $CLIENT_LOG &
+[ 0 -lt $DEBUG ] && echo OBJECT_COUNT=5500 ./dist/testing/kv-test --server $NODE_IP  --src_addr $NODE_IP --debug $DEBUG
+OBJECT_COUNT=3200 ./dist/testing/kv-test --server $NODE_IP  --src_addr $NODE_IP --debug $DEBUG &> $CLIENT_LOG &
 CLIENT_PID=$!
 
 # arm cleanup
