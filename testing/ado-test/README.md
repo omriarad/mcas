@@ -12,11 +12,11 @@ Server side:
 To list tests:
 
 ``` bash
-./dist/bin/ado-test --server 10.0.0.101 --gtest_list_tests
+./dist/testing/ado-test --server 10.0.0.101 --gtest_list_tests
 ```
 
 To run specific test (e.g. BaseAddr):
 
 ``` bash
-/dist/bin/ado-test --server 10.0.0.101 --gtest_filter=*BaseAddr
+/dist/testing/ado-test --server 10.0.0.101 --gtest_filter=*BaseAddr
 ```

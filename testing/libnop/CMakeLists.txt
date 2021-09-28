@@ -11,4 +11,4 @@ link_directories(${CMAKE_INSTALL_PREFIX}/lib64)
 add_executable(test-libnop src/main.cpp)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/lib:${CMAKE_INSTALL_PREFIX}/lib64)
-install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION bin)
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION testing)
