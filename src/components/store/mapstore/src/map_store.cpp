@@ -29,6 +29,7 @@
 #include <cerrno>
 #include <cmath>
 #include <map>
+#include <mutex>
 #include <set>
 #include <string>
 #include <unordered_map>
@@ -187,13 +188,15 @@ public:
     }
   }
 
-  void add_ref() {
-    _ref_count++;
+  unsigned add_ref() {
+    std::lock_guard<std::mutex> g(_ref_mutex);
+    return _ref_count++;
   }
 
-  void release_ref() {
+  unsigned release_ref() {
+    std::lock_guard<std::mutex> g(_ref_mutex);
     assert(_ref_count > 0);
-    _ref_count--;
+    return --_ref_count;
   }      
 
   const std::string& name() const { return _name; }
@@ -201,10 +204,12 @@ public:
 private:
   
   unsigned                   _debug_level;
+  std::mutex                 _ref_mutex;
   unsigned                   _ref_count = 0; 
   size_t                     _nsize; /*< order important */
   std::string                _name; /*< pool name */
   std::vector<::iovec>       _regions; /*< regions supporting pool */
+  std::mutex                 _mm_plugin_mutex;
   MM_plugin_wrapper          _mm_plugin;
   map_t *                    _map; /*< hash table based map */
   common::RWLock             _map_lock; /*< read write lock */
@@ -295,11 +300,13 @@ public:
 
 struct Pool_session {
   Pool_session(Pool_instance *ph) : pool(ph) {
-    pool->add_ref();
+    auto n = pool->add_ref();
+    FLOG("thread {:x} session {} add pool {}, was {} refs", std::this_thread::get_id(), this, pool, n);
   }
 
   ~Pool_session() {
-    pool->release_ref();
+    auto n = pool->release_ref();
+    FLOG("thread {:x} session {} releases pool {}, now {} refs", std::this_thread::get_id(), this, pool, n);
   }
   
   bool check() const { return canary == 0x45450101; }
@@ -313,7 +320,8 @@ struct tls_cache_t {
 
 std::mutex                                       _pool_sessions_lock;
 std::set<Pool_session *>                         _pool_sessions;
-std::unordered_map<std::string, Pool_instance *> _pools; /*< existing pools */
+using pools_type = std::unordered_map<std::string, std::unique_ptr<Pool_instance>>;
+pools_type _pools; /*< existing pools */
 static __thread tls_cache_t tls_cache = {nullptr};
 
 using Std_lock_guard = std::lock_guard<std::mutex>;
@@ -350,6 +358,7 @@ status_t Pool_instance::put(string_view_key key,
 
   write_touch(); /* this could be early, but over-conservative is ok */
 
+  std::lock_guard g{_mm_plugin_mutex}; /* aac, _mm_plugin.aligned_allocate, aal */
   string_t k(key.data(), key.length(), aac);
 
   auto i = _map->find(k);
@@ -429,6 +438,7 @@ status_t Pool_instance::get(const string_view_key key,
 #ifndef SINGLE_THREADED
   RWLock_guard guard(map_lock);
 #endif
+  std::lock_guard g{_mm_plugin_mutex}; /* aac */
   string_t k(key.data(), aac);
   auto i = _map->find(k);
 
@@ -460,6 +470,7 @@ status_t Pool_instance::get_direct(const string_view_key key,
 #ifndef SINGLE_THREADED
   RWLock_guard guard(map_lock);
 #endif
+  std::lock_guard g{_mm_plugin_mutex}; /* aac */
   string_t k(key.data(), key.size(), aac);
   auto i = _map->find(k);
 
@@ -494,6 +505,7 @@ status_t Pool_instance::get_attribute(const IKVStore::Attribute attr,
 #ifndef SINGLE_THREADED
     RWLock_guard guard(map_lock);
 #endif
+    std::lock_guard g{_mm_plugin_mutex}; /* aac */
     string_t k(key.data(), key.size(), aac);
     auto i = _map->find(k);
     if (i == _map->end()) return IKVStore::E_KEY_NOT_FOUND;
@@ -504,6 +516,7 @@ status_t Pool_instance::get_attribute(const IKVStore::Attribute attr,
 #ifndef SINGLE_THREADED
     RWLock_guard guard(map_lock);
 #endif
+    std::lock_guard g{_mm_plugin_mutex}; /* aac */
     string_t k(key.data(), key.size(), aac);
     auto i = _map->find(k);
     if (i == _map->end()) return IKVStore::E_KEY_NOT_FOUND;
@@ -526,6 +539,7 @@ status_t Pool_instance::get_attribute(const IKVStore::Attribute attr,
 status_t Pool_instance::swap_keys(const string_view_key key0,
                                   const string_view_key key1)
 {
+  std::lock_guard g{_mm_plugin_mutex}; /* aac, twice */
   string_t k0(key0.data(), key0.length(), aac);
   auto i0 = _map->find(k0);
   if(i0 == _map->end()) return IKVStore::E_KEY_NOT_FOUND;
@@ -570,6 +584,7 @@ status_t Pool_instance::lock(const string_view_key key,
 {
 
   void *buffer = nullptr;
+  std::lock_guard g{_mm_plugin_mutex}; /* aac, and later _mm_plugin.aligned_allocate, aal */
   string_t k(key.data(), key.size(), aac);
   bool created = false;
 
@@ -688,23 +703,25 @@ status_t Pool_instance::erase(const string_view_key key)
 #ifndef SINGLE_THREADED
   RWLock_guard guard(map_lock, RWLock_guard::WRITE);
 #endif
+  std::lock_guard g{_mm_plugin_mutex}; /* aac, _mm_plugin.deallocate, aal */
   string_t k(key.data(), key.size(), aac);
   auto i = _map->find(k);
 
   if (i == _map->end()) return IKVStore::E_KEY_NOT_FOUND;
 
-  if(i->second._value_lock->write_trylock() != 0) { /* check pair is not locked */
+  if ( i->second._value_lock->write_trylock() != 0 ) { /* check pair is not locked */
     if(debug_level())
       PWRN("Map_store: key (%.*s) unable to take write lock", int(key.size()), common::pointer_cast<char>(key.data()));
 
     return E_LOCKED;
   }
 
-
   write_touch();
   _map->erase(i);
 
   _mm_plugin.deallocate(&i->second._ptr, i->second._length);
+  i->second._value_lock->unlock();
+  i->second._value_lock->~RWLock();
   aal.deallocate(i->second._value_lock, 1); //, DEFAULT_ALIGNMENT);
 
   return S_OK;
@@ -786,6 +803,7 @@ status_t Pool_instance::resize_value(const string_view_key key,
   RWLock_guard guard(map_lock);
 #endif
 
+  std::lock_guard g{_mm_plugin_mutex}; /* aac, _mm_plugin.aligned_allocate */
   auto i = _map->find(string_t(key.data(), key.size(), aac));
 
   if (i == _map->end()) return IKVStore::E_KEY_NOT_FOUND;
@@ -860,6 +878,7 @@ status_t Pool_instance::grow_pool(const size_t increment_size,
   reconfigured_size = _nsize + rounded_increment_size;
 
   void *new_region = allocate_region_memory(rounded_increment_size, _name);
+  std::lock_guard g{_mm_plugin_mutex};
   _mm_plugin.add_managed_region(new_region, rounded_increment_size);
   _regions.push_back({new_region, rounded_increment_size});
   _nsize = reconfigured_size;
@@ -871,6 +890,7 @@ status_t Pool_instance::free_pool_memory(const void *addr, const size_t size) {
   if (!addr || _regions.empty())
     return E_INVAL;
 
+  std::lock_guard g{_mm_plugin_mutex};
   if(size)
     _mm_plugin.deallocate(const_cast<void **>(&addr), size);
   else
@@ -893,6 +913,7 @@ status_t Pool_instance::allocate_pool_memory(const size_t size,
     /* we can't fully support alignment choice */
     out_addr = 0;
 
+    std::lock_guard g{_mm_plugin_mutex};
     if( _mm_plugin.aligned_allocate(size, (alignment > 0) && (size % alignment == 0) ?
                                     alignment : choose_alignment(size), &out_addr) != S_OK)
       throw General_exception("memory plugin aligned_allocate failed");
@@ -1045,10 +1066,9 @@ Map_store::~Map_store() {
   Std_lock_guard g(_pool_sessions_lock);
 
   for(auto& s : _pool_sessions)
+  {
     delete s;
-
-  for(auto& p : _pools)
-    delete p.second;
+  }
   CPLOG(1, "~Map_store");
 }
 
@@ -1078,16 +1098,15 @@ IKVStore::pool_t Map_store::create_pool(const common::string_view name_,
 
     Pool_instance * handle;
     if(iter != _pools.end()) {
-      handle = iter->second;
+      handle = iter->second.get();
       CPLOG(1, PREFIX "using existing pool instance");
     }
     else {
-      handle = new Pool_instance(debug_level(), _mm_plugin_path, name, nsize, flags);
+      handle = _pools.insert(pools_type::value_type(name, std::make_unique<Pool_instance>(debug_level(), _mm_plugin_path, name, nsize, flags))).first->second.get();
       CPLOG(1, PREFIX "creating new pool instance");
     }
 
     session = new Pool_session{handle};
-    _pools[handle->name()] = handle;
 
     CPLOG(1, PREFIX "adding new session (%p)", common::p_fmt(session));
 
@@ -1107,10 +1126,11 @@ IKVStore::pool_t Map_store::open_pool(string_view name,
   const string_view key = name;
 
   Pool_instance *ph = nullptr;
+  Std_lock_guard g(_pool_sessions_lock);
   /* see if a pool exists that matches the key */
   for (auto &h : _pools) {
     if (h.first == key) {
-      ph = h.second;
+      ph = h.second.get();
       break;
     }
   }
@@ -1153,7 +1173,7 @@ status_t Map_store::delete_pool(const common::string_view poolname_)
   /* see if a pool exists that matches the poolname */
   for (auto &h : _pools) {
     if (h.first == poolname) {
-      ph = h.second;
+      ph = h.second.get();
       break;
     }
   }
@@ -1184,6 +1204,7 @@ status_t Map_store::delete_pool(const common::string_view poolname_)
 
 status_t Map_store::get_pool_names(std::list<std::string>& inout_pool_names)
 {
+  Std_lock_guard g(_pool_sessions_lock);
   for (auto &h : _pools) {
     assert(h.second);
     inout_pool_names.push_back(h.second->name());
