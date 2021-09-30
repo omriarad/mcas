@@ -226,7 +226,7 @@ namespace
 			auto cpu_stop = cpu_time();
 			cpu_user = usec(cpu_start.first, cpu_stop.first);
 			cpu_system = usec(cpu_start.second, cpu_stop.second);
-			FLOG("CLIENT end");
+			FLOG("{}", "CLIENT end");
 			__sync_synchronize();
 
 			auto secs = std::chrono::duration<double>(clock::now() - start_time).count();
@@ -281,7 +281,7 @@ namespace
 			auto cpu_stop = cpu_time();
 			cpu_user = usec(cpu_start.first, cpu_stop.first);
 			cpu_system = usec(cpu_start.second, cpu_stop.second);
-			FLOG("SERVER end");
+			FLOG("{}", "SERVER end");
 
 			t = stop_max - start_min;
 			start_stagger = start_max - start_min;
@@ -368,7 +368,7 @@ namespace
 			auto cpu_stop = cpu_time();
 			cpu_user = usec(cpu_start.first, cpu_stop.first);
 			cpu_system = usec(cpu_start.second, cpu_stop.second);
-			FLOG("CLIENT end");
+			FLOG("{}", "CLIENT end");
 			t = stop_max - start_min;
 			start_stagger = start_max - start_min;
 			stop_stagger = stop_max - stop_min;
@@ -394,7 +394,7 @@ namespace
 			t = f2.stop() - f2.start();
 			poll_count += f2.poll_count();
 
-			FLOG("SERVER end");
+			FLOG("{}", "SERVER end");
 		}
 
 		auto iter = client_count_ * iterations;

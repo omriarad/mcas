@@ -70,6 +70,8 @@
  * prov_name: same format as fi_fabric_attr::prov_name
  */
 
+std::mutex Fabric::fi_tostr_mutex{};
+
 namespace
 {
   ::fi_eq_attr &eq_attr_init(::fi_eq_attr &attr_)
@@ -119,7 +121,11 @@ namespace
   {
     ::fi_info *f = nullptr; /* Although not documented as such, the fi_getinfo info parameter is in/out. */
 	if ( 0 < debug_) { PLOG("%s: node %s service %s hints* %s", __func__, node_ ? node_ : "(no node)", service_ ? service_ : "(no service)", std::string(hints_ ? tostr(*hints_) : "(no hints)" ).c_str()); }
-    CHECK_FI_ERR(::fi_getinfo(version_, node_, service_, 0, hints_, &f));
+    {
+      /* calls to fi_domain are not thread-safe */
+      std::lock_guard<std::mutex> g(Fabric::fi_tostr_mutex);
+      CHECK_FI_ERR(::fi_getinfo(version_, node_, service_, 0, hints_, &f));
+    }
     return std::shared_ptr<::fi_info>(f,::fi_freeinfo);
   }
   catch ( const fabric_runtime_error &e_ )
@@ -225,7 +231,7 @@ namespace
       if ( auto rp = results.get() )
       {
         auto addr_num = ntohl(common::pointer_cast<sockaddr_in>(rp->ai_addr)->sin_addr.s_addr);
-        FLOGF("fabric_server_factory (specified by {}={}) listens on {}.{}.{}.{}:{}", server_addr_env, addr_str
+        FLOG("fabric_server_factory (specified by {}={}) listens on {}.{}.{}.{}:{}", server_addr_env, addr_str
           , (addr_num >> 24 & 0xff)
           , (addr_num >> 16 & 0xff)
           , (addr_num >> 8 & 0xff)
@@ -234,7 +240,7 @@ namespace
         return addr_num;
       }
     }
-    FLOGF("fabric_server_factory (not specified by {}) listens on *:{}", server_addr_env, port_);
+    FLOG("fabric_server_factory (not specified by {}) listens on *:{}", server_addr_env, port_);
     return INADDR_ANY;
   }
 }
@@ -361,7 +367,13 @@ try
   ::fi_eq_cm_entry entry;
   std::uint32_t event = 0;
   auto flags = 0U;
-  auto ct = ::fi_eq_read(&*_eq, &event, &entry, sizeof entry, flags);
+
+  auto ct =
+    [this, &event, &entry, flags] ()
+    {
+      std::lock_guard<std::mutex> g{fi_tostr_mutex};
+      return ::fi_eq_read(&*_eq, &event, &entry, sizeof entry, flags);
+    }();
   if ( ct < 0 )
   {
     try
@@ -401,6 +413,11 @@ try
       if ( p != _eq_dispatch_pep.end() )
       {
         auto d = p->second;
+	/*
+	 * ERROR: valgrind claims that the contents of d->vft (*d is an
+	 * event_consumer) were initialized/modified in another thread
+	 * without synchronization.
+	 */
         d->cb(event, entry);
         found = true;
       }
@@ -519,7 +536,11 @@ fid_unique_ptr<::fid_domain> Fabric::make_fid_domain(::fi_info &info_, void *con
 try
 {
   ::fid_domain *f(nullptr);
-  CHECK_FI_ERR(::fi_domain(&*_fabric, &info_, &f, context_));
+  {
+    /* calls to fi_domain are not thread-safe */
+    std::lock_guard<std::mutex> g(fi_tostr_mutex);
+    CHECK_FI_ERR(::fi_domain(&*_fabric, &info_, &f, context_));
+  }
   FABRIC_TRACE_FID(f);
   return fid_unique_ptr<::fid_domain>(f);
 }

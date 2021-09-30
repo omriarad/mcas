@@ -790,6 +790,7 @@ std::shared_ptr<::fid_ep> fabric_endpoint::make_fid_aep(::fi_info &info, void *c
 try
 {
   ::fid_ep *f;
+  Fabric::fi_lock_guard g{Fabric::fi_tostr_mutex};
   CHECK_FI_ERR(::fi_endpoint(&domain(), &info, &f, context));
   static_assert(0 == FI_SUCCESS, "FI_SUCCESS not 0, which means that we need to distinguish between these types of \"successful\" returns");
   FABRIC_TRACE_FID(f);

@@ -201,6 +201,12 @@ public:
   const char *prov_name() const noexcept override;
 
   std::uint16_t choose_port(std::uint16_t port);
+
+  /* A number of ::fi_* calls use fi_tostr, which is documented (and flagged
+   * by valgrind) as thread-unsafe
+   */
+  static std::mutex fi_tostr_mutex;
+  using fi_lock_guard = std::lock_guard<std::mutex>;
 };
 
 #endif

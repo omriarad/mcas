@@ -60,6 +60,11 @@ class Fabric_server_generic_factory
 
   event_producer &_eq;
   std::exception_ptr _listen_exception;
+
+#if 0
+  std::uint32_t _addr;
+  std::uint16_t _port;
+#endif
   std::future<void> _listener;
 
   /*
@@ -80,6 +85,7 @@ class Fabric_server_generic_factory
 protected:
   ~Fabric_server_generic_factory();
 	void open_connection_generic(event_expecter *);
+	void begin_listen(std::uint32_t addr, std::uint16_t port);
 public:
   /**
    * Note: fi_info is not const because we reuse it when constructing the passize endpoint
@@ -98,8 +104,6 @@ public:
     Fabric &fabric
     , event_producer &ev_pr
     , ::fi_info &info
-    , std::uint32_t ip_addr
-    , std::uint16_t control_port
   );
   Fabric_server_generic_factory(Fabric_server_generic_factory &&) noexcept;
 

@@ -22,8 +22,9 @@
 #include <memory> /* make_shared */
 
 Fabric_server_grouped_factory::Fabric_server_grouped_factory(Fabric &fabric_, event_producer &eq_, ::fi_info &info_, std::uint32_t addr_, std::uint16_t port_)
-  : Fabric_server_generic_factory(fabric_, eq_, info_, addr_, port_)
+  : Fabric_server_generic_factory(fabric_, eq_, info_)
 {
+	begin_listen(addr_, port_);
 }
 
 Fabric_server_grouped_factory::~Fabric_server_grouped_factory()

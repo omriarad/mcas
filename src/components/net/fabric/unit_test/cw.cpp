@@ -240,7 +240,7 @@ try
 }
 catch ( std::exception &e )
 {
-	FLOGF("exception {}", e.what());
+	FLOG("exception {}", e.what());
 }
 
 void cw_remote_memory_client::check_complete(::status_t stat_, std::size_t)
@@ -814,7 +814,7 @@ void write_read_sequential_server(component::IFabric & fabric_, const uint16_t c
 		cw_remote_memory_server server(fabric_, empty_object_json.str(), control_port_, "", memory_size_, remote_key_base);
 		assert(0U < server.max_message_size());
 	}
-	FLOG("SERVER end");
+	FLOG("{}", "SERVER end");
 }
 
 } // namespace

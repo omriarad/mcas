@@ -343,13 +343,13 @@ int main(int, const char *argv[])
 			}
 			catch ( std::exception &e )
 			{
-				FLOGF("exception: {}", e.what());
+				FLOG("exception: {}", e.what());
 				throw;
 			}
 		}
 	);
 
-	FLOG("SERVER end");
+	FLOG("{}", "SERVER end");
 
 	return 0;
 }

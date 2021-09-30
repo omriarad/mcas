@@ -265,7 +265,7 @@ void write_read_sequential(const std::string &fabric_spec_, const char *const re
         remote_memory_server server(test_type::function, *fabric, empty_object_json.str(), control_port, "", memory_size, remote_key_base);
         EXPECT_LT(0U, server.max_message_size());
       }
-      FLOG("SERVER endi {}", iter0);
+      FLOG("SERVER end {}", iter0);
     }
   }
 }
@@ -361,7 +361,7 @@ void ping_pong(const std::string &fabric_spec_, const char *const remote_host, s
     auto cpu_stop = cpu_time();
     cpu_user = usec(cpu_start.first, cpu_stop.first);
     cpu_system = usec(cpu_start.second, cpu_stop.second);
-    FLOG("CLIENT end");
+    FLOG("{}", "CLIENT end");
      __sync_synchronize();
 
     auto secs = std::chrono::duration<double>(clock::now() - start_time).count();
@@ -414,7 +414,7 @@ void ping_pong(const std::string &fabric_spec_, const char *const remote_host, s
     auto cpu_stop = cpu_time();
     cpu_user = usec(cpu_start.first, cpu_stop.first);
     cpu_system = usec(cpu_start.second, cpu_stop.second);
-    FLOG("SERVER end");
+    FLOG("{}", "SERVER end");
 
     t = stop_max - start_min;
     start_stagger = start_max - start_min;
@@ -500,7 +500,7 @@ void pingpong_single_server(const std::string &fabric_spec_, const char *const r
     auto cpu_stop = cpu_time();
     cpu_user = usec(cpu_start.first, cpu_stop.first);
     cpu_system = usec(cpu_start.second, cpu_stop.second);
-    FLOG("CLIENT end" );
+    FLOG("{}", "CLIENT end" );
     t = stop_max - start_min;
     start_stagger = start_max - start_min;
     stop_stagger = stop_max - stop_min;
@@ -526,7 +526,7 @@ void pingpong_single_server(const std::string &fabric_spec_, const char *const r
     t = f2.stop() - f2.start();
     poll_count += f2.poll_count();
 
-    FLOG("SERVER end" );
+    FLOG("{}", "SERVER end" );
   }
 
   auto iter = client_count_ * iterations;

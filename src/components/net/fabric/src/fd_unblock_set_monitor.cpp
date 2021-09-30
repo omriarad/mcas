@@ -43,7 +43,7 @@ fd_unblock_set_monitor::~fd_unblock_set_monitor()
   {
     try
     {
-      FLOGF("exception {}", e.what());
+      FLOG("exception {}", e.what());
     }
     catch ( const std::exception & )
     {}
