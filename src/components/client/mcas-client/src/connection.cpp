@@ -88,10 +88,8 @@ public:
   int status() const { return _status; }
 };
 
-namespace mcas
-{
-namespace client
-{
+using Connection = mcas::client::Connection;
+
 Connection::Connection(const unsigned              debug_level,
                                        Connection_base::Transport *connection,
                                        Connection_base::buffer_manager &bm_,
@@ -812,6 +810,23 @@ Connection::get_locate_async(TM_ACTUAL const pool_t                        pool,
 	}
 }
 
+status_t Connection::spin_for_async_completion(async_start_type st_)
+{
+  if ( st_.status == S_OK )
+  {
+    auto deadline = std::chrono::system_clock::now() + std::chrono::seconds(_patience);
+    TM_SCOPE(spin)
+    do {
+      if ( deadline < std::chrono::system_clock::now() )
+      {
+        throw Program_exception("time out: waited %lu seconds for completion", _patience);
+      }
+      st_.status = check_async_completion(TM_REF st_.handle);
+    } while (st_.status == E_BUSY);
+  }
+  return st_.status;
+}
+
 status_t Connection::put_direct(pool_t                               pool_,
                       const string_view_key                key_,
                       gsl::span<const common::const_byte_span> values_,
@@ -820,15 +835,7 @@ status_t Connection::put_direct(pool_t                               pool_,
                       const component::IMCAS::flags_t      flags_)
 {
   TM_ROOT()
-  component::IMCAS::async_handle_t async_handle = component::IMCAS::ASYNC_HANDLE_INIT;
-  auto status = async_put_direct(pool_, key_, values_, async_handle, rmd_, handles_, flags_);
-  if (status == S_OK) {
-    TM_SCOPE(spin)
-    do {
-      status = check_async_completion(TM_REF async_handle);
-    } while (status == E_BUSY);
-  }
-  return status;
+  return spin_for_async_completion(async_put_direct(pool_, key_, values_, rmd_, handles_, flags_));
 }
 
 status_t Connection::async_put(const IMCAS::pool_t    pool,
@@ -879,6 +886,20 @@ status_t Connection::async_put(const IMCAS::pool_t    pool,
   }
 
   return E_FAIL;
+}
+
+auto Connection::async_put_direct(
+  const IMCAS::pool_t                        pool_,
+  const string_view_key                      key_,
+  const gsl::span<const common::const_byte_span> values_,
+  component::Registrar_memory_direct *       rmd_,
+  const gsl::span<const component::IKVStore::memory_handle_t> mem_handles_,
+  const component::IMCAS::flags_t            flags_
+) -> async_start_type
+{
+  component::IMCAS::async_handle_t async_handle = component::IMCAS::ASYNC_HANDLE_INIT;
+  auto status = async_put_direct(pool_, key_, values_, async_handle, rmd_, mem_handles_, flags_);
+  return {status, async_handle};
 }
 
 status_t Connection::async_put_direct(const IMCAS::pool_t                        pool_,
@@ -968,6 +989,21 @@ status_t Connection::async_put_direct(const IMCAS::pool_t                       
     PLOG("%s %s fail %s", __FILE__, __func__, e.what());
     return E_FAIL;
   }
+}
+
+auto Connection::async_get_direct(
+  const IMCAS::pool_t                        pool_,
+  const string_view_key                      key_,
+  void *const                                value_,
+  size_t &                                   value_len_,
+  component::Registrar_memory_direct *       rmd_,
+  const component::IKVStore::memory_handle_t mem_handle_,
+  const component::IMCAS::flags_t            flags_
+) -> async_start_type
+{
+  component::IMCAS::async_handle_t async_handle = component::IMCAS::ASYNC_HANDLE_INIT;
+  auto status = async_get_direct(pool_, key_, value_, value_len_, async_handle, rmd_, mem_handle_, flags_);
+  return {status, async_handle};
 }
 
 status_t Connection::async_get_direct(TM_ACTUAL const IMCAS::pool_t                        pool_,
@@ -1103,737 +1139,738 @@ status_t Connection::get(const pool_t pool, const string_view_key key, std::stri
   return status;
 }
 
-  status_t Connection::get(const pool_t pool, const string_view_key key, void *&value, size_t &value_len)
-  {
-    TM_ROOT()
-    API_LOCK();
+status_t Connection::get(const pool_t pool, const string_view_key key, void *&value, size_t &value_len)
+{
+  TM_ROOT()
+  API_LOCK();
 
-    if (debug_level() > 1) {
-      PINF("get: %.*s (key_len=%lu)", int(key.size()), common::pointer_cast<char>(key.data()), key.size());
+  if (debug_level() > 1) {
+    PINF("get: %.*s (key_len=%lu)", int(key.size()), common::pointer_cast<char>(key.data()), key.size());
+  }
+
+  const auto iobs = make_iob_ptr_send();
+  const auto iobr = make_iob_ptr_recv();
+  assert(iobs);
+  assert(iobr);
+
+  status_t status;
+
+  try {
+    const auto msg =
+      new (iobs->base()) mcas::protocol::Message_IO_request(iobs->length(), auth_id(), request_id(), pool,
+                                                            mcas::protocol::OP_GET,  // op
+                                                            key, 0, 0);
+
+    /* indicate how much space has been allocated on this side. For
+       get this is based on buffer size
+    */
+    msg->set_availabe_val_len_from_iob_len(iobs->original_length());
+
+    if (_options.short_circuit_backend) msg->add_scbe();
+
+    post_recv(&*iobr);
+    sync_inject_send(&*iobs, msg, __func__);
+    {
+      TM_SCOPE(wait_recv)
+      wait_for_completion(iobr->to_context()); /* TODO; could we issue the recv and send together? */
     }
 
-    const auto iobs = make_iob_ptr_send();
-    const auto iobr = make_iob_ptr_recv();
-    assert(iobs);
-    assert(iobr);
+    const auto response_msg = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, __func__);
 
-    status_t status;
+    if (response_msg->get_status() != S_OK) return response_msg->get_status();
 
-    try {
-      const auto msg =
-        new (iobs->base()) mcas::protocol::Message_IO_request(iobs->length(), auth_id(), request_id(), pool,
-                                                              mcas::protocol::OP_GET,  // op
-                                                              key, 0, 0);
+    CPLOG(1, "%s: message value (%.*s) size=%lu", __func__, int(response_msg->data_length()), response_msg->data(), response_msg->data_length());
 
-      /* indicate how much space has been allocated on this side. For
-         get this is based on buffer size
-      */
-      msg->set_availabe_val_len_from_iob_len(iobs->original_length());
+    if (response_msg->is_set_twostage_bit()) {
+      /* two-stage get */
+      const auto data_len = response_msg->data_length() + 1;
+      value               = ::aligned_alloc(MiB(2), data_len);
+      if (value == nullptr) {
+        throw std::bad_alloc();
+      }
+      madvise(value, data_len, MADV_HUGEPAGE);
 
-      if (_options.short_circuit_backend) msg->add_scbe();
+      auto  region = make_memory_registered(common::make_const_byte_span(value, data_len)); /* we could have some pre-registered? */
+      void *desc[] = {region.get_memory_descriptor()};
 
-      post_recv(&*iobr);
-      sync_inject_send(&*iobs, msg, __func__);
-      {
-        TM_SCOPE(wait_recv)
-        wait_for_completion(iobr->to_context()); /* TODO; could we issue the recv and send together? */
+      ::iovec iov[]{{value, data_len - 1}};
+      ::fi_context2 ctxt;
+      post_recv(iov, std::begin(desc), &ctxt);
+
+      /* synchronously wait for receive to complete */
+      wait_for_completion(&ctxt);
+      CPLOG(1, "%s Received value from two stage get", __func__);
+    }
+    else {
+      TM_SCOPE(alloc)
+      /* copy off value from IO buffer */
+      value = ::malloc(response_msg->data_length() + 1);
+      if (value == nullptr) {
+        throw std::bad_alloc();
       }
 
-      const auto response_msg = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, __func__);
+        TM_SCOPE(copy)
+      value_len = response_msg->data_length();
+      std::memcpy(value, response_msg->data(), response_msg->data_length());
+      static_cast<char *>(value)[response_msg->data_length()] = '\0';
 
-      if (response_msg->get_status() != S_OK) return response_msg->get_status();
-
-      CPLOG(1, "%s: message value (%.*s) size=%lu", __func__, int(response_msg->data_length()), response_msg->data(), response_msg->data_length());
-
-      if (response_msg->is_set_twostage_bit()) {
-        /* two-stage get */
-        const auto data_len = response_msg->data_length() + 1;
-        value               = ::aligned_alloc(MiB(2), data_len);
-        if (value == nullptr) {
-          throw std::bad_alloc();
-        }
-        madvise(value, data_len, MADV_HUGEPAGE);
-
-        auto  region = make_memory_registered(common::make_const_byte_span(value, data_len)); /* we could have some pre-registered? */
-        void *desc[] = {region.get_memory_descriptor()};
-
-        ::iovec iov[]{{value, data_len - 1}};
-	::fi_context2 ctxt;
-        post_recv(iov, std::begin(desc), &ctxt);
-
-        /* synchronously wait for receive to complete */
-        wait_for_completion(&ctxt);
-        CPLOG(1, "%s Received value from two stage get", __func__);
-      }
-      else {
-	TM_SCOPE(alloc)
-        /* copy off value from IO buffer */
-        value = ::malloc(response_msg->data_length() + 1);
-        if (value == nullptr) {
-          throw std::bad_alloc();
-        }
-	{
-          TM_SCOPE(copy)
-        value_len = response_msg->data_length();
-        std::memcpy(value, response_msg->data(), response_msg->data_length());
-        static_cast<char *>(value)[response_msg->data_length()] = '\0';
-	}
-      }
-
-      status = response_msg->get_status();
-    }
-    catch (const Exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
-      status = E_FAIL;
-    }
-    catch (const std::exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      status = E_FAIL;
     }
 
-    return status;
+    status = response_msg->get_status();
+  }
+  catch (const Exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
+    status = E_FAIL;
+  }
+  catch (const std::exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    status = E_FAIL;
   }
 
-  status_t Connection::get_direct(const pool_t                              pool_,
-                                          const string_view_key                     key_,
-                                          void *const                               value_,
-                                          size_t &                                  value_len_,
-                                          component::Registrar_memory_direct *const rmd_,
-                                          const IMCAS::memory_handle_t              mem_handle_)
-  {
-    TM_ROOT()
-    component::IMCAS::async_handle_t async_handle = component::IMCAS::ASYNC_HANDLE_INIT;
+  return status;
+}
 
-    auto status = async_get_direct(TM_REF pool_, key_, value_, value_len_, async_handle, rmd_, mem_handle_, 0);
-    if (status == S_OK) {
-      TM_SCOPE(spin)
-      do {
-        status = check_async_completion(TM_REF async_handle);
-      } while (status == E_BUSY);
-    }
-    return status;
+status_t Connection::get_direct(const pool_t                              pool_,
+                                        const string_view_key                     key_,
+                                        void *const                               value_,
+                                        size_t &                                  value_len_,
+                                        component::Registrar_memory_direct *const rmd_,
+                                        const IMCAS::memory_handle_t              mem_handle_)
+{
+  TM_ROOT()
+  return spin_for_async_completion(async_get_direct(TM_REF pool_, key_, value_, value_len_, rmd_, mem_handle_, 0));
+}
+
+status_t Connection::get_direct_offset(const pool_t                              pool_,
+                                               const std::size_t                         offset_,
+                                               std::size_t &                             length_,
+                                               void *const                               buffer_,
+                                               component::Registrar_memory_direct *const rmd_,
+                                               const component::IMCAS::memory_handle_t   mem_handle_)
+{
+  TM_ROOT()
+  return spin_for_async_completion(async_get_direct_offset(pool_, offset_, length_, buffer_, rmd_, mem_handle_));
+}
+
+status_t Connection::put_direct_offset(const pool_t                              pool_,
+                                               const std::size_t                         offset_,
+                                               std::size_t &                             size_,
+                                               const void *const                         buffer_,
+                                               component::Registrar_memory_direct *const rmd_,
+                                               const component::IMCAS::memory_handle_t   mem_handle_)
+{
+  TM_ROOT()
+  return spin_for_async_completion(async_put_direct_offset(pool_, offset_, size_, buffer_, rmd_, mem_handle_));
+}
+
+auto Connection::async_get_direct_offset(
+  const pool_t                              pool_,
+  const std::size_t                         offset_,
+  std::size_t &                             length_,
+  void *const                               buffer_,
+  component::Registrar_memory_direct *const rmd_,
+  const component::IMCAS::memory_handle_t   mem_handle_
+) -> async_start_type
+{
+  component::IMCAS::async_handle_t async_handle = component::IMCAS::ASYNC_HANDLE_INIT;
+  auto status = async_get_direct_offset(pool_, offset_, length_, buffer_, async_handle, rmd_, mem_handle_);
+  return {status, async_handle};
+}
+
+status_t Connection::async_get_direct_offset(const pool_t                              pool_,
+                                                     const std::size_t                         offset_,
+                                                     std::size_t &                             length_,
+                                                     void *const                               buffer_,
+                                                     IMCAS::async_handle_t &                   out_async_handle_,
+                                                     component::Registrar_memory_direct *const rmd_,
+                                                     const component::IMCAS::memory_handle_t   mem_handle_)
+{
+  if(length_ == 0)
+    throw API_exception("%s: variant of get_direct_offset called with zero length", __func__);
+
+  API_LOCK();
+
+  if (length_ && !buffer_) {
+    PWRN("%s: bad parameter buffer=%p size=%zu", __func__, buffer_, length_);
+    return E_BAD_PARAM;
   }
 
-  status_t Connection::get_direct_offset(const pool_t                              pool_,
-                                                 const std::size_t                         offset_,
-                                                 std::size_t &                             length_,
-                                                 void *const                               buffer_,
-                                                 component::Registrar_memory_direct *const rmd_,
-                                                 const component::IMCAS::memory_handle_t   mem_handle_)
-  {
-    TM_ROOT()
-    component::IMCAS::async_handle_t async_handle = component::IMCAS::ASYNC_HANDLE_INIT;
-
-    auto status = async_get_direct_offset(pool_, offset_, length_, buffer_, async_handle, rmd_, mem_handle_);
-    if (status == S_OK) {
-      TM_SCOPE(spin)
-      do {
-        status = check_async_completion(TM_REF async_handle);
-      } while (status == E_BUSY);
-    }
-    return status;
-  }
-
-  status_t Connection::put_direct_offset(const pool_t                              pool_,
-                                                 const std::size_t                         offset_,
-                                                 std::size_t &                             size_,
-                                                 const void *const                         buffer_,
-                                                 component::Registrar_memory_direct *const rmd_,
-                                                 const component::IMCAS::memory_handle_t   mem_handle_)
-  {
-    TM_ROOT()
-    component::IMCAS::async_handle_t async_handle = component::IMCAS::ASYNC_HANDLE_INIT;
-
-    auto status = async_put_direct_offset(pool_, offset_, size_, buffer_, async_handle, rmd_, mem_handle_);
-    if (status == S_OK) {
-      TM_SCOPE(spin)
-      do {
-        status = check_async_completion(TM_REF async_handle);
-      } while (status == E_BUSY);
-    }
-    return status;
-  }
-
-  status_t Connection::async_get_direct_offset(const pool_t                              pool_,
-                                                       const std::size_t                         offset_,
-                                                       std::size_t &                             length_,
-                                                       void *const                               buffer_,
-                                                       IMCAS::async_handle_t &                   out_async_handle_,
-                                                       component::Registrar_memory_direct *const rmd_,
-                                                       const component::IMCAS::memory_handle_t   mem_handle_)
-  {
-    if(length_ == 0)
-      throw API_exception("%s: variant of get_direct_offset called with zero length", __func__);
-
-    API_LOCK();
-
-    if (length_ && !buffer_) {
-      PWRN("%s: bad parameter buffer=%p size=%zu", __func__, buffer_, length_);
-      return E_BAD_PARAM;
-    }
-
-    try {
-      out_async_handle_ = get_direct_offset_async(pool_, offset_, buffer_, length_, rmd_,
-                                                  mem_handle_ == IMCAS::MEMORY_HANDLE_NONE ? nullptr : static_cast<buffer_base *>(mem_handle_)->get_desc());
-      return S_OK;
-    }
-    catch (const Exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
-      return E_FAIL;
-    }
-    catch (const remote_fail &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      return e.status();
-    }
-    catch (const std::exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      return E_FAIL;
-    }
-  }
-
-  status_t Connection::async_put_direct_offset(const pool_t                              pool_,
-                                                       const std::size_t                         offset_,
-                                                       std::size_t &                             length_,
-                                                       const void *const                         buffer_,
-                                                       IMCAS::async_handle_t &                   out_async_handle_,
-                                                       component::Registrar_memory_direct *const rmd_,
-                                                       const component::IMCAS::memory_handle_t   mem_handle_)
-  {
-    if(length_ == 0)
-      throw API_exception("%s: variant of put_direct_offset called with zero length", __func__);
-
-    API_LOCK();
-
-    if (length_ && !buffer_) {
-      PWRN("%s: bad parameter buffer=%p size=%zu", __func__, buffer_, length_);
-      return E_BAD_PARAM;
-    }
-
-    try {
-      out_async_handle_ = put_direct_offset_async(pool_, offset_, buffer_, length_, rmd_,
-                                                  mem_handle_ == IMCAS::MEMORY_HANDLE_NONE ? nullptr : static_cast<buffer_base *>(mem_handle_)->get_desc());
-      return S_OK;
-    }
-    catch (const Exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
-      throw Logic_exception("%s: network posting failed unexpectedly.", __func__);
-    }
-    catch (const std::exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      throw Logic_exception("%s: network posting failed unexpectedly.", __func__);
-    }
-    return E_FAIL;
-  }
-
-  status_t Connection::erase(const pool_t pool, const string_view_key key)
-  {
-    API_LOCK();
-
-    const auto iobs = make_iob_ptr_send();
-    const auto iobr = make_iob_ptr_recv();
-    assert(iobs);
-    assert(iobr);
-
-    status_t status;
-
-    try {
-      const auto msg =
-        new (iobs->base()) mcas::protocol::Message_IO_request(
-          iobs->length(), auth_id(), request_id(), pool, mcas::protocol::OP_ERASE, key, 0, 0
-        );
-
-      post_recv(&*iobr);
-      sync_inject_send(&*iobs, msg, __func__);
-      wait_for_completion(iobr->to_context());
-
-      const auto response_msg = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, __func__);
-
-      status = response_msg->get_status();
-    }
-    catch (const Exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
-      status = E_FAIL;
-    }
-    catch (const std::exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      status = E_FAIL;
-    }
-
-    return status;
-  }
-
-  status_t Connection::async_erase(const IMCAS::pool_t    pool,
-                                           const string_view_key key,
-                                           IMCAS::async_handle_t &out_async_handle)
-  {
-    API_LOCK();
-
-    auto iobs = make_iob_ptr_send();
-    auto iobr = make_iob_ptr_recv();
-
-    assert(iobs);
-    assert(iobr);
-
-    try {
-      const auto msg = new (iobs->base()) mcas::protocol::Message_IO_request(iobs->length(),
-                                                                             auth_id(),
-                                                                             request_id(),
-                                                                             pool,
-                                                                             mcas::protocol::OP_ERASE,
-                                                                             key,
-                                                                             0, 0);
-
-      iobs->set_length(msg->msg_len());
-
-      /* post both send and receive */
-      post_recv(&*iobr);
-      post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
-
-      out_async_handle = new async_buffer_set_simple(debug_level(), std::move(iobs), std::move(iobr));
-    }
-    catch (const Exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
-      throw Logic_exception("%s: network posting failed unexpectedly.", __func__);
-    }
-    catch (const std::exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      throw Logic_exception("%s: network posting failed unexpectedly.", __func__);
-    }
-
+  try {
+    out_async_handle_ = get_direct_offset_async(pool_, offset_, buffer_, length_, rmd_,
+                                                mem_handle_ == IMCAS::MEMORY_HANDLE_NONE ? nullptr : static_cast<buffer_base *>(mem_handle_)->get_desc());
     return S_OK;
   }
+  catch (const Exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
+    return E_FAIL;
+  }
+  catch (const remote_fail &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    return e.status();
+  }
+  catch (const std::exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    return E_FAIL;
+  }
+}
 
-  size_t Connection::count(const pool_t pool)
-  {
-    API_LOCK();
+auto Connection::async_put_direct_offset(
+  const pool_t                              pool_,
+  const std::size_t                         offset_,
+  std::size_t &                             length_,
+  const void *const                         buffer_,
+  component::Registrar_memory_direct *const rmd_,
+  const component::IMCAS::memory_handle_t   mem_handle_
+) -> async_start_type
+{
+  component::IMCAS::async_handle_t async_handle = component::IMCAS::ASYNC_HANDLE_INIT;
+  auto status = async_put_direct_offset(pool_, offset_, length_, buffer_, async_handle, rmd_, mem_handle_);
+  return {status, async_handle};
+}
 
-    const auto iobs = make_iob_ptr_send();
-    const auto iobr = make_iob_ptr_recv();
-    assert(iobs);
-    assert(iobr);
+status_t Connection::async_put_direct_offset(const pool_t                              pool_,
+                                                     const std::size_t                         offset_,
+                                                     std::size_t &                             length_,
+                                                     const void *const                         buffer_,
+                                                     IMCAS::async_handle_t &                   out_async_handle_,
+                                                     component::Registrar_memory_direct *const rmd_,
+                                                     const component::IMCAS::memory_handle_t   mem_handle_)
+{
+  if(length_ == 0)
+    throw API_exception("%s: variant of put_direct_offset called with zero length", __func__);
 
-    try {
-      const auto msg =
-        new (iobs->base()) mcas::protocol::Message_INFO_request(auth_id(), IKVStore::Attribute::COUNT, pool);
+  API_LOCK();
 
-      post_recv(&*iobr);
-      sync_inject_send(&*iobs, msg, msg->base_message_size(), __func__);
-      wait_for_completion(iobr->to_context());
-
-      const auto response_msg = msg_recv<const mcas::protocol::Message_INFO_response>(&*iobr, __func__);
-
-      return response_msg->value();
-    }
-    catch (const Exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
-      return 0;
-    }
-    catch (const std::exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      return 0;
-    }
+  if (length_ && !buffer_) {
+    PWRN("%s: bad parameter buffer=%p size=%zu", __func__, buffer_, length_);
+    return E_BAD_PARAM;
   }
 
-  status_t Connection::get_attribute(const IKVStore::pool_t    pool,
-                                             const IKVStore::Attribute attr,
-                                             std::vector<uint64_t> &   out_attr,
-                                             const string_view_key key)
-  {
-    API_LOCK();
+  try {
+    out_async_handle_ = put_direct_offset_async(pool_, offset_, buffer_, length_, rmd_,
+                                                mem_handle_ == IMCAS::MEMORY_HANDLE_NONE ? nullptr : static_cast<buffer_base *>(mem_handle_)->get_desc());
+    return S_OK;
+  }
+  catch (const Exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
+    throw Logic_exception("%s: network posting failed unexpectedly.", __func__);
+  }
+  catch (const std::exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    throw Logic_exception("%s: network posting failed unexpectedly.", __func__);
+  }
+  return E_FAIL;
+}
 
-    const auto iobs = make_iob_ptr_send();
-    const auto iobr = make_iob_ptr_recv();
-    assert(iobs);
-    assert(iobr);
+status_t Connection::erase(const pool_t pool, const string_view_key key)
+{
+  API_LOCK();
 
-    status_t status;
+  const auto iobs = make_iob_ptr_send();
+  const auto iobr = make_iob_ptr_recv();
+  assert(iobs);
+  assert(iobr);
 
-    try {
-      const auto msg = new (iobs->base()) mcas::protocol::Message_INFO_request(auth_id(), attr, pool);
+  status_t status;
 
-      if (key.data()) msg->set_key(iobs->length(), key);
+  try {
+    const auto msg =
+      new (iobs->base()) mcas::protocol::Message_IO_request(
+        iobs->length(), auth_id(), request_id(), pool, mcas::protocol::OP_ERASE, key, 0, 0
+      );
 
-      post_recv(&*iobr);
-      sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
+    post_recv(&*iobr);
+    sync_inject_send(&*iobs, msg, __func__);
+    wait_for_completion(iobr->to_context());
 
-      wait_for_completion(iobr->to_context());
-      const auto response_msg = msg_recv<const mcas::protocol::Message_INFO_response>(&*iobr, __func__);
+    const auto response_msg = msg_recv<const mcas::protocol::Message_IO_response>(&*iobr, __func__);
 
-      out_attr.clear();
-      out_attr.push_back(response_msg->value());
-      status = response_msg->get_status();
-    }
-    catch (const Exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
-      status = E_FAIL;
-    }
-    catch (const std::exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      status = E_FAIL;
-    }
-    return status;
+    status = response_msg->get_status();
+  }
+  catch (const Exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
+    status = E_FAIL;
+  }
+  catch (const std::exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    status = E_FAIL;
   }
 
-  status_t Connection::get_statistics(IMCAS::Shard_stats &out_stats)
-  {
-    API_LOCK();
+  return status;
+}
 
-    const auto iobs = make_iob_ptr_send();
-    const auto iobr = make_iob_ptr_recv();
-    assert(iobs);
-    assert(iobr);
+status_t Connection::async_erase(const IMCAS::pool_t    pool,
+                                         const string_view_key key,
+                                         IMCAS::async_handle_t &out_async_handle)
+{
+  API_LOCK();
 
-    status_t status;
+  auto iobs = make_iob_ptr_send();
+  auto iobr = make_iob_ptr_recv();
 
-    try {
-      const auto msg =
-        new (iobs->base()) mcas::protocol::Message_INFO_request(auth_id(), mcas::protocol::INFO_TYPE_GET_STATS, 0);
+  assert(iobs);
+  assert(iobr);
 
-      post_recv(&*iobr);
-      sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
+  try {
+    const auto msg = new (iobs->base()) mcas::protocol::Message_IO_request(iobs->length(),
+                                                                           auth_id(),
+                                                                           request_id(),
+                                                                           pool,
+                                                                           mcas::protocol::OP_ERASE,
+                                                                           key,
+                                                                           0, 0);
 
-      wait_for_completion(iobr->to_context());
-      const auto response_msg = msg_recv<const mcas::protocol::Message_stats>(&*iobr, __func__);
+    iobs->set_length(msg->msg_len());
 
-      status = response_msg->get_status();
+    /* post both send and receive */
+    post_recv(&*iobr);
+    post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
+
+    out_async_handle = new async_buffer_set_simple(debug_level(), std::move(iobs), std::move(iobr));
+  }
+  catch (const Exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
+    throw Logic_exception("%s: network posting failed unexpectedly.", __func__);
+  }
+  catch (const std::exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    throw Logic_exception("%s: network posting failed unexpectedly.", __func__);
+  }
+
+  return S_OK;
+}
+
+size_t Connection::count(const pool_t pool)
+{
+  API_LOCK();
+
+  const auto iobs = make_iob_ptr_send();
+  const auto iobr = make_iob_ptr_recv();
+  assert(iobs);
+  assert(iobr);
+
+  try {
+    const auto msg =
+      new (iobs->base()) mcas::protocol::Message_INFO_request(auth_id(), IKVStore::Attribute::COUNT, pool);
+
+    post_recv(&*iobr);
+    sync_inject_send(&*iobs, msg, msg->base_message_size(), __func__);
+    wait_for_completion(iobr->to_context());
+
+    const auto response_msg = msg_recv<const mcas::protocol::Message_INFO_response>(&*iobr, __func__);
+
+    return response_msg->value();
+  }
+  catch (const Exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
+    return 0;
+  }
+  catch (const std::exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    return 0;
+  }
+}
+
+status_t Connection::get_attribute(const IKVStore::pool_t    pool,
+                                           const IKVStore::Attribute attr,
+                                           std::vector<uint64_t> &   out_attr,
+                                           const string_view_key key)
+{
+  API_LOCK();
+
+  const auto iobs = make_iob_ptr_send();
+  const auto iobr = make_iob_ptr_recv();
+  assert(iobs);
+  assert(iobr);
+
+  status_t status;
+
+  try {
+    const auto msg = new (iobs->base()) mcas::protocol::Message_INFO_request(auth_id(), attr, pool);
+
+    if (key.data()) msg->set_key(iobs->length(), key);
+
+    post_recv(&*iobr);
+    sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
+
+    wait_for_completion(iobr->to_context());
+    const auto response_msg = msg_recv<const mcas::protocol::Message_INFO_response>(&*iobr, __func__);
+
+    out_attr.clear();
+    out_attr.push_back(response_msg->value());
+    status = response_msg->get_status();
+  }
+  catch (const Exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
+    status = E_FAIL;
+  }
+  catch (const std::exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    status = E_FAIL;
+  }
+  return status;
+}
+
+status_t Connection::get_statistics(IMCAS::Shard_stats &out_stats)
+{
+  API_LOCK();
+
+  const auto iobs = make_iob_ptr_send();
+  const auto iobr = make_iob_ptr_recv();
+  assert(iobs);
+  assert(iobr);
+
+  status_t status;
+
+  try {
+    const auto msg =
+      new (iobs->base()) mcas::protocol::Message_INFO_request(auth_id(), mcas::protocol::INFO_TYPE_GET_STATS, 0);
+
+    post_recv(&*iobr);
+    sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
+
+    wait_for_completion(iobr->to_context());
+    const auto response_msg = msg_recv<const mcas::protocol::Message_stats>(&*iobr, __func__);
+
+    status = response_msg->get_status();
 #pragma GCC diagnostic push
 #if defined __clang__ || 9 <= __GNUC__
 #pragma GCC diagnostic ignored "-Waddress-of-packed-member"
 #endif
-      out_stats = response_msg->stats;
+    out_stats = response_msg->stats;
 #pragma GCC diagnostic pop
-    }
-    catch (const Exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
-      status = E_FAIL;
-    }
-    catch (const std::exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      status = E_FAIL;
-    }
-
-    return status;
+  }
+  catch (const Exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
+    status = E_FAIL;
+  }
+  catch (const std::exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    status = E_FAIL;
   }
 
-  status_t Connection::find(const IMCAS::pool_t pool,
-                                    string_view         key_expression,
-                                    const offset_t      offset,
-                                    offset_t &          out_matched_offset,
-                                    std::string &       out_matched_key)
-  {
-    API_LOCK();
+  return status;
+}
 
-    const auto iobs = make_iob_ptr_send();
-    const auto iobr = make_iob_ptr_recv();
-    assert(iobs);
-    assert(iobr);
+status_t Connection::find(const IMCAS::pool_t pool,
+                                  string_view         key_expression,
+                                  const offset_t      offset,
+                                  offset_t &          out_matched_offset,
+                                  std::string &       out_matched_key)
+{
+  API_LOCK();
 
-    status_t status;
+  const auto iobs = make_iob_ptr_send();
+  const auto iobr = make_iob_ptr_recv();
+  assert(iobs);
+  assert(iobr);
 
-    try {
-      const auto msg =
-        new (iobs->base()) mcas::protocol::Message_INFO_request(auth_id(),
-                                                                mcas::protocol::INFO_TYPE_FIND_KEY,
-                                                                pool,
-                                                                offset);
+  status_t status;
 
-      /* The key expression concatenates prefix, which is characters, and key bytes */
-      msg->set_key(iobs->length(), string_view_key(common::pointer_cast<string_view_key::value_type>(key_expression.data()), key_expression.size()));
+  try {
+    const auto msg =
+      new (iobs->base()) mcas::protocol::Message_INFO_request(auth_id(),
+                                                              mcas::protocol::INFO_TYPE_FIND_KEY,
+                                                              pool,
+                                                              offset);
 
-      post_recv(&*iobr);
-      sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
+    /* The key expression concatenates prefix, which is characters, and key bytes */
+    msg->set_key(iobs->length(), string_view_key(common::pointer_cast<string_view_key::value_type>(key_expression.data()), key_expression.size()));
 
-      wait_for_completion(iobr->to_context());
-      const auto response_msg = msg_recv<const mcas::protocol::Message_INFO_response>(&*iobr, "FIND");
+    post_recv(&*iobr);
+    sync_inject_send(&*iobs, msg, msg->message_size(), __func__);
 
-      status = response_msg->get_status();
+    wait_for_completion(iobr->to_context());
+    const auto response_msg = msg_recv<const mcas::protocol::Message_INFO_response>(&*iobr, "FIND");
 
-      if (status == S_OK) {
-        out_matched_key    = response_msg->c_str();
-        out_matched_offset = response_msg->Offset();
-      }
-    }
-    catch (const Exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
-      status = E_FAIL;
-    }
-    catch (const std::exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      status = E_FAIL;
-    }
-    return status;
-  }
+    status = response_msg->get_status();
 
-  status_t Connection::receive_and_process_ado_response(
-    const iob_ptr & iobr_
-    , std::vector<IMCAS::ADO_response> & out_response_
-  )
-  {
-    const auto response_msg = msg_recv<const mcas::protocol::Message_ado_response>(&*iobr_, __func__);
-    status_t status = response_msg->get_status();
-
-    out_response_.clear();
     if (status == S_OK) {
-      /* unmarshal responses */
-      for (uint32_t i = 0; i < response_msg->get_response_count(); i++) {
-        void *   out_data     = nullptr;
-        size_t   out_data_len = 0;
-        uint32_t out_layer_id = 0;
-        response_msg->client_get_response(i, out_data, out_data_len, out_layer_id);
+      out_matched_key    = response_msg->c_str();
+      out_matched_offset = response_msg->Offset();
+    }
+  }
+  catch (const Exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
+    status = E_FAIL;
+  }
+  catch (const std::exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    status = E_FAIL;
+  }
+  return status;
+}
+
+status_t Connection::receive_and_process_ado_response(
+  const iob_ptr & iobr_
+  , std::vector<IMCAS::ADO_response> & out_response_
+)
+{
+  const auto response_msg = msg_recv<const mcas::protocol::Message_ado_response>(&*iobr_, __func__);
+  status_t status = response_msg->get_status();
+
+  out_response_.clear();
+  if (status == S_OK) {
+    /* unmarshal responses */
+    for (uint32_t i = 0; i < response_msg->get_response_count(); i++) {
+      void *   out_data     = nullptr;
+      size_t   out_data_len = 0;
+      uint32_t out_layer_id = 0;
+      response_msg->client_get_response(i, out_data, out_data_len, out_layer_id);
 
 #if defined DEBUG_NPC_RESPONSES
-        if (out_data_len > 0) {
-          PLOG("%s: Response:", __func__);
-          hexdump(out_data, out_data_len);
-        }
-        else {
-          PLOG("%s: Response (inline): %p", __func__, out_data);
-        }
+      if (out_data_len > 0) {
+        PLOG("%s: Response:", __func__);
+        hexdump(out_data, out_data_len);
+      }
+      else {
+        PLOG("%s: Response (inline): %p", __func__, out_data);
+      }
 #endif
-        out_response_.emplace_back(out_data, out_data_len, out_layer_id);
-      }
+      out_response_.emplace_back(out_data, out_data_len, out_layer_id);
     }
-    else {
-      if (response_msg->get_response_count() > 0) {
-        void *   err_msg      = nullptr;
-        size_t   err_msg_len  = 0;
-        uint32_t out_layer_id = 0;
-        response_msg->client_get_response(0, err_msg, err_msg_len, out_layer_id);
-        PLOG("%s:%u ADO response status %d %.*s", __FILE__, __LINE__, status, int(err_msg_len),
-             static_cast<const char *>(err_msg));
-        ::free(err_msg);
-      }
-    }
-    return status;
   }
+  else {
+    if (response_msg->get_response_count() > 0) {
+      void *   err_msg      = nullptr;
+      size_t   err_msg_len  = 0;
+      uint32_t out_layer_id = 0;
+      response_msg->client_get_response(0, err_msg, err_msg_len, out_layer_id);
+      PLOG("%s:%u ADO response status %d %.*s", __FILE__, __LINE__, status, int(err_msg_len),
+           static_cast<const char *>(err_msg));
+      ::free(err_msg);
+    }
+  }
+  return status;
+}
 
-  template <typename MT>
-    status_t Connection::invoke_ado_common(
-      const iob_ptr & iobs_
-      , const MT *msg_
-      , std::vector<IMCAS::ADO_response>& out_response_
-      , unsigned int flags
-    )
-    {
-      iobs_->set_length(msg_->message_size());
+template <typename MT>
+  status_t Connection::invoke_ado_common(
+    const iob_ptr & iobs_
+    , const MT *msg_
+    , std::vector<IMCAS::ADO_response>& out_response_
+    , unsigned int flags
+  )
+  {
+    iobs_->set_length(msg_->message_size());
 
-      if (flags & IMCAS::ADO_FLAG_ASYNC) {
-        sync_send(&*iobs_, msg_, __func__);
-        /* do not wait for response */
-        return S_OK;
-      }
-
-      const auto iobr = make_iob_ptr_recv();
-      assert(iobr);
-
-      post_recv(&*iobr);
+    if (flags & IMCAS::ADO_FLAG_ASYNC) {
       sync_send(&*iobs_, msg_, __func__);
-      wait_for_completion(iobr->to_context()); /* wait for response */
-
-      return receive_and_process_ado_response(iobr, out_response_);
-    }
-
-  status_t Connection::invoke_ado(const IKVStore::pool_t            pool,
-                                          const string_view_key     key,
-                                          const string_view_request     request,
-                                          const unsigned int                flags,
-                                          std::vector<IMCAS::ADO_response>& out_response,
-                                          const size_t                      value_size)
-  {
-    API_LOCK();
-
-    const auto iobs = make_iob_ptr_send();
-    assert(iobs);
-
-    status_t status;
-
-    try {
-      const auto msg = new (iobs->base())
-        mcas::protocol::Message_ado_request(iobs->length(),
-                                            auth_id(),
-                                            request_id(),
-                                            pool,
-                                            key,
-                                            request,
-                                            flags,
-                                            value_size);
-      status = invoke_ado_common(iobs, msg, out_response, flags);
-    }
-    catch (const Exception &e) {
-      PLOG("%s:%u ADO response Exception %s", __FILE__, __LINE__, e.cause());
-      status =  E_FAIL;
-    }
-    catch (const std::exception &e) {
-      PLOG("%s:%u ADO response exception %s", __FILE__, __LINE__, e.what());
-      status =  E_FAIL;
-    }
-    return status;
-  }
-
-  status_t Connection::invoke_ado_async(const component::IMCAS::pool_t               pool,
-                                                const string_view_key                key,
-                                                const string_view_request                request,
-                                                const component::IMCAS::ado_flags_t          flags,
-                                                std::vector<component::IMCAS::ADO_response>& out_response,
-                                                component::IMCAS::async_handle_t &           out_async_handle,
-                                                const size_t                                 value_size)
-  {
-    API_LOCK();
-
-    auto iobs = make_iob_ptr_send();
-    auto iobr = make_iob_ptr_recv();
-
-    assert(iobs);
-    assert(iobr);
-
-    try {
-      const auto msg = new (iobs->base()) mcas::protocol::Message_ado_request(iobs->length(),
-                                                                              auth_id(),
-                                                                              request_id(),
-                                                                              pool,
-                                                                              key,
-                                                                              request,
-                                                                              flags,
-                                                                              value_size);
-      iobs->set_length(msg->message_size());
-
-      post_recv(&*iobr);
-      post_send(&*iobs, msg, __func__);
-
-      out_async_handle = new async_buffer_set_invoke(debug_level(), std::move(iobs), std::move(iobr), &out_response);
-
+      /* do not wait for response */
       return S_OK;
     }
-    catch (const Exception &e) {
-      PLOG("%s:%u ADO response Exception %s", __FILE__, __LINE__, e.cause());
-      return E_FAIL;
-    }
-    catch (const std::exception &e) {
-      PLOG("%s:%u ADO response exception %s", __FILE__, __LINE__, e.what());
-      return E_FAIL;
-    }
-    catch (...) {
-      return E_FAIL;
-    }
-  }
 
-  status_t Connection::invoke_put_ado(const IKVStore::pool_t            pool,
-                                              const string_view_key     key,
-                                              const string_view_request     request,
-                                              const string_view_value     value,
-                                              const size_t                      root_len,
-                                              const unsigned int                flags,
-                                              std::vector<IMCAS::ADO_response>& out_response)
-  {
-    API_LOCK();
-
-    if (request.size() == 0) return E_INVAL;
-
-    const auto iobs = make_iob_ptr_send();
-    assert(iobs);
-
-    status_t status;
-
-    try {
-      const auto msg = new (iobs->base()) mcas::protocol::Message_put_ado_request(iobs->length(),
-                                                                                  auth_id(),
-                                                                                  request_id(),
-                                                                                  pool,
-                                                                                  key,
-                                                                                  request,
-                                                                                  value,
-                                                                                  root_len,
-                                                                                  flags);
-
-      status = invoke_ado_common(iobs, msg, out_response, flags);
-    }
-    catch (const Exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
-      status = E_FAIL;
-    }
-    catch (const std::exception &e) {
-      PLOG("%s %s fail %s", __FILE__, __func__, e.what());
-      status = E_FAIL;
-    }
-
-    return status;
-  }
-
-  status_t Connection::invoke_put_ado_async(const component::IMCAS::pool_t                  pool,
-                                                    const string_view_key                   key,
-                                                    const string_view_request                   request,
-                                                    const string_view_value                   value,
-                                                    const size_t                                    root_len,
-                                                    const component::IMCAS::ado_flags_t             flags,
-                                                    std::vector<component::IMCAS::ADO_response>&    out_response,
-                                                    component::IMCAS::async_handle_t&               out_async_handle)
-  {
-    API_LOCK();
-
-    auto iobs = make_iob_ptr_send();
-    auto iobr = make_iob_ptr_recv();
-
-    assert(iobs);
+    const auto iobr = make_iob_ptr_recv();
     assert(iobr);
 
-    try {
-      const auto msg = new (iobs->base()) mcas::protocol::Message_put_ado_request(iobs->length(),
-                                                                                  auth_id(),
-                                                                                  request_id(),
-                                                                                  pool,
-                                                                                  key,
-                                                                                  request,
-                                                                                  value,
-                                                                                  root_len,
-                                                                                  flags);
-      iobs->set_length(msg->message_size());
+    post_recv(&*iobr);
+    sync_send(&*iobs_, msg_, __func__);
+    wait_for_completion(iobr->to_context()); /* wait for response */
 
-      post_recv(&*iobr);
-      post_send(&*iobs, msg, __func__);
+    return receive_and_process_ado_response(iobr, out_response_);
+  }
 
-      out_async_handle = new async_buffer_set_invoke(debug_level(), std::move(iobs), std::move(iobr), &out_response);
+status_t Connection::invoke_ado(const IKVStore::pool_t            pool,
+                                        const string_view_key     key,
+                                        const string_view_request     request,
+                                        const unsigned int                flags,
+                                        std::vector<IMCAS::ADO_response>& out_response,
+                                        const size_t                      value_size)
+{
+  API_LOCK();
 
-      return S_OK;
-    }
-    catch (const Exception &e) {
-      PLOG("%s:%u ADO response Exception %s", __FILE__, __LINE__, e.cause());
-      return E_FAIL;
-    }
-    catch (const std::exception &e) {
-      PLOG("%s:%u ADO response exception %s", __FILE__, __LINE__, e.what());
-      return E_FAIL;
-    }
-    catch (...) {
-      return E_FAIL;
-    }
+  const auto iobs = make_iob_ptr_send();
+  assert(iobs);
+
+  status_t status;
+
+  try {
+    const auto msg = new (iobs->base())
+      mcas::protocol::Message_ado_request(iobs->length(),
+                                          auth_id(),
+                                          request_id(),
+                                          pool,
+                                          key,
+                                          request,
+                                          flags,
+                                          value_size);
+    status = invoke_ado_common(iobs, msg, out_response, flags);
+  }
+  catch (const Exception &e) {
+    PLOG("%s:%u ADO response Exception %s", __FILE__, __LINE__, e.cause());
+    status =  E_FAIL;
+  }
+  catch (const std::exception &e) {
+    PLOG("%s:%u ADO response exception %s", __FILE__, __LINE__, e.what());
+    status =  E_FAIL;
+  }
+  return status;
+}
+
+status_t Connection::invoke_ado_async(const component::IMCAS::pool_t               pool,
+                                              const string_view_key                key,
+                                              const string_view_request                request,
+                                              const component::IMCAS::ado_flags_t          flags,
+                                              std::vector<component::IMCAS::ADO_response>& out_response,
+                                              component::IMCAS::async_handle_t &           out_async_handle,
+                                              const size_t                                 value_size)
+{
+  API_LOCK();
+
+  auto iobs = make_iob_ptr_send();
+  auto iobr = make_iob_ptr_recv();
+
+  assert(iobs);
+  assert(iobr);
+
+  try {
+    const auto msg = new (iobs->base()) mcas::protocol::Message_ado_request(iobs->length(),
+                                                                            auth_id(),
+                                                                            request_id(),
+                                                                            pool,
+                                                                            key,
+                                                                            request,
+                                                                            flags,
+                                                                            value_size);
+    iobs->set_length(msg->message_size());
+
+    post_recv(&*iobr);
+    post_send(&*iobs, msg, __func__);
+
+    out_async_handle = new async_buffer_set_invoke(debug_level(), std::move(iobs), std::move(iobr), &out_response);
 
     return S_OK;
   }
+  catch (const Exception &e) {
+    PLOG("%s:%u ADO response Exception %s", __FILE__, __LINE__, e.cause());
+    return E_FAIL;
+  }
+  catch (const std::exception &e) {
+    PLOG("%s:%u ADO response exception %s", __FILE__, __LINE__, e.what());
+    return E_FAIL;
+  }
+  catch (...) {
+    return E_FAIL;
+  }
+}
 
-  auto Connection::make_iob_ptr(buffer_t::completion_t completion_) -> iob_ptr
-  {
-    return iob_ptr(allocate(completion_), this);
+status_t Connection::invoke_put_ado(const IKVStore::pool_t            pool,
+                                            const string_view_key     key,
+                                            const string_view_request     request,
+                                            const string_view_value     value,
+                                            const size_t                      root_len,
+                                            const unsigned int                flags,
+                                            std::vector<IMCAS::ADO_response>& out_response)
+{
+  API_LOCK();
+
+  if (request.size() == 0) return E_INVAL;
+
+  const auto iobs = make_iob_ptr_send();
+  assert(iobs);
+
+  status_t status;
+
+  try {
+    const auto msg = new (iobs->base()) mcas::protocol::Message_put_ado_request(iobs->length(),
+                                                                                auth_id(),
+                                                                                request_id(),
+                                                                                pool,
+                                                                                key,
+                                                                                request,
+                                                                                value,
+                                                                                root_len,
+                                                                                flags);
+
+    status = invoke_ado_common(iobs, msg, out_response, flags);
+  }
+  catch (const Exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.cause());
+    status = E_FAIL;
+  }
+  catch (const std::exception &e) {
+    PLOG("%s %s fail %s", __FILE__, __func__, e.what());
+    status = E_FAIL;
   }
 
-  auto Connection::make_iob_ptr_recv() -> iob_ptr
-  {
-    return make_iob_ptr(recv_complete);
+  return status;
+}
+
+status_t Connection::invoke_put_ado_async(const component::IMCAS::pool_t                  pool,
+                                                  const string_view_key                   key,
+                                                  const string_view_request                   request,
+                                                  const string_view_value                   value,
+                                                  const size_t                                    root_len,
+                                                  const component::IMCAS::ado_flags_t             flags,
+                                                  std::vector<component::IMCAS::ADO_response>&    out_response,
+                                                  component::IMCAS::async_handle_t&               out_async_handle)
+{
+  API_LOCK();
+
+  auto iobs = make_iob_ptr_send();
+  auto iobr = make_iob_ptr_recv();
+
+  assert(iobs);
+  assert(iobr);
+
+  try {
+    const auto msg = new (iobs->base()) mcas::protocol::Message_put_ado_request(iobs->length(),
+                                                                                auth_id(),
+                                                                                request_id(),
+                                                                                pool,
+                                                                                key,
+                                                                                request,
+                                                                                value,
+                                                                                root_len,
+                                                                                flags);
+    iobs->set_length(msg->message_size());
+
+    post_recv(&*iobr);
+    post_send(&*iobs, msg, __func__);
+
+    out_async_handle = new async_buffer_set_invoke(debug_level(), std::move(iobs), std::move(iobr), &out_response);
+
+    return S_OK;
+  }
+  catch (const Exception &e) {
+    PLOG("%s:%u ADO response Exception %s", __FILE__, __LINE__, e.cause());
+    return E_FAIL;
+  }
+  catch (const std::exception &e) {
+    PLOG("%s:%u ADO response exception %s", __FILE__, __LINE__, e.what());
+    return E_FAIL;
+  }
+  catch (...) {
+    return E_FAIL;
   }
 
-  auto Connection::make_iob_ptr_send() -> iob_ptr
-  {
-    return make_iob_ptr(send_complete);
-  }
+  return S_OK;
+}
 
-  auto Connection::make_iob_ptr_write() -> iob_ptr
-  {
-    return make_iob_ptr(write_complete);
-  }
+auto Connection::make_iob_ptr(buffer_t::completion_t completion_) -> iob_ptr
+{
+  return iob_ptr(allocate(completion_), this);
+}
 
-  auto Connection::make_iob_ptr_read() -> iob_ptr
-  {
-    return make_iob_ptr(read_complete);
-  }
+auto Connection::make_iob_ptr_recv() -> iob_ptr
+{
+  return make_iob_ptr(recv_complete);
+}
+
+auto Connection::make_iob_ptr_send() -> iob_ptr
+{
+  return make_iob_ptr(send_complete);
+}
+
+auto Connection::make_iob_ptr_write() -> iob_ptr
+{
+  return make_iob_ptr(write_complete);
+}
+
+auto Connection::make_iob_ptr_read() -> iob_ptr
+{
+  return make_iob_ptr(read_complete);
+}
 
 #if CW_TEST
 	void Connection::run_intermittent_ping_pong(unsigned interval_)
@@ -1964,53 +2001,53 @@ status_t Connection::get(const pool_t pool, const string_view_key key, std::stri
 	}
 #endif
 
-  int Connection::tick()
-  {
-    using namespace mcas::protocol;
+int Connection::tick()
+{
+  using namespace mcas::protocol;
 
-    switch (_state) {
-    case INITIALIZE: {
-      set_state(HANDSHAKE_SEND);
-      break;
-    }
-    case HANDSHAKE_SEND: {
+  switch (_state) {
+  case INITIALIZE: {
+    set_state(HANDSHAKE_SEND);
+    break;
+  }
+  case HANDSHAKE_SEND: {
 
-      const auto iobs = make_iob_ptr_send();
-      auto       msg = new (iobs->base()) mcas::protocol::Message_handshake(auth_id(), 1
+    const auto iobs = make_iob_ptr_send();
+    auto       msg = new (iobs->base()) mcas::protocol::Message_handshake(auth_id(), 1
 #if CW_TEST
 		, cw::test_data::memory_size()
 #endif
-        );
-      msg->set_status(S_OK);
+      );
+    msg->set_status(S_OK);
 
-      /* set security options */
-      msg->security_tls_auth = _options.tls;
-      PNOTICE("TLS is %s", _options.tls ? "ON" : "OFF");
-      iobs->set_length(msg->msg_len());
-      post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
+    /* set security options */
+    msg->security_tls_auth = _options.tls;
+    PNOTICE("TLS is %s", _options.tls ? "ON" : "OFF");
+    iobs->set_length(msg->msg_len());
+    post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
 
-      try {
-        wait_for_completion(iobs->to_context());
-      }
-      catch (...) {
-        PERR("%s %s handshake send failed", __FILE__, __func__);
-        set_state(STOPPED);
-      }
-
-      static int sent = 0;
-      sent++;
-      PMAJOR(">>> Sent handshake (%d)", sent);
-
-      set_state(HANDSHAKE_GET_RESPONSE);
-      break;
+    try {
+      wait_for_completion(iobs->to_context());
     }
-    case HANDSHAKE_GET_RESPONSE: {
-      const auto iobr = make_iob_ptr_recv();
-      post_recv({iobr->iov, iobr->iov + 1}, iobr->desc, iobr->to_context());
+    catch (...) {
+      PERR("%s %s handshake send failed", __FILE__, __func__);
+      set_state(STOPPED);
+    }
 
-      try {
-        wait_for_completion(iobr->to_context());
-        const auto response_msg = msg_recv<const mcas::protocol::Message_handshake_reply>(&*iobr, "handshake");
+    static int sent = 0;
+    sent++;
+    PMAJOR(">>> Sent handshake (%d)", sent);
+
+    set_state(HANDSHAKE_GET_RESPONSE);
+    break;
+  }
+  case HANDSHAKE_GET_RESPONSE: {
+    const auto iobr = make_iob_ptr_recv();
+    post_recv({iobr->iov, iobr->iov + 1}, iobr->desc, iobr->to_context());
+
+    try {
+      wait_for_completion(iobr->to_context());
+      const auto response_msg = msg_recv<const mcas::protocol::Message_handshake_reply>(&*iobr, "handshake");
 
 #if CW_TEST
 				{
@@ -2078,197 +2115,196 @@ status_t Connection::get(const pool_t pool, const string_view_key key, std::stri
 				}
 #endif
 
-        /* server is indicating that it wants to start TLS session */
-        if(response_msg->start_tls)
-          start_tls();
-      }
-      catch (...) {
-        PERR("%s %s handshake response failed", __FILE__, __func__);
-        set_state(STOPPED);
-      }
-
-      static int recv = 0;
-      recv++;
-
-      set_state(READY);
-
-      _max_message_size = max_message_size(); /* from fabric component */
-      break;
+      /* server is indicating that it wants to start TLS session */
+      if(response_msg->start_tls)
+        start_tls();
     }
-    case READY: {
-      return 0;
-      break;
-    }
-    case SHUTDOWN: {
-      const auto iobs = make_iob_ptr_send();
-      auto       msg  = new (iobs->base()) mcas::protocol::Message_close_session(reinterpret_cast<uint64_t>(this));
-
-      iobs->set_length(msg->msg_len());
-      post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
-
-      // server-side may have disappeared
-      // try {
-      //   wait_for_completion(iobs->to_context());
-      // }
-      // catch (...) {
-      // }
-
+    catch (...) {
+      PERR("%s %s handshake response failed", __FILE__, __func__);
       set_state(STOPPED);
-      PLOG("Connection::%s: connection %p shutdown.", __func__, common::p_fmt(this));
-      return 0;
     }
-    case STOPPED: {
-      assert(0);
-      return 0;
-    }
-    }  // end switch
 
-    return 1;
+    static int recv = 0;
+    recv++;
+
+    set_state(READY);
+
+    _max_message_size = max_message_size(); /* from fabric component */
+    break;
   }
-
-  unsigned TLS_transport::debug_level()
-  {
-    return TLS_DEBUG_LEVEL;
+  case READY: {
+    return 0;
+    break;
   }
+  case SHUTDOWN: {
+    const auto iobs = make_iob_ptr_send();
+    auto       msg  = new (iobs->base()) mcas::protocol::Message_close_session(reinterpret_cast<uint64_t>(this));
 
-  int TLS_transport::gnutls_pull_timeout_func(gnutls_transport_ptr_t
-		, unsigned int // ms
-	)
-  {
+    iobs->set_length(msg->msg_len());
+    post_send({iobs->iov, iobs->iov + 1}, iobs->desc, iobs->to_context(), msg, __func__);
+
+    // server-side may have disappeared
+    // try {
+    //   wait_for_completion(iobs->to_context());
+    // }
+    // catch (...) {
+    // }
+
+    set_state(STOPPED);
+    PLOG("Connection::%s: connection %p shutdown.", __func__, common::p_fmt(this));
     return 0;
   }
+  case STOPPED: {
+    assert(0);
+    return 0;
+  }
+  }  // end switch
+
+  return 1;
+}
+
+using TLS_transport = mcas::client::TLS_transport;
+
+unsigned TLS_transport::debug_level()
+{
+  return TLS_DEBUG_LEVEL;
+}
+
+int TLS_transport::gnutls_pull_timeout_func(gnutls_transport_ptr_t
+		, unsigned int // ms
+	)
+{
+  return 0;
+}
 
 
-  ssize_t TLS_transport::gnutls_pull_func(gnutls_transport_ptr_t connection, void* buffer, size_t buffer_size)
-  {
-    assert(connection);
+ssize_t TLS_transport::gnutls_pull_func(gnutls_transport_ptr_t connection, void* buffer, size_t buffer_size)
+{
+  assert(connection);
 
-    auto p_connection = reinterpret_cast<Connection*>(connection);
+  auto p_connection = reinterpret_cast<Connection*>(connection);
 
-    if(p_connection->_tls_buffer.remaining() >= buffer_size) {
-
-      if(debug_level() > 2)
-        PLOG("TLS pull: taking %lu bytes from remaining (%lu)", buffer_size, p_connection->_tls_buffer.remaining());
-
-      p_connection->_tls_buffer.pull(buffer, buffer_size);
-      return buffer_size;
-    }
-
-    auto iobr = p_connection->make_iob_ptr_recv();
-
-    p_connection->post_recv(&*iobr);
-    p_connection->wait_for_completion(iobr->to_context()); /* await response */
-
-    void * base_v = iobr->base();
-    uint64_t * base = reinterpret_cast<uint64_t*>(base_v);
-    uint64_t payload_size = base[0];
+  if(p_connection->_tls_buffer.remaining() >= buffer_size) {
 
     if(debug_level() > 2)
-      PLOG("TLS received: iob_len=%lu payload-len=%lu", iobr->length(), payload_size);
+      PLOG("TLS pull: taking %lu bytes from remaining (%lu)", buffer_size, p_connection->_tls_buffer.remaining());
 
-    p_connection->_tls_buffer.push(reinterpret_cast<void*>(&base[1]), payload_size);
     p_connection->_tls_buffer.pull(buffer, buffer_size);
     return buffer_size;
   }
 
-  ssize_t TLS_transport::gnutls_vec_push_func(gnutls_transport_ptr_t connection, const giovec_t * iovec, int iovec_cnt )
-  {
-    assert(connection);
-    auto p_connection = reinterpret_cast<Connection*>(connection);
-    auto iobs = p_connection->make_iob_ptr_send();
+  auto iobr = p_connection->make_iob_ptr_recv();
 
-    void * base_v = iobs->base();
-    uint64_t * base = reinterpret_cast<uint64_t*>(base_v);
+  p_connection->post_recv(&*iobr);
+  p_connection->wait_for_completion(iobr->to_context()); /* await response */
 
-    char * ptr = reinterpret_cast<char*>(&base[1]);
-    size_t size = 0;
+  void * base_v = iobr->base();
+  uint64_t * base = reinterpret_cast<uint64_t*>(base_v);
+  uint64_t payload_size = base[0];
 
-    for(int i=0; i<iovec_cnt; i++) {
-      memcpy(ptr, iovec[i].iov_base, iovec[i].iov_len);
-      size += iovec[i].iov_len;
-      ptr += iovec[i].iov_len;
-    }
+  if(debug_level() > 2)
+    PLOG("TLS received: iob_len=%lu payload-len=%lu", iobr->length(), payload_size);
 
-    base[0] = size; /* prefix with length */
-    iobs->set_length(size + sizeof(uint64_t));
+  p_connection->_tls_buffer.push(reinterpret_cast<void*>(&base[1]), payload_size);
+  p_connection->_tls_buffer.pull(buffer, buffer_size);
+  return buffer_size;
+}
 
-    p_connection->sync_send(&*iobs, "TLS packet (client send)", __func__);
+ssize_t TLS_transport::gnutls_vec_push_func(gnutls_transport_ptr_t connection, const giovec_t * iovec, int iovec_cnt )
+{
+  assert(connection);
+  auto p_connection = reinterpret_cast<Connection*>(connection);
+  auto iobs = p_connection->make_iob_ptr_send();
 
-    if(debug_level() > 2)
-      PLOG("TLS sent: %lu bytes (%p)", size, reinterpret_cast<void*>(&*iobs));
+  void * base_v = iobs->base();
+  uint64_t * base = reinterpret_cast<uint64_t*>(base_v);
 
-    return size;
+  char * ptr = reinterpret_cast<char*>(&base[1]);
+  size_t size = 0;
+
+  for(int i=0; i<iovec_cnt; i++) {
+    memcpy(ptr, iovec[i].iov_base, iovec[i].iov_len);
+    size += iovec[i].iov_len;
+    ptr += iovec[i].iov_len;
   }
 
-  void Connection::start_tls()
-  {
-    if(_options.tls == false) throw Logic_exception("TLS contradiction");
+  base[0] = size; /* prefix with length */
+  iobs->set_length(size + sizeof(uint64_t));
 
-    if(gnutls_global_init() != GNUTLS_E_SUCCESS)
-      throw General_exception("gnutls_global_init() failed");
+  p_connection->sync_send(&*iobs, "TLS packet (client send)", __func__);
 
-    if (gnutls_certificate_allocate_credentials(&_xcred) != GNUTLS_E_SUCCESS)
-      throw General_exception("gnutls_certificate_allocate_credentials() failed");
+  if(debug_level() > 2)
+    PLOG("TLS sent: %lu bytes (%p)", size, reinterpret_cast<void*>(&*iobs));
 
-    std::string cert_file(::getenv(ENVIRONMENT_VARIABLE_CERT));
-    std::string key_file(::getenv(ENVIRONMENT_VARIABLE_KEY));
+  return size;
+}
 
-    PLOG("start_tls: cert=%s key=%s", cert_file.c_str(), key_file.c_str());
+void Connection::start_tls()
+{
+  if(_options.tls == false) throw Logic_exception("TLS contradiction");
 
-    if (gnutls_certificate_set_x509_key_file(_xcred, cert_file.c_str(), key_file.c_str(), GNUTLS_X509_FMT_PEM) !=
-        GNUTLS_E_SUCCESS)
-      throw General_exception("gnutls_certificate_set_x509_key_file() failed");
+  if(gnutls_global_init() != GNUTLS_E_SUCCESS)
+    throw General_exception("gnutls_global_init() failed");
 
-    if (gnutls_init(&_session, GNUTLS_CLIENT) != GNUTLS_E_SUCCESS)
-      throw General_exception("gnutls_init() failed");
+  if (gnutls_certificate_allocate_credentials(&_xcred) != GNUTLS_E_SUCCESS)
+    throw General_exception("gnutls_certificate_allocate_credentials() failed");
 
-    if (gnutls_priority_init(&_priority, cipher_suite, NULL) != GNUTLS_E_SUCCESS)
-      throw General_exception("gnutls_priority_init() failed");
+  std::string cert_file(::getenv(ENVIRONMENT_VARIABLE_CERT));
+  std::string key_file(::getenv(ENVIRONMENT_VARIABLE_KEY));
 
-    if (gnutls_priority_set(_session, _priority) != GNUTLS_E_SUCCESS)
-      throw General_exception("gnutls_priority_set() failed");
+  PLOG("start_tls: cert=%s key=%s", cert_file.c_str(), key_file.c_str());
 
-    if (gnutls_credentials_set(_session, GNUTLS_CRD_CERTIFICATE, _xcred) != GNUTLS_E_SUCCESS)
-      throw General_exception("gnutls_credentials_set() failed");
+  if (gnutls_certificate_set_x509_key_file(_xcred, cert_file.c_str(), key_file.c_str(), GNUTLS_X509_FMT_PEM) !=
+      GNUTLS_E_SUCCESS)
+    throw General_exception("gnutls_certificate_set_x509_key_file() failed");
 
-    //  gnutls_handshake_set_timeout(_session, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
+  if (gnutls_init(&_session, GNUTLS_CLIENT) != GNUTLS_E_SUCCESS)
+    throw General_exception("gnutls_init() failed");
 
-    /* hook in TLS transport to use our RDMA connection */
-    gnutls_transport_set_ptr(_session, this);
-    gnutls_transport_set_vec_push_function(_session, TLS_transport::gnutls_vec_push_func);
-    gnutls_transport_set_pull_function(_session, TLS_transport::gnutls_pull_func);
-    gnutls_transport_set_pull_timeout_function(_session, TLS_transport::gnutls_pull_timeout_func);
+  if (gnutls_priority_init(&_priority, cipher_suite, NULL) != GNUTLS_E_SUCCESS)
+    throw General_exception("gnutls_priority_init() failed");
 
-    /* initiate handshake */
-    int rc;
-    if ((rc = gnutls_handshake(_session)) < 0) {
-      if (rc == GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR) {
+  if (gnutls_priority_set(_session, _priority) != GNUTLS_E_SUCCESS)
+    throw General_exception("gnutls_priority_set() failed");
 
-        PERR("TLS certificate verification error");
-        /* check certificate verification status */
-        gnutls_datum_t out;
-        auto           type   = gnutls_certificate_type_get(_session);
-        auto           status = gnutls_session_get_verify_cert_status(_session);
-        if (gnutls_certificate_verification_status_print(status, type, &out, 0) != GNUTLS_E_SUCCESS)
-          throw General_exception("gnutls_certificate_verification_status_print() failed");
+  if (gnutls_credentials_set(_session, GNUTLS_CRD_CERTIFICATE, _xcred) != GNUTLS_E_SUCCESS)
+    throw General_exception("gnutls_credentials_set() failed");
 
-        gnutls_deinit(_session);
-        gnutls_free(out.data);
-      }
-      throw General_exception("Client: handshake failed: %s\n", gnutls_strerror(rc));
+  //  gnutls_handshake_set_timeout(_session, GNUTLS_DEFAULT_HANDSHAKE_TIMEOUT);
+
+  /* hook in TLS transport to use our RDMA connection */
+  gnutls_transport_set_ptr(_session, this);
+  gnutls_transport_set_vec_push_function(_session, TLS_transport::gnutls_vec_push_func);
+  gnutls_transport_set_pull_function(_session, TLS_transport::gnutls_pull_func);
+  gnutls_transport_set_pull_timeout_function(_session, TLS_transport::gnutls_pull_timeout_func);
+
+  /* initiate handshake */
+  int rc;
+  if ((rc = gnutls_handshake(_session)) < 0) {
+    if (rc == GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR) {
+
+      PERR("TLS certificate verification error");
+      /* check certificate verification status */
+      gnutls_datum_t out;
+      auto           type   = gnutls_certificate_type_get(_session);
+      auto           status = gnutls_session_get_verify_cert_status(_session);
+      if (gnutls_certificate_verification_status_print(status, type, &out, 0) != GNUTLS_E_SUCCESS)
+        throw General_exception("gnutls_certificate_verification_status_print() failed");
+
+      gnutls_deinit(_session);
+      gnutls_free(out.data);
     }
-
-    /* get final result */
-    gnutls_alert_description_t result;
-    gnutls_record_recv(_session, &result, sizeof(result));
-
-    if(result == GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR)
-      throw API_exception("server rejected certificate because verification failed");
-    else if(result > 0)
-      throw API_exception("TLS handshake rejected");
-
-    PLOG("TLS handshake complete");
+    throw General_exception("Client: handshake failed: %s\n", gnutls_strerror(rc));
   }
 
-}  // namespace client
-}  // namespace mcas
+  /* get final result */
+  gnutls_alert_description_t result;
+  gnutls_record_recv(_session, &result, sizeof(result));
+
+  if(result == GNUTLS_E_CERTIFICATE_VERIFICATION_ERROR)
+    throw API_exception("server rejected certificate because verification failed");
+  else if(result > 0)
+    throw API_exception("TLS handshake rejected");
+
+  PLOG("TLS handshake complete");
+}

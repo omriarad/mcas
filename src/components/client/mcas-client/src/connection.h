@@ -569,6 +569,51 @@ private:
                                                            component::Registrar_memory_direct *rmd,
                                                            void *                              desc);
 
+  struct async_start_type
+  {
+    status_t status;
+    component::IMCAS::async_handle_t handle;
+  };
+
+  auto async_put_direct(
+    component::IMCAS::pool_t             pool,
+    string_view_key                      key,
+    gsl::span<const common::const_byte_span> values,
+    component::Registrar_memory_direct *       rmd,
+    gsl::span<const component::IKVStore::memory_handle_t> mem_handles,
+    component::IMCAS::flags_t            flags
+  ) -> async_start_type;
+
+  auto async_get_direct(
+    component::IMCAS::pool_t       pool,
+    string_view_key    key,
+    void *                               value,
+    size_t &                             value_len,
+    component::Registrar_memory_direct * rmd,
+    component::IKVStore::memory_handle_t handle,
+    component::IMCAS::flags_t            flags
+  ) -> async_start_type;
+
+  auto async_get_direct_offset(
+    pool_t                              pool_,
+    std::size_t                         offset_,
+    std::size_t &                       length_,
+    void *buffer_,
+    component::Registrar_memory_direct *rmd_,
+    component::IMCAS::memory_handle_t   mem_handle_
+  ) -> async_start_type;
+
+  auto async_put_direct_offset(
+    pool_t                              pool_,
+    std::size_t                         offset_,
+    std::size_t &                       length_,
+    const void *                        buffer_,
+    component::Registrar_memory_direct *rmd_,
+    component::IMCAS::memory_handle_t   mem_handle_
+  ) -> async_start_type;
+
+  status_t spin_for_async_completion(async_start_type st);
+
 private:
 #ifdef THREAD_SAFE_CLIENT
   std::mutex _api_lock;
