@@ -405,13 +405,10 @@ template <typename ... Args>
 		PERR("%s", os.str().c_str());
 	}
 
+#define FLOG(fmt, ...) (FLOG)("{} " fmt, __func__, __VA_ARGS__)
+#define FERR(fmt, ...) (FERR)("{} " fmt, __func__, __VA_ARGS__)
 #define CFLOG(level, ...) ( (level) < this->debug_level() && (FLOG(__VA_ARGS__), true) )
-
-/* [C]FLOG preceded by function name */
-#define FLOGF(fmt, ...) FLOG("{} " fmt, __func__, __VA_ARGS__)
-#define FERRF(fmt, ...) FERR("{} " fmt, __func__, __VA_ARGS__)
-#define CLOGF(level, fmt, ...) CFLOG(level, "{} " fmt, __func__, __VA_ARGS__)
-/* [C]FLOG preceded by class name and function name. Code which sees the error "'this' is unavaiable" should use FLOGF instead. */
+/* [C]FLOG preceded by class name. Code which sees the error "'this' is unavaiable" should use [C]FLOG instead. */
 #define FLOGM(fmt, ...) FLOG("{}::{} " fmt, type_of(*this), __func__, __VA_ARGS__)
 #define FERRM(fmt, ...) FERR("{}::{} " fmt, type_of(*this), __func__, __VA_ARGS__)
 #define CFLOGM(level, fmt, ...) CFLOG(level, "LEVEL {} {}::{} " fmt, level, type_of(*this), __func__, __VA_ARGS__)

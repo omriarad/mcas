@@ -59,7 +59,7 @@ private:
 	}
 	catch ( std::exception &e )
 	{
-		FLOGF("{}", e.what());
+		FLOG("{}", e.what());
 	}
 
 	void check_complete(::status_t stat_, std::size_t)

@@ -284,6 +284,10 @@ int main(int argc, char *argv[])
     printf("bad command line option\n");
     return -1;
   }
+  catch (const std::system_error &e) {
+    FLOG("server error {}", e.what());
+    return -1;
+  }
 
   return 0;
 }
