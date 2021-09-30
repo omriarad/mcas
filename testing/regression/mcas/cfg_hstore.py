@@ -26,4 +26,4 @@ if __name__ == '__main__':
     from argparse_cfg_hstore import argparse_cfg_hstore
     parser = argparse_cfg_hstore()
     args = parser.parse_args()
-    print(cfg_hstore(args.ipaddr, args.store, args.dax_prefix, port=port=args.port, count=args.shard_count, numa_node=args.numa_node, args.mm_plugin_path, args.region).json())
+    print(cfg_hstore(args.ipaddr, args.store, args.dax_prefix, port=args.port, count=args.shard_count, numa_node=args.numa_node, mm_plugin_path=args.mm_plugin_path, accession=args.region).json())
