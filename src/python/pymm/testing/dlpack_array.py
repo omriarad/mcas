@@ -2,7 +2,7 @@
 #
 # basic numpy ndarray
 #
-import unittest
+import pmem_unittest as unittest
 import pymm
 import numpy as np
 import math
@@ -24,7 +24,7 @@ class TestNdarray(unittest.TestCase):
     
     def test_dlpack_array(self):
         log("Testing: dlpack_array ...")
-        shelf = pymm.shelf('myShelf',size_mb=1024,pmem_path='/mnt/pmem0',force_new=True)
+        shelf = pymm.shelf('myShelf',size_mb=1024,pmem_path=self.pmem_root,force_new=True)
         shelf.a = pymm.dlpack_array((5,),dtype=np.float64)
         print(shelf.a.addr)
         print(shelf.a)
@@ -34,13 +34,13 @@ class TestNdarray(unittest.TestCase):
 
     def test_dlpack_array_reopen(self):
         log("Testing: dlpack_array (reopen) ...")
-        shelf = pymm.shelf('myShelf', pmem_path='/mnt/pmem0',force_new=False)
+        shelf = pymm.shelf('myShelf', pmem_path=self.pmem_root,force_new=False)
         print(shelf.a)
         shelf.inspect()
 
     def test_dlpack_array_from_dlpack_tf(self):
         log("Testing: dlpack_array pycapsule generation ...")
-        shelf = pymm.shelf('myShelf', pmem_path='/mnt/pmem0',force_new=False)
+        shelf = pymm.shelf('myShelf', pmem_path=self.pmem_root,force_new=False)
         capsule = shelf.a.as_capsule()
         print(capsule)
         log("Testing: dlpack_array importing to tensorflow ...")
@@ -54,7 +54,7 @@ class TestNdarray(unittest.TestCase):
 
     def XXtest_dlpack_array_from_dlpack_torch(self):
         log("Testing: dlpack_array pycapsule generation ...")
-        shelf = pymm.shelf('myShelf', pmem_path='/mnt/pmem0',force_new=False)
+        shelf = pymm.shelf('myShelf', pmem_path=self.pmem_root,force_new=False)
         capsule = shelf.a.as_capsule()
         print(capsule)
         log("Testing: dlpack_array importing to pytorch ...")

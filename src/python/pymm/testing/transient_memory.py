@@ -2,7 +2,7 @@
 #
 # testing transient memory (needs modified Numpy)
 #
-import unittest
+import pmem_unittest as unittest
 import pymm
 import numpy as np
 
@@ -17,8 +17,8 @@ force_new=True
 class TestTransientMemory(unittest.TestCase):
     def setUp(self):
         global force_new
-        self.s = pymm.shelf('myShelf',size_mb=1024,pmem_path='/mnt/pmem0',force_new=force_new)
-        pymm.pymmcore.enable_transient_memory(backing_directory='/tmp', pmem_file='/mnt/pmem0/swap', pmem_file_size_gb=1)
+        self.s = pymm.shelf('myShelf',size_mb=1024,pmem_path=self.pmem_root,force_new=force_new)
+        pymm.pymmcore.enable_transient_memory(backing_directory='/tmp', pmem_file='%s/swap'%(self.pmem_root,), pmem_file_size_gb=1)
 
     def test_tm(self):
         self.s.x = np.ndarray((1000000,), dtype=np.uint8) # large RHS eval

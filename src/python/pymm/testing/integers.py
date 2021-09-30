@@ -3,6 +3,7 @@
 # basic numpy ndarray
 #
 import unittest
+import pmem_discovery
 import pymm
 import numpy as np
 import math
@@ -18,7 +19,7 @@ def log(*args):
     print(colored(0,255,255,*args))
 
 
-shelf = pymm.shelf('myShelf',size_mb=1024,pmem_path='/mnt/pmem0',force_new=True)
+shelf = pymm.shelf('myShelf',size_mb=1024,pmem_path=pmem_discovery.first_pmem(),force_new=True)
 
 class TestNdarray(unittest.TestCase):
     def test_integer_assignment(self):

@@ -3,6 +3,7 @@
 # testing transient memory (needs modified Numpy)
 #
 import unittest
+import pmem_discovery
 import pymm
 import numpy as np
 import torch
@@ -14,7 +15,7 @@ def colored(r, g, b, text):
 def log(*args):
     print(colored(0,255,255,*args))
 
-shelf = pymm.shelf('myShelf',size_mb=1024,pmem_path='/mnt/pmem0',force_new=True)
+shelf = pymm.shelf('myShelf',size_mb=1024,pmem_path=pmem_discovery.first_pmem(),force_new=True)
 
 class TestNew(unittest.TestCase):
     

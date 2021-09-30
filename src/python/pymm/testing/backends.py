@@ -2,7 +2,7 @@
 #
 # testing for different backends
 #
-import unittest
+import pmem_unittest as unittest
 import pymm
 import numpy as np
 import math
@@ -19,17 +19,6 @@ def log(*args):
     print(colored(0,255,255,*args))
 
 class TestBackends(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        unittest.TestCase.__init__(self,*args,**kwargs)
-
-        # Find first available /mnt/pmem<n> directory
-        self.pmem_root=''
-        for i in range(0, 2):
-            root='/mnt/pmem%d' % (i,)
-            if os.path.isdir(root):
-                self.pmem_root=root
-                break
-        self.assertNotEqual(self.pmem_root, '')
 
     def test_default(self):
         log("Running shelf with default backend ...")

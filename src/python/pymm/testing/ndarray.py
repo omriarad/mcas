@@ -2,7 +2,7 @@
 #
 # basic numpy ndarray
 #
-import unittest
+import pmem_unittest as unittest
 import pymm
 import numpy as np
 import math
@@ -23,7 +23,7 @@ force_new=True
 class TestNdarray(unittest.TestCase):
     def setUp(self):
         global force_new
-        self.s = pymm.shelf('myShelf',size_mb=1024,pmem_path='/mnt/pmem0',force_new=force_new)
+        self.s = pymm.shelf('myShelf',size_mb=1024,pmem_path=self.pmem_root,force_new=force_new)
         force_new=False
 
     def tearDown(self):

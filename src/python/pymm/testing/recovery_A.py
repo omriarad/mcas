@@ -2,7 +2,7 @@
 #
 # "before" part of recovery test 
 #
-import unittest
+import pmem_unittest as unittest
 import pymm
 import numpy as np
 import math
@@ -24,16 +24,16 @@ class TestBefore(unittest.TestCase):
 
         if shelf == 0:
             log("Recovery: running test setup...")
-            os.system("rm -Rf /mnt/pmem0/1")
-            os.system("rm -Rf /mnt/pmem0/2")
-            os.system("mkdir -p /mnt/pmem0/1")
-            os.system("mkdir -p /mnt/pmem0/2")
+            os.system("rm -Rf %s/1" % (self.pmem_root,))
+            os.system("rm -Rf %s/2" % (self.pmem_root,))
+            os.system("mkdir -p %s/1" % (self.pmem_root,))
+            os.system("mkdir -p %s/2" % (self.pmem_root,))
 
             shelf = pymm.shelf('myShelf', size_mb=256, load_addr='0x700000000',
-                               backend='hstore-cc', pmem_path='/mnt/pmem0/1', force_new=True)
+                               backend='hstore-cc', pmem_path='%s/1'%(self.pmem_root,), force_new=True)
 
             shelf2 = pymm.shelf('myShelf-2', size_mb=256, load_addr='0x800000000',
-                                backend='hstore-cc', pmem_path='/mnt/pmem0/2', force_new=True)
+                                backend='hstore-cc', pmem_path='%s/2'%(self.pmem_root,), force_new=True)
 
             log("Recovery: shelf init OK")
         

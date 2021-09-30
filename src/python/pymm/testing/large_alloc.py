@@ -3,6 +3,7 @@ import numpy as np
 import math
 import torch
 import gc
+import pmem_discovery
 
 from inspect import currentframe, getframeinfo
 line = lambda : currentframe().f_back.f_lineno
@@ -22,7 +23,7 @@ def log(*args):
     
 
 print('[TEST]: enabling transient memory ...')
-pymm.enable_transient_memory(pmem_file='/mnt/pmem0/swap',pmem_file_size_gb=2, backing_directory='/tmp')
+pymm.enable_transient_memory(pmem_file='%s/swap'%(pmem_discovery.first_pmem(),),pmem_file_size_gb=2, backing_directory='/tmp')
 
 s = pymm.shelf('myShelf',size_mb=2048,backend="hstore-cc",force_new=True)
 

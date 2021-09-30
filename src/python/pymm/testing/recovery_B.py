@@ -2,7 +2,7 @@
 #
 # "after" part of recovery test 
 #
-import unittest
+import pmem_unittest as unittest
 import pymm
 import numpy as np
 import math
@@ -26,10 +26,10 @@ class TestRecovery(unittest.TestCase):
             log("Recovery: running test setup...")
 
             shelf = pymm.shelf('myShelf', load_addr='0x700000000',
-                               backend='hstore-cc', pmem_path='/mnt/pmem0/1', force_new=False)
+                               backend='hstore-cc', pmem_path='%s/1'%(self.pmem_root,), force_new=False)
 
             shelf2 = pymm.shelf('myShelf-2', load_addr='0x800000000',
-                                backend='hstore-cc', pmem_path='/mnt/pmem0/2', force_new=False)
+                                backend='hstore-cc', pmem_path='%s/2'%(self.pmem_root,), force_new=False)
 
             print("Shelf.items = {}".format(shelf.items))
             print("Shelf2.items = {}".format(shelf2.items))

@@ -3,6 +3,7 @@
 # basic inspection
 #
 import unittest
+import pmem_discovery
 import pymm
 import numpy as np
 import math
@@ -14,7 +15,7 @@ def colored(r, g, b, text):
 def log(*args):
     print(colored(0,255,255,*args))
 
-shelf = pymm.shelf('myTransactionsShelf',pmem_path='/mnt/pmem0')
+shelf = pymm.shelf('myTransactionsShelf',pmem_path=pmem_discovery.first_pmem())
 
 class TestReveal(unittest.TestCase):
 

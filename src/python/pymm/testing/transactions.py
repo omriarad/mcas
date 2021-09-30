@@ -3,6 +3,7 @@
 # basic transactions
 #
 import unittest
+import pmem_discovery
 import pymm
 import numpy as np
 import math
@@ -14,8 +15,8 @@ def colored(r, g, b, text):
 def log(*args):
     print(colored(0,255,255,*args))
 
-shelf = pymm.shelf('myTransactionsShelf',size_mb=1024,pmem_path='/mnt/pmem0',force_new=True)
-# shelf = pymm.shelf('myShelf',pmem_path='/mnt/pmem0')
+shelf = pymm.shelf('myTransactionsShelf',size_mb=1024,pmem_path=pmem_discovery.first_pmem(),force_new=True)
+# shelf = pymm.shelf('myShelf',pmem_path=pmem_discovery.first_pmem())
 
 class TestTransactions(unittest.TestCase):
 
