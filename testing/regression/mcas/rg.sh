@@ -1,5 +1,15 @@
 #!/bin/bash
 
+# environment varables
+#  SHARD_COUNT: number of shards to use in test
+#  DEBUG: debug level (greater number produces more LOG lines)
+#   The intents of the values, are, roughly:
+#    0: very little trace
+#    1: report, at least, commands used to invoke the server and clients
+#    2: finer trace not including per-IO functions
+#    3: trace which may include per-IO functions
+#    4: finer trace including per-IO functions
+
 set -e -u
 
 ulimit -a > ulimit.log
@@ -15,11 +25,12 @@ size_begin=20
 typeset -i cores_begin=1
 cores_begin=5
 typeset -r client_host="sg-mcas109.sg.almaden.ibm.com"
+typeset -r shard_count=${SHARD_COUNT:-4}
 typeset -r log_size=${2:-23}
 hmstore="multi-$1"
 
 op=put_direct
-for ct in 4
+for ct in $shard_count
 do for lg in $log_size
 	do sz=$((1<<lg))
 		# STORE_SIZE assumes that only 1000 of the elements will be needed, i.e, that exp_perf_direct is modified to use ony a few elements
