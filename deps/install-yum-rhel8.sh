@@ -37,5 +37,5 @@ df -h /
 dnf -y --nodocs --setopt=install_weak_deps=False install kernel-devel
 
 # install Rust compiler and runtime
-./install-rust.sh
-
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+$DIR/install-rust.sh
