@@ -33,4 +33,4 @@ model_4fc
 
 
 By defualt, results will be saved to ./results/mnist/{dram,pymm}.csv unless a path is specified otherwise. Please use the -h flag to see the arguments for the scripts.
-By default, the training excute on gpu if you want to tain on cpu, please use -c=0
+By default, the training excute on gpu if you want to tain on cpu, please use -c=-1
