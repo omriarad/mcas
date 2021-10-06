@@ -1,5 +1,0 @@
-.cache.mk
-mcasmod.ko
-mcasmod.mod.c
-modules.order
-*.o.ur-safe
