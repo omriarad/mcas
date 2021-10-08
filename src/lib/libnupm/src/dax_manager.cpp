@@ -399,7 +399,7 @@ dax_manager::dax_manager(
 
 dax_manager::~dax_manager()
 {
-  CPLOG(0, "%s::%s", typeid(*this).name(), __func__);
+  CFLOGM(0, "{}", this);
 }
 
 auto dax_manager::lookup_arena(arena_id_t arena_id) -> arena *
@@ -445,12 +445,12 @@ auto dax_manager::create_region(
   }
   catch ( const General_exception &e )
   {
-    CPLOG(2,"%s: path %s id %.*s size req 0x%zx create failed (available 0x%zx)", __func__, arena->describe().data(), int(name_.size()), name_.begin(), size_, arena->get_max_available());
+    CPLOG(2,"%s: path %s id %.*s size req 0x%zx create failed (available 0x%zx) %s", __func__, arena->describe().data(), int(name_.size()), name_.begin(), size_, arena->get_max_available(), e.cause());
     return region_descriptor();
   }
   catch ( const std::exception &e )
   {
-    CPLOG(2,"%s: path %s id %.*s size req 0x%zx create failed (available 0x%zx)", __func__, arena->describe().data(), int(name_.size()), name_.begin(), size_, arena->get_max_available());
+    CPLOG(2,"%s: path %s id %.*s size req 0x%zx create failed (available 0x%zx) %s", __func__, arena->describe().data(), int(name_.size()), name_.begin(), size_, arena->get_max_available(), e.what());
     return region_descriptor();
   }
 }
