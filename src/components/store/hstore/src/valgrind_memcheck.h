@@ -14,7 +14,9 @@
 #ifndef MCAS_HSTORE_VALGRIND_MEMCHECK_H
 #define MCAS_HSTORE_VALGRIND_MEMCHECK_H
 
-#if 0
+#if CONFIG_DEBUG && __has_include(<valgrind/memcheck.h>)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wold-style-cast"
 #include <valgrind/memcheck.h>
 #else
 #define VALGRIND_CREATE_MEMPOOL(pool, x, y) do { (void) (pool); (void) (x); (void) (y); } while(0)
