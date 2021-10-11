@@ -18,6 +18,7 @@
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wold-style-cast"
 #include <valgrind/memcheck.h>
+#pragma GCC diagnostic pop
 #else
 #define VALGRIND_CREATE_MEMPOOL(pool, x, y) do { (void) (pool); (void) (x); (void) (y); } while(0)
 #define VALGRIND_DESTROY_MEMPOOL(pool) do { (void) (pool); } while(0)

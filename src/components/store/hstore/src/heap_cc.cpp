@@ -268,7 +268,7 @@ void heap_cc::alloc(persistent_t<void *> &p_, std::size_t sz_, std::size_t align
 		 */
 		perishable::tick();
 
-		VALGRIND_MEMPOOL_ALLOC(::base(_pool0_heap), p_, sz);
+		VALGRIND_MEMPOOL_ALLOC(::base(_pool0_heap), persistent_load(p_), sz);
 		/* size grows twice: once for aligment, and possibly once more in allocation */
 		hop_hash_log<trace_heap>::write(LOG_LOCATION, "pool ", ::base(_pool0_heap), " addr ", p_, " size ", sz_, "->", sz);
 	}
@@ -300,7 +300,7 @@ void heap_cc::inject_allocation(const void *, std::size_t)
 
 void heap_cc::free(persistent_t<void *> &p_, std::size_t sz_)
 {
-	VALGRIND_MEMPOOL_FREE(::base(_pool0_heap), p_);
+	VALGRIND_MEMPOOL_FREE(::base(_pool0_heap), persistent_load(p_));
 	auto sz = _eph->free(p_, sz_);
 	hop_hash_log<trace_heap>::write(LOG_LOCATION, "pool ", ::base(_pool0_heap), " addr ", p_, " size ", sz_, "->", sz);
 }
