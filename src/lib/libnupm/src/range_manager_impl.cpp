@@ -56,6 +56,12 @@ void * range_manager_impl::locate_free_address_range(std::size_t size_) const
 			return i.lower();
 		}
 	}
+
+	for ( auto i : *_address_fs_available )
+	{
+		FLOGM("free {:x}..{:x}", i.lower(), i.upper());
+	}
+
 	throw std::runtime_error(__func__ + std::string(" out of address ranges"));
 }
 
