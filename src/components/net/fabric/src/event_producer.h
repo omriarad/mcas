@@ -18,6 +18,7 @@
 #include "rdma-fabric.h" /* fid_t */
 #include "rdma-fi_domain.h" /* fi_eq_cm_entry */
 
+#include <gsl/pointers>
 #include <cstdint>
 #include <tuple>
 
@@ -28,8 +29,8 @@ struct event_producer
 protected:
   ~event_producer() {}
 public:
-  virtual void register_pep(::fid_t ep, event_consumer &ec) = 0;
-  virtual void register_aep(::fid_t ep, event_consumer &ec) = 0;
+  virtual void register_pep(::fid_t ep, gsl::not_null<event_consumer *> ec) = 0;
+  virtual void register_aep(::fid_t ep, gsl::not_null<event_consumer *> ec) = 0;
   virtual void deregister_endpoint(::fid_t ep) = 0;
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_ep_bind fail

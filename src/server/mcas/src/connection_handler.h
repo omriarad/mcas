@@ -75,16 +75,38 @@ class Connection_handler
   friend class Connection_TLS_session;
   friend struct TLS_transport;
 	using byte_span = common::byte_span;
-  
+
+  struct stats {
+    uint64_t response_count;
+    uint64_t recv_msg_count;
+    uint64_t send_msg_count;
+    uint64_t wait_send_value_misses;
+    uint64_t wait_msg_recv_misses;
+    uint64_t wait_respond_complete_misses;
+    uint64_t last_count;
+    uint64_t next_stamp;
+    stats()
+      : response_count(0),
+        recv_msg_count(0),
+        send_msg_count(0),
+        wait_send_value_misses(0),
+        wait_msg_recv_misses(0),
+        wait_respond_complete_misses(0),
+        last_count(0),
+        next_stamp(0)
+    {
+    }
+  };
+
 public:
-  enum {
+  enum class tick_type {
         TICK_RESPONSE_CONTINUE        = 0,
         TICK_RESPONSE_BOOTSTRAP_SPAWN = 1,
         TICK_RESPONSE_WAIT_SECURITY   = 2,
         TICK_RESPONSE_CLOSE           = 0xFF,
   };
 
-private:  
+private:
   /* adaptor point for different transports */
   using Preconnection = component::IFabric_endpoint_unconnected_server;
   using Connection = component::IFabric_server;
@@ -109,27 +131,15 @@ private:
 	cw::registered_memory _rm;
 #endif
 
-  struct stats {
-    uint64_t response_count;
-    uint64_t recv_msg_count;
-    uint64_t send_msg_count;
-    uint64_t wait_send_value_misses;
-    uint64_t wait_msg_recv_misses;
-    uint64_t wait_respond_complete_misses;
-    uint64_t last_count;
-    uint64_t next_stamp;
-    stats()
-      : response_count(0),
-        recv_msg_count(0),
-        send_msg_count(0),
-        wait_send_value_misses(0),
-        wait_msg_recv_misses(0),
-        wait_respond_complete_misses(0),
-        last_count(0),
-        next_stamp(0)
-    {
-    }
-  } _stats alignas(8);
+  stats _stats alignas(8);
+
+  common::Byte_buffer _tls_buffer;
+#if CW_TEST
+	cw::test_data _test_data;
+#if 0
+	byte_span _scratchpad;
+#endif
+#endif
 
   void dump_stats()
   {
@@ -188,9 +198,9 @@ private:
     send_callback(iob);
   }
 
-  /** 
+  /**
    * Send handshake response
-   * 
+   *
    * @param start_tls Set if a TLS handshake needs to be started
    */
   void respond_to_handshake(bool start_tls
@@ -205,7 +215,7 @@ public:
 
   explicit Connection_handler(unsigned debug_level,
                               gsl::not_null<Factory *> factory,
-                              std::unique_ptr<Preconnection> && preconnection
+                              std::unique_ptr<Preconnection, uc_destructor> && preconnection
     , unsigned buffer_count
 #if CW_TEST && 0
 		, byte_span scratchpad
@@ -219,17 +229,17 @@ public:
   auto allocate_send() { return allocate(static_send_callback); }
   auto allocate_recv() { return allocate(static_recv_callback); }
 
-  /** 
+  /**
    * Initialize security session
-   * 
-   * @param bind_ipaddr 
-   * @param bind_port 
+   *
+   * @param bind_ipaddr
+   * @param bind_port
    */
   void configure_security(const std::string& bind_ipaddr,
                           const unsigned bind_port,
                           const std::string& cert_file,
                           const std::string& key_file);
-    
+
 
   /**
    * State machine transition tick.  It is really important that this tick
@@ -237,7 +247,7 @@ public:
    * the thread not returning to them.
    *
    */
-  int tick();
+  tick_type tick();
   /**
    * Check for network completions
    *
@@ -423,7 +433,7 @@ public:
     return mr;
   }
 
-	void add_locked_value(const void *target, memory_registered<Connection_base> &&mr);   
+	void add_locked_value(const void *target, memory_registered<Connection_base> &&mr);
 	void release_locked_value(const void *target);
 	void add_space_shared(const range<std::uint64_t> &range_, memory_registered<Connection_base> &&mr);
 	void release_space_shared(const range<std::uint64_t> &range_);
@@ -434,13 +444,6 @@ public:
   inline Pool_manager&  pool_manager() { return _pool_manager; }
 
 private:
-  common::Byte_buffer _tls_buffer;
-#if CW_TEST
-	cw::test_data _test_data;
-#if 0
-	byte_span _scratchpad;
-#endif
-#endif
 };
 
 }  // namespace mcas

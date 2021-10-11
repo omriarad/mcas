@@ -24,11 +24,16 @@ namespace component
   class IFabric_server_factory;
 }
 
+struct uc_destructor
+{
+	void operator()(component::IFabric_endpoint_unconnected_server *s);
+};
+
 struct server_connection
 {
 private:
 	gsl::not_null<component::IFabric_server_factory *> _f;
-	std::unique_ptr<component::IFabric_endpoint_unconnected_server> _ep;
+	std::unique_ptr<component::IFabric_endpoint_unconnected_server, uc_destructor> _ep;
 	common::moveable_ptr<component::IFabric_server> _cnxn;
   DELETE_COPY(server_connection);
 public:

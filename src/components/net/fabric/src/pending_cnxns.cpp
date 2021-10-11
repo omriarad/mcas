@@ -42,3 +42,12 @@ auto pending_cnxns::remove() -> cnxn_t
   }
   return c;
 }
+
+void pending_cnxns::clear()
+{
+  guard g{_m};
+  while ( _q.size() != 0 )
+  {
+    _q.pop();
+  }
+}

@@ -66,7 +66,7 @@ private:
   ~memory_registered()
   {
     if (_memory_control) {
-      CPLOG(2, "%s %p", __func__, common::p_fmt(_r));
+	    CFLOGM(2, "deregister {}", _r);
       _memory_control->deregister_memory(_r);
     }
   }

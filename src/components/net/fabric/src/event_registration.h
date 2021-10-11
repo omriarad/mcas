@@ -36,7 +36,10 @@ private:
   ::fid_t _ep;
 public:
   /*
+   * ev: the event queue on which to register
+   * ec: the consumer which will deal with the events
    * @throw fabric_runtime_error : std::runtime_error : ::fi_ep_bind fail
+   *
    */
   explicit event_registration(event_producer &ev, event_consumer &ec, ::fid_ep &ep);
   /*

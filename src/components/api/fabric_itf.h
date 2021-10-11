@@ -667,6 +667,11 @@ class IFabric_passive_endpoint {
 class IFabric_endpoint_unconnected_server
 	: public IFabric_endpoint_unconnected
 {
+protected:
+	~IFabric_endpoint_unconnected_server() {}
+public:
+	/* mutex-guarded delete */
+	virtual void remove() = 0;
 };
 
 /**

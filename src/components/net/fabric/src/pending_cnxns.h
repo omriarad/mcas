@@ -15,23 +15,21 @@
 #ifndef _PENDING_CONNECTIONS_H_
 #define _PENDING_CONNECTIONS_H_
 
+#include "rdma-fabric.h"
+
 #include <memory>
 #include <mutex>
 #include <queue>
 
-/*
- * Server side: a new endpoint which aspires to be connection.
- */
-
-namespace component
+struct fi_info_delete
 {
-	struct IFabric_endpoint_unconnected_server;
-}
+  void operator()(::fi_info *f) { ::fi_freeinfo(f); }
+};
 
 struct pending_cnxns
 {
 public:
-  using cnxn_t = std::unique_ptr<component::IFabric_endpoint_unconnected_server>;
+  using cnxn_t = std::unique_ptr<::fi_info, fi_info_delete>;
 private:
   std::mutex _m; /* protects _q */
   using guard = std::lock_guard<std::mutex>;
@@ -40,6 +38,7 @@ public:
   pending_cnxns();
   void push(cnxn_t && c);
   cnxn_t remove();
+  void clear();
 };
 
 #endif

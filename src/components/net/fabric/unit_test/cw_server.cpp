@@ -40,11 +40,23 @@
 #include <string>
 #include <vector>
 
+struct uc_server_dtor
+{
+	/* an unconnected server cannot be default-deleted, as the fabric listener,
+	 * on another thread, may issue virtual function calls against it.
+	 * Provide a deleter with a guard.
+	 */
+	void operator()(component::IFabric_endpoint_unconnected_server *s)
+	{
+		s->remove();
+	}
+};
+
 struct server_connection
 {
 private:
 	gsl::not_null<component::IFabric_server_factory *> _f;
-	std::unique_ptr<component::IFabric_endpoint_unconnected_server> _ep;
+	std::unique_ptr<component::IFabric_endpoint_unconnected_server, uc_server_dtor> _ep;
 	common::moveable_ptr<component::IFabric_server> _cnxn;
 public:
 	component::IFabric_server &cnxn() const { return *_cnxn; }

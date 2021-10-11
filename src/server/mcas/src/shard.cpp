@@ -305,7 +305,7 @@ void Shard::initialize_components(const std::string &backend,
 					assert(rc == S_OK);
 					size = v[0];
 				}     
-      			_scratchpad = common::make_byte_span(base, size);
+				_scratchpad = common::make_byte_span(base, size);
 			}
 #endif
     }
@@ -472,7 +472,7 @@ void Shard::main_loop(common::profiler &pr_)
         /* issue tick, unless we are stalling */
         auto tick_response = handler->tick();
 
-        if(tick_response == mcas::Connection_handler::TICK_RESPONSE_WAIT_SECURITY) {
+        if(tick_response == mcas::Connection_handler::tick_type::TICK_RESPONSE_WAIT_SECURITY) {
           /* first tick, complete initialization */
           handler->configure_security(_security.ipaddr(),
                                       _security.port(),
@@ -481,10 +481,9 @@ void Shard::main_loop(common::profiler &pr_)
         }
         /* Close session, this will occur if the client shuts down (cleanly or
          * not). Also close sessions in response to SIGINT */
-        else if ((tick_response == mcas::Connection_handler::TICK_RESPONSE_CLOSE) ||
+        else if ((tick_response == mcas::Connection_handler::tick_type::TICK_RESPONSE_CLOSE) ||
                  (signals::sigint > 0)) {
           idle = 0;
-
           /* close all open pools belonging to session  */
           CPLOG(1, "Shard: forcing pool closures");
 
@@ -533,13 +532,6 @@ void Shard::main_loop(common::profiler &pr_)
           assert(get_pending_iter++ < 1000);
 
           switch (action.op) {
-#if 0
-          case Connection_handler::action_type::ACTION_RELEASE_VALUE_LOCK_EXCLUSIVE:
-            CPLOG(2, "releasing esxclusive value lock (%p)", action.parm);
-            release_locked_value_exclusive(action.parm);
-            release_pending_rename(action.parm);
-            break;
-#endif
           case Connection_handler::action_type::ACTION_RELEASE_VALUE_LOCK_SHARED:
             CPLOG(2, "releasing shared value lock (%p)", action.parm);
 				release_locked_value_shared(handler, action.parm);
@@ -627,6 +619,8 @@ void Shard::main_loop(common::profiler &pr_)
           CPLOG(2, "Shard: deleting handler (%p)", common::p_fmt(h));
 
           assert(h);
+          /* valgrind used to flag the deletion of an fabric_endpoint object which has vft reference on another thread
+           * Fixed with a "remove" method which deregisters the fabric_endpoint from event processing before deleting it */
           delete h;
 
           CPLOG(2, "Shard: #remaining handlers (%lu)", _handlers.size());
@@ -746,7 +740,7 @@ void Shard::process_message_pool_request(Connection_handler *handler,
 				auto region = handler->get_memory_region(reinterpret_cast<void *>(response->scratchpad_base));
 				/* The region must be one already registered (by ondemand_register) */
 				assert(region);
-			 	memory_registered<Connection_base> mr = memory_registered<Connection_base>(debug_level(), handler, region);
+                                memory_registered<Connection_base> mr = memory_registered<Connection_base>(debug_level(), handler, region);
 				response->scratchpad_rma_key = mr.key();
 			}
 #endif

@@ -131,7 +131,7 @@ auto Fabric_transport::get_new_connection() -> Connection_handler *
     connection
     ? new Connection_handler(mcas::global::debug_level,
                              _server_factory.get(),
-                             std::unique_ptr<component::IFabric_endpoint_unconnected_server>(connection), _buffer_count
+                             std::unique_ptr<component::IFabric_endpoint_unconnected_server, uc_destructor>(connection), _buffer_count
 #if CW_TEST && 0
 		, _scratchpad
 #endif

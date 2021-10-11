@@ -112,17 +112,18 @@ private:
   Fabric_cq _txcq;
 
   std::shared_ptr<::fi_info> _ep_info;
-  gsl::not_null<std::shared_ptr<::fid_ep>> _ep;
+  std::shared_ptr<::fid_ep> _ep;
 
   /* Events tagged for _ep, demultiplexed from the shared event queue to this pipe.
    * Perhaps we should provide a separate event queue for every connection, but not
    * sure if hardware would support that.
    */
   Fd_pair _event_pipe;
-  std::unique_ptr<event_registration> _event_registration;
-
   /* true after an FI_SHUTDOWN event has been observed */
-  std::atomic<bool> _shut_down;
+  std::mutex _m_shutdown;
+  bool _shutdown;
+
+  std::unique_ptr<event_registration> _event_registration;
 
 	explicit fabric_endpoint(
 		Fabric &fabric
@@ -174,7 +175,10 @@ protected:
     , event_producer &ev
     , const ::fi_info &info
   );
+
+  ~fabric_endpoint();
 public:
+  void remove() override;
   /*
    * @throw fabric_bad_alloc : std::bad_alloc - out of memory
    * @throw fabric_runtime_error : std::runtime_error : ::fi_domain fail
@@ -196,13 +200,11 @@ public:
     , std::uint16_t port
   );
 
-  ~fabric_endpoint();
-
   const ::fi_info &ep_info() const { return *_ep_info; }
   ::fi_info &modifiable_ep_info() const { return *_ep_info; }
   Fabric_cq &rxcq() { return _rxcq; }
   Fabric_cq &txcq() { return _txcq; }
-  ::fid_ep &ep() { return *_ep; }
+  gsl::not_null<::fid_ep *> ep();
   /*
    * @throw std::system_error : pselect fail
    * @throw fabric_bad_alloc : std::bad_alloc - libfabric out of memory (creating a new server)
@@ -343,7 +345,7 @@ public:
    * @throw std::system_error : read error on event pipe
    */
   void expect_event(std::uint32_t) const;
-  bool is_shut_down() const { return _shut_down; }
+  bool is_shut_down() { std::lock_guard<std::mutex> g(_m_shutdown); return _shutdown; }
 
   Fabric &fabric() const { return _fabric; }
   ::fi_info &domain_info() const { return *_domain_info; }

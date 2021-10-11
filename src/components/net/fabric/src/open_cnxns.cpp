@@ -26,18 +26,18 @@
 
 using guard = std::unique_lock<std::mutex>;
 
-Open_cnxns::Open_cnxns()
+open_cnxns::open_cnxns()
   : _m{}
   , _s{}
 {}
 
-void Open_cnxns::add(cnxn_type *c_)
+void open_cnxns::add(cnxn_type *c_)
 {
   guard g{_m};
   _s.insert(owned_type(c_));
 }
 
-void Open_cnxns::remove(cnxn_type *c_)
+void open_cnxns::remove(cnxn_type *c_)
 {
   guard g{_m};
   auto it =
@@ -53,7 +53,7 @@ void Open_cnxns::remove(cnxn_type *c_)
   }
 }
 
-auto Open_cnxns::enumerate() -> std::vector<cnxn_type *>
+auto open_cnxns::enumerate() -> std::vector<cnxn_type *>
 {
   guard g{_m};
   std::vector<cnxn_type *> v;

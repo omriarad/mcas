@@ -58,6 +58,11 @@ public:
   }
 };
 
+struct uc_destructor
+{
+	void operator()(component::IFabric_endpoint_unconnected_server *s);
+};
+
 class Fabric_connection_base : protected common::log_source {
 
  public:
@@ -87,8 +92,8 @@ class Fabric_connection_base : protected common::log_source {
     NONE,
   };
 
- private:
-  std::unique_ptr<Preconnection> _preconnection;
+private:
+  std::unique_ptr<Preconnection, uc_destructor> _preconnection;
   Buffer_manager<component::IFabric_memory_control> _bm;
 
   /* xx_buffer_outstanding is the signal for completion,
@@ -126,7 +131,7 @@ private:
   explicit Fabric_connection_base( //
     unsigned                           debug_level_,
     gsl::not_null<component::IFabric_server_factory *>factory,
-    std::unique_ptr<Preconnection> && preconnection
+    std::unique_ptr<Preconnection, uc_destructor> && preconnection
     , unsigned buffer_count);
 
   Fabric_connection_base(const Fabric_connection_base &) = delete;
@@ -188,7 +193,7 @@ private:
 
   void free_recv_buffer()
   {
-    for (auto b : _completed_recv_buffers) {      
+    for (auto b : _completed_recv_buffers) {
       free_buffer(b);
     }
   }
@@ -268,6 +273,7 @@ private:
         return Completion_state::COMPLETIONS;
       }
       catch (const std::logic_error &e) {
+	      FLOGM("logic error {} forces disconnect", e.what());
         return Completion_state::CLIENT_DISCONNECT;
       }
     }

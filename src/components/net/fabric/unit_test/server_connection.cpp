@@ -27,6 +27,11 @@ namespace
 	}
 }
 
+void uc_destructor::operator()(component::IFabric_endpoint_unconnected_server *s)
+{
+	s->remove();
+}
+
 server_connection::server_connection(component::IFabric_server_factory &f_)
   : _f(&f_)
   , _ep(get_ep(_f))

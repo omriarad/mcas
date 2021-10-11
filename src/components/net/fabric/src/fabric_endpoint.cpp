@@ -180,8 +180,9 @@ fabric_endpoint::fabric_endpoint(
    * FI_EP_DGRAM:             N               Y              N
    * FI_EP_SOCK_DGRAM:        N               N              N
    */
-  , _event_registration( ep_info().ep_attr->type == FI_EP_MSG ? new event_registration(ev_, *this, ep()) : nullptr )
-  , _shut_down(false)
+  , _m_shutdown{}
+  , _shutdown(false)
+  , _event_registration( ep_info().ep_attr->type == FI_EP_MSG ? new event_registration(ev_, *this, *_ep) : nullptr )
 {
 /* ERROR (probably in libfabric verbs): closing an active endpoint prior to fi_ep_bind causes a SEGV,
  * as fi_ibv_msg_ep_close will call fi_ibv_cleanup_cq whether there is CQ state to clean up.
@@ -218,6 +219,21 @@ fabric_endpoint::~fabric_endpoint()
 {
 }
 
+void fabric_endpoint::remove()
+{
+	/* Event processing is a virtual function. Event processing must be
+	 * disable (by deregistering) before the endpoint is destructed.
+	 */
+	_event_registration.reset();
+	std::lock_guard<std::mutex> g(_fabric.m_fi_domain);
+	delete this;
+}
+
+gsl::not_null<::fid_ep *> fabric_endpoint::ep()
+{
+       return _ep.get();
+}
+
 /**
  * Asynchronously post a buffer to the connection
  *
@@ -235,7 +251,7 @@ void fabric_endpoint::post_send(
 	ENTER_EXIT_TRACE_N
   CHECK_FI_EQ(
     ::fi_sendv(
-      &ep()
+      ep()
       , &*buffers_.begin()
       , desc_
       , buffers_.size()
@@ -274,7 +290,7 @@ void fabric_endpoint::post_recv(
 	ENTER_EXIT_TRACE_N
   CHECK_FI_EQ(
     ::fi_recvv(
-      &ep()
+      ep()
       , &*buffers_.begin()
       , desc_
       , buffers_.size()
@@ -317,7 +333,7 @@ void fabric_endpoint::post_read(
 	ENTER_EXIT_TRACE_N
   CHECK_FI_EQ(
     ::fi_readv(
-      &ep()
+      ep()
       , &*buffers_.begin()
       , desc_
       , buffers_.size()
@@ -364,7 +380,7 @@ void fabric_endpoint::post_write(
 	ENTER_EXIT_TRACE_N
   CHECK_FI_EQ(
     ::fi_writev(
-      &ep()
+      ep()
       , &*buffers_.begin()
       , desc_
       , buffers_.size()
@@ -409,7 +425,7 @@ void fabric_endpoint::sendmsg(
 	const ::fi_msg m {
 		&*buffers_.begin(), desc_, buffers_.size(), addr_, context_, flags
 	};
-	CHECK_FI_EQ(::fi_sendmsg(&ep(), &m, flags), 0);
+	CHECK_FI_EQ(::fi_sendmsg(ep(), &m, flags), 0);
 
 	/* Note: keeping track of the number of completions is dfficult due to the
 	 * possibility of send requests with "unsignalled completions."
@@ -433,7 +449,7 @@ void fabric_endpoint::sendmsg(
 void fabric_endpoint::inject_send(const void *buf_, std::size_t len_)
 {
 	ENTER_EXIT_TRACE_N
-  CHECK_FI_EQ(::fi_inject(&ep(), buf_, len_, ::fi_addr_t{}), 0);
+  CHECK_FI_EQ(::fi_inject(ep(), buf_, len_, ::fi_addr_t{}), 0);
 }
 
 /**
@@ -457,7 +473,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
   ct_total += _rxcq.poll_completions(cb_);
   ct_total += _txcq.poll_completions(cb_);
 
-  if ( _shut_down && ct_total == 0 )
+  if ( is_shut_down() && ct_total == 0 )
   {
     throw std::logic_error(__func__ + std::string(": Connection closed"));
   }
@@ -472,7 +488,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
   ct_total += _rxcq.poll_completions(cb_);
   ct_total += _txcq.poll_completions(cb_);
 
-  if ( _shut_down && ct_total == 0 )
+  if ( is_shut_down() && ct_total == 0 )
   {
     throw std::logic_error(__func__ + std::string(": Connection closed"));
   }
@@ -487,7 +503,7 @@ std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric
   ct_total += _rxcq.poll_completions_tentative(cb_);
   ct_total += _txcq.poll_completions_tentative(cb_);
 
-  if ( _shut_down && ct_total == 0 )
+  if ( is_shut_down() && ct_total == 0 )
   {
     throw std::logic_error(__func__ + std::string(": Connection closed"));
   }
@@ -502,7 +518,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
   ct_total += _rxcq.poll_completions(cb_, cb_param_);
   ct_total += _txcq.poll_completions(cb_, cb_param_);
 
-  if ( _shut_down && ct_total == 0 )
+  if ( is_shut_down() && ct_total == 0 )
   {
     throw std::logic_error(__func__ + std::string(": Connection closed"));
   }
@@ -517,7 +533,7 @@ std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric
   ct_total += _rxcq.poll_completions_tentative(cb_, cb_param_);
   ct_total += _txcq.poll_completions_tentative(cb_, cb_param_);
 
-  if ( _shut_down && ct_total == 0 )
+  if ( is_shut_down() && ct_total == 0 )
   {
     throw std::logic_error(__func__ + std::string(": Connection closed"));
   }
@@ -532,7 +548,7 @@ std::size_t fabric_endpoint::poll_completions(const component::IFabric_op_comple
   ct_total += _rxcq.poll_completions(cb_, cb_param_);
   ct_total += _txcq.poll_completions(cb_, cb_param_);
 
-  if ( _shut_down && ct_total == 0 )
+  if ( is_shut_down() && ct_total == 0 )
   {
     throw std::logic_error(__func__ + std::string(": Connection closed"));
   }
@@ -547,7 +563,7 @@ std::size_t fabric_endpoint::poll_completions_tentative(const component::IFabric
   ct_total += _rxcq.poll_completions_tentative(cb_, cb_param_);
   ct_total += _txcq.poll_completions_tentative(cb_, cb_param_);
 
-  if ( _shut_down && ct_total == 0 )
+  if ( is_shut_down() && ct_total == 0 )
   {
     throw std::logic_error(__func__ + std::string(": Connection closed"));
   }
@@ -570,7 +586,7 @@ void fabric_endpoint::wait_for_next_completion(std::chrono::milliseconds timeout
   Fd_pair fd_unblock;
   fd_unblock_set_monitor(_m_fd_unblock_set, _fd_unblock_set, fd_unblock.fd_write());
   /* Only block if we have not seen FI_SHUTDOWN */
-  if ( ! _shut_down )
+  if ( ! is_shut_down() )
   {
 /* verbs provider does not support wait sets */
 #if USE_WAIT_SETS
@@ -670,10 +686,19 @@ try
 {
   if ( event == FI_SHUTDOWN )
   {
-    _shut_down = true;
+    FLOGM("unblock completions for {}", this);
     unblock_completions();
   }
   _event_pipe.write(&event, sizeof event);
+  if ( event == FI_SHUTDOWN )
+  {
+    std::lock_guard<std::mutex> g{_m_shutdown};
+    /* Note: No one may call a virtual function of *this after _shutdown is signalled.
+     * Perhaps the shutdown indicator should be returned by cb(), further synchronzing
+     * the destruction of *this.
+     */
+    _shutdown = true;
+  }
 }
 catch ( const std::exception &e )
 {
@@ -778,10 +803,15 @@ void fabric_endpoint::expect_event(std::uint32_t event_exp) const
   }
 }
 
+static std::mutex m_fi_cq_open;
+
 fid_unique_ptr<::fid_cq> fabric_endpoint::make_fid_cq(::fi_cq_attr &attr, void *context) const
 {
   ::fid_cq *f = nullptr;
-  CHECK_FI_ERR(::fi_cq_open(&domain(), &attr, &f, context));
+  {
+    std::lock_guard<std::mutex> g(m_fi_cq_open);
+    CHECK_FI_ERR(::fi_cq_open(&domain(), &attr, &f, context));
+  }
   FABRIC_TRACE_FID(f);
   return fid_unique_ptr<::fid_cq>(f);
 }
@@ -1073,7 +1103,7 @@ std::vector<void *> fabric_endpoint::populated_desc(gsl::span<const ::iovec> buf
 		, std::back_inserter(desc)
 		, [this] (const ::iovec &v)
 			{
-			        auto mr = &*mr_covering_throws(common::make_const_byte_span(v.iov_base, v.iov_len))->mr();
+				auto mr = &*mr_covering_throws(common::make_const_byte_span(v.iov_base, v.iov_len))->mr();
 				return ::fi_mr_desc(mr);
 			}
 	);

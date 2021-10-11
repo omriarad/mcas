@@ -216,6 +216,7 @@ Fabric::Fabric(unsigned debug_, const common::string_view json_configuration_)
   , _eq_dispatch_pep{}
   , _m_eq_dispatch_aep{}
   , _eq_dispatch_aep{}
+  , m_fi_domain{}
 {
   CHECK_FI_ERR(::fi_control(&_eq->fid, FI_GETWAIT, &_fd));
 }
@@ -285,6 +286,7 @@ void Fabric::readerr_eq()
 {
   ::fi_eq_err_entry entry{};
   auto flags = 0U;
+  std::lock_guard<std::mutex> g0{m_fi_domain};
   CHECK_FI_EQ(::fi_eq_readerr(&*_eq, &entry, flags), sizeof entry);
 
   {
@@ -371,9 +373,11 @@ try
   auto ct =
     [this, &event, &entry, flags] ()
     {
+      std::lock_guard<std::mutex> g0{m_fi_domain};
       std::lock_guard<std::mutex> g{fi_tostr_mutex};
       return ::fi_eq_read(&*_eq, &event, &entry, sizeof entry, flags);
     }();
+
   if ( ct < 0 )
   {
     try
@@ -408,16 +412,13 @@ try
 #endif
     try
     {
-      std::unique_lock<std::mutex> g{_m_eq_dispatch_pep};
+      std::lock_guard<std::mutex> g{_m_eq_dispatch_pep};
       auto p = _eq_dispatch_pep.find(entry.fid);
       if ( p != _eq_dispatch_pep.end() )
       {
         auto d = p->second;
-	/*
-	 * ERROR: valgrind claims that the contents of d->vft (*d is an
-	 * event_consumer) were initialized/modified in another thread
-	 * without synchronization.
-	 */
+	/* This virtual function call used to be flagged by valgrind, as a shard thread
+         * destructed d without an interlock known to valgrind. There is now an interlock. */
         d->cb(event, entry);
         found = true;
       }
@@ -436,11 +437,12 @@ try
     if ( ! found )
     try
     {
-      std::unique_lock<std::mutex> g{_m_eq_dispatch_aep};
+      std::lock_guard<std::mutex> g{_m_eq_dispatch_aep};
       auto p = _eq_dispatch_aep.find(entry.fid);
       if ( p != _eq_dispatch_aep.end() )
       {
         auto d = p->second;
+	/* This virtual function call flagged by valgrind, as a shard thread my destruct d without an interlock known to valgrind */
         d->cb(event, entry);
         found = true;
       }
@@ -502,16 +504,16 @@ void Fabric::bind(::fid_pep &ep_)
   CHECK_FI_ERR(::fi_pep_bind(&ep_, &_eq->fid, 0));
 }
 
-void Fabric::register_pep(::fid_t ep_, event_consumer &ec_)
+void Fabric::register_pep(::fid_t ep_, gsl::not_null<event_consumer *> ec_)
 {
   std::lock_guard<std::mutex> g{_m_eq_dispatch_pep};
-  _eq_dispatch_pep.insert(eq_dispatch_t::value_type(ep_, &ec_));
+  _eq_dispatch_pep.insert(eq_dispatch_t::value_type(ep_, ec_));
 }
 
-void Fabric::register_aep(::fid_t ep_, event_consumer &ec_)
+void Fabric::register_aep(::fid_t ep_, gsl::not_null<event_consumer *> ec_)
 {
   std::lock_guard<std::mutex> g{_m_eq_dispatch_aep};
-  _eq_dispatch_aep.insert(eq_dispatch_t::value_type(ep_, &ec_));
+  _eq_dispatch_aep.insert(eq_dispatch_t::value_type(ep_, ec_));
 }
 
 void Fabric::deregister_endpoint(::fid_t ep_)

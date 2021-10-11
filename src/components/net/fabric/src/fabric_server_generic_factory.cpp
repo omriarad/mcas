@@ -42,37 +42,19 @@
 #include <thread> /* sleep_for */
 
 Fabric_server_generic_factory::Fabric_server_generic_factory(Fabric &fabric_, event_producer &eq_, ::fi_info &info_
-#if 0
-		, std::uint32_t addr_, std::uint16_t port_
-#endif
 )
   : _info(info_)
   , _fabric(fabric_)
   , _pep(fabric_.make_fid_pep(_info, this))
   /* register as an event consumer */
   , _event_registration(eq_, *this, *_pep)
-  , _m_pending{}
   , _pending{}
+  , _opened{}
   , _open{}
   , _end{}
   , _eq{eq_}
   , _listen_exception(nullptr)
-#if 0
-  , _addr(addr_)
-  , _port(port_)
-#endif
   , _listener()
-#if 0
-    std::async(
-      std::launch::async
-      , &Fabric_server_generic_factory::listen
-      , this
-      , addr_
-      , port_
-      , _end.fd_read()
-      , std::ref(*_pep)
-    )
-#endif
 {
 }
 
@@ -120,30 +102,15 @@ std::string Fabric_server_generic_factory::get_provider_name() const
   return _info.fabric_attr->prov_name;
 }
 
-static int pending_count = 1;
-
 void Fabric_server_generic_factory::cb(std::uint32_t event, ::fi_eq_cm_entry &entry_) noexcept
 try
 {
+  /* return any info for previously opened connections */
+  _opened.clear();
   switch ( event )
   {
   case FI_CONNREQ:
-    {
-/* ERROR: deleted on another thread:
-==11034== Conflicting store by thread 6 at 0x0e397150 size 8
-==11034==    at 0xF01025D: fabric_endpoint_server::~fabric_endpoint_server() (fabric_endpoint_server.cpp:34)
-==11034==    by 0xF010319: fabric_endpoint_server::~fabric_endpoint_server() (fabric_endpoint_server.cpp:36)
-==11034==    by 0x4ADFB9: std::default_delete<component::IFabric_endpoint_unconnected_server>::operator()(component::IFabric_endpoint_unconnected_server*) const (unique_ptr.h:81)
-==11034==    by 0x4ADBD4: std::unique_ptr<component::IFabric_endpoint_unconnected_server, std::default_delete<component::IFabric_endpoint_unconnected_server> >::~unique_ptr() (unique_ptr.h:277)
-==11034==    by 0x4AAF85: mcas::Fabric_connection_base::~Fabric_connection_base() (fabric_connection_base.cpp:43)
-==11034==    by 0x499EEB: mcas::Connection_handler::~Connection_handler() (connection_handler.cpp:70)
-==11034==    by 0x499F1F: mcas::Connection_handler::~Connection_handler() (connection_handler.cpp:76)
-*/
-      auto aep = std::unique_ptr<component::IFabric_endpoint_unconnected_server>(new fabric_endpoint_server(_fabric, _eq, *entry_.info));
-      std::lock_guard<std::mutex> g{_m_pending};
-      pending_count++;
-      _pending.push(std::move(aep));
-    }
+    _pending.push(pending_cnxns::cnxn_t(entry_.info));
     break;
   default:
     break;
@@ -333,8 +300,15 @@ auto Fabric_server_generic_factory::get_new_endpoint_unconnected() -> component:
     std::rethrow_exception(_listen_exception);
   }
 
-  std::lock_guard<std::mutex> g{_m_pending};
-  return _pending.remove().release();
+  component::IFabric_endpoint_unconnected_server *u = nullptr;
+  auto info = _pending.remove();
+  if ( info )
+  {
+    std::lock_guard<std::mutex> g{_fabric.m_fi_domain};
+    u = new fabric_endpoint_server(_fabric, _eq, *info);
+    _opened.push(std::move(info));
+  }
+  return u;
 }
 
 void Fabric_server_generic_factory::open_connection_generic(event_expecter *c)

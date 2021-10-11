@@ -38,7 +38,7 @@ namespace mcas
 {
 Connection_handler::Connection_handler(unsigned debug_level_,
                                        gsl::not_null<Factory *> factory,
-                                       std::unique_ptr<Preconnection> && preconnection
+                                       std::unique_ptr<Preconnection, uc_destructor> && preconnection
                                        , unsigned buffer_count_
 #if CW_TEST && 0
 	, byte_span scratchpad_
@@ -75,11 +75,11 @@ Connection_handler::~Connection_handler()
 #endif
 }
 
-int Connection_handler::tick()
+auto Connection_handler::tick() -> tick_type
 {
   using namespace protocol;
 
-  auto response = TICK_RESPONSE_CONTINUE;
+  auto response = tick_type::TICK_RESPONSE_CONTINUE;
   _tick_count++;
 
 #if 0
@@ -101,7 +101,7 @@ int Connection_handler::tick()
   if (check_network_completions() == Fabric_connection_base::Completion_state::CLIENT_DISCONNECT) {
     PMAJOR("Client disconnected.");
     _state = Connection_state::CLIENT_DISCONNECTED;
-    return Connection_handler::TICK_RESPONSE_CLOSE;
+    return tick_type::TICK_RESPONSE_CLOSE;
   }
 
   if (_send_value_posted_count != 0) {
@@ -137,7 +137,8 @@ int Connection_handler::tick()
           post_recv_buffer(allocate_recv()); /* Is this (and the subsequent free_recv_buffer) necessary? */
           if (option_DEBUG > 2) PMAJOR("%s", common_to_string(*msg).c_str());
           free_recv_buffer();
-          response = TICK_RESPONSE_CLOSE;
+	  FLOGM("{}", "CLOSE_SESSION message");
+          response = tick_type::TICK_RESPONSE_CLOSE;
           break;
 
         default:
@@ -169,7 +170,7 @@ int Connection_handler::tick()
     }
 
     set_state(Connection_state::WAIT_HANDSHAKE);
-    return TICK_RESPONSE_CONTINUE;
+    return tick_type::TICK_RESPONSE_CONTINUE;
   }
 
   case Connection_state::CLIENT_DISCONNECTED: {
@@ -178,7 +179,7 @@ int Connection_handler::tick()
 
   case Connection_state::CLOSE_CONNECTION: {
     PNOTICE("### closing connection");
-    return TICK_RESPONSE_CLOSE;
+    return tick_type::TICK_RESPONSE_CLOSE;
   }
 
   case Connection_state::WAIT_TLS_HANDSHAKE: {
@@ -230,7 +231,7 @@ int Connection_handler::tick()
         set_security_options(true, false /* hmac */);
         respond_to_handshake(true);
         set_state(Connection_state::WAIT_TLS_HANDSHAKE);
-        return TICK_RESPONSE_WAIT_SECURITY;
+        return tick_type::TICK_RESPONSE_WAIT_SECURITY;
       }
       else {
         respond_to_handshake(false);

@@ -29,7 +29,7 @@ event_registration::event_registration(event_producer &ev_, event_consumer &ec_,
   : _ev(ev_)
   , _ep(&ep_.fid)
 {
-  _ev.register_aep(_ep, ec_);
+  _ev.register_aep(_ep, &ec_);
   _ev.bind(ep_);
 }
 
@@ -37,7 +37,7 @@ event_registration::event_registration(event_producer &ev_, event_consumer &ec_,
   : _ev(ev_)
   , _ep(&ep_.fid)
 {
-  _ev.register_pep(_ep, ec_);
+  _ev.register_pep(_ep, &ec_);
   _ev.bind(ep_);
 }
 

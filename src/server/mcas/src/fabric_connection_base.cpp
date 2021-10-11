@@ -14,11 +14,17 @@
 #include "fabric_connection_base.h"
 
 #include <cassert>
-namespace mcas
+
+void mcas::uc_destructor::operator()(component::IFabric_endpoint_unconnected_server *s)
 {
+	s->remove();
+}
+
+using Fabric_connection_base = mcas::Fabric_connection_base;
+
 Fabric_connection_base::Fabric_connection_base(unsigned debug_level_,
                                                gsl::not_null<component::IFabric_server_factory *> factory,
-                                               std::unique_ptr<Preconnection> && fabric_preconnection
+                                               std::unique_ptr<Preconnection, uc_destructor> && fabric_preconnection
 	, unsigned buffer_count_
 )
   : common::log_source(debug_level_),
@@ -34,6 +40,7 @@ Fabric_connection_base::Fabric_connection_base(unsigned debug_level_,
     _max_message_size(transport()->max_message_size()),
     _deferred_unlock{}
 {
+	CFLOGM(2, "preconnection {}", _preconnection.get());
 }
 
 /**
@@ -42,9 +49,6 @@ Fabric_connection_base::Fabric_connection_base(unsigned debug_level_,
  */
 Fabric_connection_base::~Fabric_connection_base()
 {
+	CFLOGM(2, "preconnection {}", _preconnection.get());
 	assert(0 == _mrs.size());
-  /* close connection */
-  //  _factory->close_connection(_transport);
 }
-
-}  // namespace mcas

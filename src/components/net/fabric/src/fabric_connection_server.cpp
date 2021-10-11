@@ -34,7 +34,7 @@ Fabric_connection_server::Fabric_connection_server(
   {
     std::size_t paramlen = 0;
     auto param = nullptr;
-    CHECK_FI_ERR(::fi_accept(&aep()->ep(), param, paramlen));
+    CHECK_FI_ERR(::fi_accept(aep()->ep(), param, paramlen));
   }
 }
 

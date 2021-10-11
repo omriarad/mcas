@@ -26,9 +26,8 @@
  */
 class event_expecter;
 
-class Open_cnxns
+struct open_cnxns
 {
-public:
 	/* the external type */
   using cnxn_type = event_expecter;
 private:
@@ -38,7 +37,7 @@ private:
   std::mutex _m; /* protects _s */
   std::set<owned_type> _s;
 public:
-  Open_cnxns();
+  open_cnxns();
   void add(cnxn_type *c);
   void remove(cnxn_type *c);
   std::vector<cnxn_type *> enumerate();

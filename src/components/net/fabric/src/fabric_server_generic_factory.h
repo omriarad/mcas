@@ -39,7 +39,7 @@ struct event_producer;
 struct fabric_endpoint;
 namespace component
 {
-	class IFabric_endpoint_unconnected;
+	class IFabric_endpoint_unconnected_server;
 }
 
 class Fabric_server_generic_factory
@@ -50,21 +50,23 @@ class Fabric_server_generic_factory
   gsl::not_null<std::shared_ptr<::fid_pep>> _pep;
   event_registration _event_registration;
 
-  /* pending connections: inserts by polling thread, removes by user thread */
-  std::mutex _m_pending;
+  /* pending connectioni information: inserted by polling thread,
+   * removed by user thread for constrution of an endpoint by
+   * user  thread
+   */
   pending_cnxns _pending;
+  /*
+   * fi_info structs to be returned to libfabric.
+   */
+  pending_cnxns _opened;
 
-  Open_cnxns _open;
+  open_cnxns _open;
   /* a write tells the listener thread to exit */
   Fd_pair _end;
 
   event_producer &_eq;
   std::exception_ptr _listen_exception;
 
-#if 0
-  std::uint32_t _addr;
-  std::uint16_t _port;
-#endif
   std::future<void> _listener;
 
   /*

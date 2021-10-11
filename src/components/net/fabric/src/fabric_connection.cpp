@@ -43,7 +43,7 @@ fabric_connection::~fabric_connection()
   try
   {
     /* "the flags parameter is reserved and must be 0" */
-    ::fi_shutdown(&aep()->ep(), 0);
+    ::fi_shutdown(aep()->ep(), 0);
     /* The other side may in turn give us a shutdown event. We do not need to see it. */
   }
   catch ( const std::exception &e )

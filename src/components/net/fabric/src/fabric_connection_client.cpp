@@ -36,10 +36,10 @@ namespace
   /*
    * @throw fabric_runtime_error : std::runtime_error : ::fi_connect fail
    */
-  void fi_void_connect(::fid_ep &ep_, const ::fi_info &ep_info_, const void *addr_, const void *param_, size_t paramlen_)
+  void fi_void_connect(::fid_ep *ep_, const ::fi_info &ep_info_, const void *addr_, const void *param_, size_t paramlen_)
   try
   {
-    CHECK_FI_ERR(::fi_connect(&ep_, addr_, param_, paramlen_));
+    CHECK_FI_ERR(::fi_connect(ep_, addr_, param_, paramlen_));
   }
   catch ( const fabric_runtime_error &e )
   {

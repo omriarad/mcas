@@ -98,6 +98,14 @@ class Fabric
   eq_dispatch_t _eq_dispatch_pep;
   std::mutex _m_eq_dispatch_aep;
   eq_dispatch_t _eq_dispatch_aep;
+public:
+  /* A number of ::fi_* calls use fi_tostr, which is documented (and flagged
+   * by valgrind) as thread-unsafe
+   */
+  static std::mutex fi_tostr_mutex;
+  using fi_lock_guard = std::lock_guard<std::mutex>;
+  std::mutex m_fi_domain;
+private:
 
   /* BEGIN component::IFabric */
   /**
@@ -146,8 +154,8 @@ class Fabric
   /* END component::IFabric */
 
   /* BEGIN event_producer */
-  void register_pep(::fid_t ep, event_consumer &ec) override;
-  void register_aep(::fid_t ep, event_consumer &ec) override;
+  void register_pep(::fid_t ep, gsl::not_null<event_consumer *> ec) override;
+  void register_aep(::fid_t ep, gsl::not_null<event_consumer *> ec) override;
   void deregister_endpoint(::fid_t ep) override;
   /**
    * @throw fabric_runtime_error : std::runtime_error : ::fi_ep_bind fail
@@ -201,12 +209,6 @@ public:
   const char *prov_name() const noexcept override;
 
   std::uint16_t choose_port(std::uint16_t port);
-
-  /* A number of ::fi_* calls use fi_tostr, which is documented (and flagged
-   * by valgrind) as thread-unsafe
-   */
-  static std::mutex fi_tostr_mutex;
-  using fi_lock_guard = std::lock_guard<std::mutex>;
 };
 
 #endif
