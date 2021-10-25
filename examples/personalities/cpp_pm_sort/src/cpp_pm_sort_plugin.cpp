@@ -858,8 +858,7 @@ status_t ADO_cpp_pm_sort_plugin::clear_pool(const uint64_t work_key)
 		i++;
 	}
 
-	//TODO: https://github.com/IBM/mcas/issues/155
-	for (int j = i-1; j >= 0; j--) {
+	for (int j = 0; j < i; j++) {
 		if(cb_erase_key(keys[j]) != S_OK)
 			throw General_exception("erasing key- clear_pool");
 	}
